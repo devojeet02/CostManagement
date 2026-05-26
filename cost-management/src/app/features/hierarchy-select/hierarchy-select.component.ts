@@ -106,11 +106,19 @@ export class HierarchySelectComponent implements ControlValueAccessor, OnDestroy
 
   onFocus(): void {
     if (this.disabled) return;
-    this.searchText = '';
-    if (this.isAsync) this.remoteGroups = [];
+    // Keep the current selection in the box so the cursor lands after it (editable),
+    // instead of starting blank.
     this.isOpen = true;
     this.updatePosition();
     this.onTouched();
+    if (this.isAsync) {
+      const q = this.searchText.trim();
+      if (q.length >= this.minChars) {
+        this.query$.next(q);
+      } else {
+        this.remoteGroups = [];
+      }
+    }
   }
 
   /** Whether a value is currently selected (drives the in-dropdown "Clear" option). */
@@ -152,6 +160,12 @@ export class HierarchySelectComponent implements ControlValueAccessor, OnDestroy
   onInput(): void {
     if (this.disabled) return;
     this.isOpen = true;
+    // Backspacing the field empty clears the current selection.
+    if (!this.searchText.trim() && this.hasSelection) {
+      this.selectedLabel = '';
+      this.selectedValue = '';
+      this.onChange('');
+    }
     if (this.isAsync) {
       const q = this.searchText.trim();
       if (q.length >= this.minChars) {
