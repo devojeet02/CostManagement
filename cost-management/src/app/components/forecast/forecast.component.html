@@ -218,7 +218,6 @@
                     </td>
                     <td class="lc-act">
                       <div class="lc-act-stack">
-                        <button class="btn-del" (click)="removeRow(row.id)" title="Remove">&#x2715;</button>
                         <button class="btn-comment" (click)="openComments(row)" title="Monthly comments">
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -296,6 +295,7 @@
                 <th class="rc-label">Description</th>
                 <th *ngFor="let m of months; trackBy: trackByIndex" class="rc-month">{{ m }}</th>
                 <th class="rc-total">Total</th>
+                <th class="rc-act"></th>
               </tr>
             </thead>
             <tbody>
@@ -333,6 +333,16 @@
                   </td>
 
                   <td class="rc-total sub-total">{{ fmt(getSubTotal(sub.values)) || '—' }}</td>
+
+                  <td class="rc-act">
+                    <button *ngIf="si === 0" class="btn-del" (click)="removeRow(row.id)" title="Remove">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.33333" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M6.66667 7.3335V11.3335M9.33333 7.3335V11.3335M12.6667 4.00016V13.3335C12.6667 14.0694 12.0692 14.6668 11.3333 14.6668H4.66667C3.93078 14.6668 3.33333 14.0694 3.33333 13.3335V4.00016M2 4.00016H14M5.33333 4.00016V2.66683C5.33333 1.93094 5.93078 1.3335 6.66667 1.3335H9.33333C10.0692 1.3335 10.6667 1.93094 10.6667 2.66683V4.00016" />
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               </ng-container>
             </tbody>
@@ -349,6 +359,7 @@
                   {{ fmtTotal(getTypeColTotal(type, mi)) }}
                 </td>
                 <td class="rc-total total-val grand">{{ fmtTotal(getTypeTotal(type)) }}</td>
+                <td class="rc-act"></td>
               </tr>
 
               <!-- ── TOTAL RECHARGE [Account] block ── -->
@@ -362,6 +373,7 @@
                   {{ fmtTotal(getTypeColTotal(type, mi)) }}
                 </td>
                 <td class="rc-total total-val grand">{{ fmtTotal(getTypeTotal(type)) }}</td>
+                <td class="rc-act"></td>
               </tr>
             </tfoot>
           </table>
