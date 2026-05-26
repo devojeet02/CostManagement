@@ -123,6 +123,24 @@
   }
 }
 
+/* ─── Clear-selection option ────────────────────────────────────── */
+.hs-option--clear {
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2px;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: #d94646;
+  }
+
+  .hs-option-dot {
+    width: 14px;
+    color: currentColor;
+  }
+}
+
 /* ─── Async: type hint + loading ────────────────────────────────── */
 .hs-hint {
   padding: 12px;

@@ -387,7 +387,7 @@ select option {
 .lc-diff { width: 68px;  min-width: 68px;  text-align: center; }
 .lc-rch  { width: 68px;  min-width: 68px;  text-align: center; }
 .lc-curr { width: 62px;  min-width: 62px;  }
-.lc-act  { width: 36px;  min-width: 36px;  text-align: center; }
+.lc-act  { width: 58px;  min-width: 58px;  text-align: center; }
 
 .rc-label { width: 170px; min-width: 170px; }
 .rc-month { width: 74px;  min-width: 74px;  text-align: right; }
@@ -702,12 +702,17 @@ tr.sub-recharge .value-cell input[type="number"] { color: #10b981; }
   }
 }
 
-/* Stack the row actions vertically (remove on top, comment below) */
+/* Row actions side by side — keeps the row the same height as the right table */
 .lc-act-stack {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 5px;
+
+  .btn-del {
+    margin: 0; /* override the standalone `margin: auto` so the two buttons sit together */
+  }
 }
 
 .btn-comment {
@@ -716,8 +721,8 @@ tr.sub-recharge .value-cell input[type="number"] { color: #10b981; }
   border: 1px solid rgba(56, 189, 248, 0.18);
   color: rgba(56, 189, 248, 0.55);
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   cursor: pointer;
   display: flex;
   align-items: center;

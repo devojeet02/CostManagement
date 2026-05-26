@@ -113,6 +113,20 @@ export class HierarchySelectComponent implements ControlValueAccessor, OnDestroy
     this.onTouched();
   }
 
+  /** Whether a value is currently selected (drives the in-dropdown "Clear" option). */
+  get hasSelection(): boolean {
+    return this.bindValue === 'value' ? !!this.selectedValue : !!this.selectedLabel;
+  }
+
+  /** Clear option inside the dropdown — resets the selection back to empty. */
+  clearSelection(): void {
+    this.selectedLabel = '';
+    this.selectedValue = '';
+    this.searchText = '';
+    this.onChange('');
+    this.isOpen = false;
+  }
+
   /**
    * Position the fixed dropdown against the input's viewport rect, flipping above
    * when there isn't room below. `position: fixed` lets it render outside any
