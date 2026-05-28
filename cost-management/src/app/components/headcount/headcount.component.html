@@ -1,0 +1,328 @@
+<div class="hc-page">
+  <div class="hc-scroll-area">
+
+    <!-- Page Header -->
+    <div class="hc-page-header">
+      <h2 class="hc-page-title">Headcount Planning</h2>
+      <div class="hc-header-right">
+        <button class="hc-btn-back" routerLink="/" title="Back to Home">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          Back
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="hc-filter-bar">
+
+      <!-- Chip-style dropdowns row -->
+      <div class="hc-filter-chips">
+
+        <div class="hc-chip">
+          <span class="hc-chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </span>
+          <div class="hc-chip-body">
+            <span class="hc-chip-label">Region</span>
+            <select [(ngModel)]="filters.region" class="hc-chip-select" name="hc-filter-region" id="hc-filter-region" autocomplete="new-password">
+              <option value="">All Regions</option>
+              <option *ngFor="let r of regions; trackBy: trackByIndex" [value]="r">{{ r }}</option>
+            </select>
+          </div>
+          <span class="hc-chip-arrow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+
+        <div class="hc-chip">
+          <span class="hc-chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          </span>
+          <div class="hc-chip-body">
+            <span class="hc-chip-label">Country</span>
+            <select [(ngModel)]="filters.country" class="hc-chip-select" name="hc-filter-country" id="hc-filter-country" autocomplete="new-password">
+              <option value="">All Countries</option>
+              <option *ngFor="let c of countries; trackBy: trackByIndex" [value]="c">{{ c }}</option>
+            </select>
+          </div>
+          <span class="hc-chip-arrow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+
+        <div class="hc-chip">
+          <span class="hc-chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          </span>
+          <div class="hc-chip-body">
+            <span class="hc-chip-label">Site</span>
+            <select [(ngModel)]="filters.site" class="hc-chip-select" name="hc-filter-site" id="hc-filter-site" autocomplete="new-password">
+              <option value="">All Sites</option>
+              <option *ngFor="let s of sites; trackBy: trackByIndex" [value]="s">{{ s }}</option>
+            </select>
+          </div>
+          <span class="hc-chip-arrow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+
+        <div class="hc-chip">
+          <span class="hc-chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <div class="hc-chip-body">
+            <span class="hc-chip-label">Employee Type</span>
+            <select [(ngModel)]="filters.category" class="hc-chip-select" name="hc-filter-cat" id="hc-filter-cat" autocomplete="new-password">
+              <option value="">All Types</option>
+              <option *ngFor="let t of employeeTypes; trackBy: trackByIndex" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+          <span class="hc-chip-arrow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+
+        <div class="hc-chip hc-chip--active">
+          <span class="hc-chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          </span>
+          <div class="hc-chip-body">
+            <span class="hc-chip-label">Scenario</span>
+            <select [(ngModel)]="filters.scenario" class="hc-chip-select" name="hc-filter-scenario" id="hc-filter-scenario" autocomplete="new-password">
+              <option *ngFor="let sc of scenarios; trackBy: trackByIndex" [value]="sc">{{ sc }}</option>
+            </select>
+          </div>
+          <span class="hc-chip-arrow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Toggle switches row -->
+      <div class="hc-toggles">
+        <label class="hc-toggle" (click)="toggles.showOtherScenario = !toggles.showOtherScenario">
+          <span class="hc-toggle-label">Show Other Scenario ({{ otherScenario }})</span>
+          <span class="hc-toggle-track" [class.hc-toggle-track--on]="toggles.showOtherScenario">
+            <span class="hc-toggle-thumb"></span>
+          </span>
+        </label>
+      </div>
+
+    </div>
+
+    <!-- Toolbar -->
+    <div class="hc-toolbar">
+      <div class="hc-toolbar-left">
+        <div class="hc-year-nav">
+          <button class="hc-year-btn" (click)="prevYear()">&#8249;</button>
+          <span class="hc-year-label">{{ currentYear }}</span>
+          <button class="hc-year-btn" (click)="nextYear()">&#8250;</button>
+        </div>
+        <button class="hc-btn-add" id="hc-btn-add-row" (click)="addRow()">+ Add New Row</button>
+      </div>
+      <div class="hc-toolbar-right">
+        <button class="hc-btn-cancel" id="hc-btn-cancel" (click)="cancelChanges()">Cancel</button>
+        <button class="hc-btn-save" id="hc-btn-save" (click)="saveChanges()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: -2px;">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Save Changes
+        </button>
+      </div>
+    </div>
+
+    <!-- Two-table layout -->
+    <div class="hc-tables-outer">
+      <div class="hc-tables-container">
+
+        <!-- ── LEFT TABLE: identity columns ──────────────────────── -->
+        <div class="hc-left-wrap">
+          <table class="hc-left-table">
+            <thead>
+              <tr class="hc-thead">
+                <th class="hc-region">Region</th>
+                <th class="hc-country">Country</th>
+                <th class="hc-site">Site</th>
+                <th class="hc-cat">Category</th>
+                <th class="hc-emp">Employee</th>
+                <th class="hc-fn">Function for TBA</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredHeadcountRows; let ri = index; trackBy: trackByRow">
+                <tr *ngFor="let sub of visibleScenarioRows(row); let si = index; let last = last; trackBy: trackByScenario"
+                    (mouseenter)="row.isHovered = true"
+                    (mouseleave)="row.isHovered = false"
+                    [class.hc-row-hovered]="row.isHovered"
+                    [class.hc-row-first]="si === 0"
+                    [class.hc-row-last-sub]="last"
+                    [class.hc-row-even]="ri % 2 === 0"
+                    [class.hc-row-odd]="ri % 2 !== 0">
+
+                  <!-- First scenario row: editable identity fields -->
+                  <ng-container *ngIf="si === 0">
+                    <td class="hc-region hc-id-cell">
+                      <select [(ngModel)]="row.region" name="hc-region-{{row.id}}" id="hc-region-{{row.id}}" autocomplete="new-password">
+                        <option value="">—</option>
+                        <option *ngFor="let r of regions; trackBy: trackByIndex" [value]="r">{{ r }}</option>
+                      </select>
+                    </td>
+                    <td class="hc-country hc-id-cell">
+                      <select [(ngModel)]="row.country" name="hc-country-{{row.id}}" id="hc-country-{{row.id}}" autocomplete="new-password">
+                        <option value="">—</option>
+                        <option *ngFor="let c of countries; trackBy: trackByIndex" [value]="c">{{ c }}</option>
+                      </select>
+                    </td>
+                    <td class="hc-site hc-id-cell">
+                      <select [(ngModel)]="row.site" name="hc-site-{{row.id}}" id="hc-site-{{row.id}}" autocomplete="new-password">
+                        <option value="">—</option>
+                        <option *ngFor="let s of sites; trackBy: trackByIndex" [value]="s">{{ s }}</option>
+                      </select>
+                    </td>
+                    <td class="hc-cat hc-id-cell">
+                      <select [(ngModel)]="row.category" name="hc-cat-{{row.id}}" id="hc-cat-{{row.id}}" autocomplete="new-password">
+                        <option value="">—</option>
+                        <option *ngFor="let t of employeeTypes; trackBy: trackByIndex" [value]="t">{{ t }}</option>
+                      </select>
+                    </td>
+                    <td class="hc-emp hc-id-cell">
+                      <select [(ngModel)]="row.employee" name="hc-emp-{{row.id}}" id="hc-emp-{{row.id}}" autocomplete="new-password">
+                        <option value="">—</option>
+                        <option *ngFor="let e of employees; trackBy: trackByIndex" [value]="e">{{ e }}</option>
+                      </select>
+                    </td>
+                    <td class="hc-fn hc-id-cell">
+                      <select [(ngModel)]="row.functionForTba"
+                              [disabled]="row.category !== 'TBA'"
+                              name="hc-fn-{{row.id}}" id="hc-fn-{{row.id}}" autocomplete="new-password">
+                        <option value="">—</option>
+                        <option *ngFor="let f of functions; trackBy: trackByIndex" [value]="f">{{ f }}</option>
+                      </select>
+                    </td>
+                  </ng-container>
+
+                  <!-- Scenario rows 2+: empty cells to maintain block height -->
+                  <ng-container *ngIf="si > 0">
+                    <td class="hc-region hc-sub-empty"></td>
+                    <td class="hc-country hc-sub-empty"></td>
+                    <td class="hc-site hc-sub-empty"></td>
+                    <td class="hc-cat hc-sub-empty"></td>
+                    <td class="hc-emp hc-sub-empty"></td>
+                    <td class="hc-fn hc-sub-empty"></td>
+                  </ng-container>
+
+                </tr>
+              </ng-container>
+            </tbody>
+            <tfoot>
+              <tr *ngFor="let type of visibleScenarioTypes; let ti = index; trackBy: trackByIndex"
+                  class="hc-total-row"
+                  [class.hc-total-block-first]="ti === 0"
+                  [class.hc-total-other]="type === 'other'">
+                <td [attr.colspan]="isMobileView ? 1 : 5" class="hc-total-label hc-region">
+                  <ng-container *ngIf="ti === 0">
+                    <span class="hc-total-tag">TOTAL HEADCOUNT</span>
+                  </ng-container>
+                  <span class="hc-total-sub-label">{{ scenarioLabel(type) }}</span>
+                </td>
+                <td [attr.colspan]="isMobileView ? 5 : 1"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- ── RIGHT TABLE: monthly binary headcount ───────────── -->
+        <div class="hc-right-wrap">
+          <table class="hc-right-table">
+            <thead>
+              <tr class="hc-thead">
+                <th class="hc-scenario-col">Scenario</th>
+                <th *ngFor="let m of months; trackBy: trackByIndex" class="hc-month">{{ m }}</th>
+                <th class="hc-total-col">Total</th>
+                <th class="hc-comments">Comments</th>
+                <th class="hc-act"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredHeadcountRows; let ri = index; trackBy: trackByRow">
+                <tr *ngFor="let sub of visibleScenarioRows(row); let si = index; let last = last; trackBy: trackByScenario"
+                    (mouseenter)="row.isHovered = true"
+                    (mouseleave)="row.isHovered = false"
+                    [class.hc-row-hovered]="row.isHovered"
+                    [class.hc-row-first]="si === 0"
+                    [class.hc-row-last-sub]="last"
+                    [class.hc-row-even]="ri % 2 === 0"
+                    [class.hc-row-odd]="ri % 2 !== 0"
+                    [class.hc-sub-primary]="sub.type === 'primary'"
+                    [class.hc-sub-other]="sub.type === 'other'">
+
+                  <td class="hc-scenario-col hc-scenario-label-cell">
+                    <span class="hc-scenario-text">{{ sub.label }}</span>
+                  </td>
+
+                  <td *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex"
+                      class="hc-month hc-value-cell"
+                      [class.hc-cell-on]="sub.values[mi]">
+                    <input type="number"
+                           min="0" max="1" step="1"
+                           [(ngModel)]="sub.values[mi]"
+                           (change)="normalizeBinary(sub, mi)"
+                           name="hc-val-{{row.id}}-{{sub.type}}-{{mi}}"
+                           id="hc-val-{{row.id}}-{{sub.type}}-{{mi}}"
+                           autocomplete="new-password"
+                           placeholder="0" />
+                  </td>
+
+                  <td class="hc-total-col hc-row-total">{{ getRowTotal(sub.values) }}</td>
+
+                  <td class="hc-comments hc-comment-cell">
+                    <input *ngIf="si === 0" type="text"
+                           [(ngModel)]="row.comment"
+                           name="hc-comment-{{row.id}}"
+                           id="hc-comment-{{row.id}}"
+                           autocomplete="new-password"
+                           placeholder="Add a note…" />
+                  </td>
+
+                  <td class="hc-act">
+                    <button *ngIf="si === 0" class="hc-btn-del" (click)="removeRow(row.id)" title="Remove">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.33333" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M6.66667 7.3335V11.3335M9.33333 7.3335V11.3335M12.6667 4.00016V13.3335C12.6667 14.0694 12.0692 14.6668 11.3333 14.6668H4.66667C3.93078 14.6668 3.33333 14.0694 3.33333 13.3335V4.00016M2 4.00016H14M5.33333 4.00016V2.66683C5.33333 1.93094 5.93078 1.3335 6.66667 1.3335H9.33333C10.0692 1.3335 10.6667 1.93094 10.6667 2.66683V4.00016" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+            <tfoot>
+              <tr *ngFor="let type of visibleScenarioTypes; let ti = index; trackBy: trackByIndex"
+                  class="hc-total-row"
+                  [class.hc-total-block-first]="ti === 0"
+                  [class.hc-total-other]="type === 'other'">
+                <td class="hc-scenario-col hc-total-label">{{ scenarioLabel(type) }}</td>
+                <td *ngFor="let m of months; let mi = index; trackBy: trackByIndex"
+                    class="hc-month hc-total-val"
+                    [class.hc-over]="type === 'primary' && varianceClass(mi) === 'hc-over'"
+                    [class.hc-under]="type === 'primary' && varianceClass(mi) === 'hc-under'">
+                  {{ fmtTotal(getColTotal(type, mi)) }}
+                </td>
+                <td class="hc-total-col hc-total-val hc-grand">{{ fmtTotal(getScenarioTotal(type)) }}</td>
+                <td class="hc-comments"></td>
+                <td class="hc-act"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /hc-scroll-area -->
+</div>

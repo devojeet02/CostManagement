@@ -9,37 +9,33 @@
 /* Global Native Select Option Styling */
 select option {
   background-color: #0f172a !important;
-  /* Elevated slate background */
   color: #cbd5e1 !important;
-  /* Extremely clear light gray text */
 }
 
-
-.forecast-page {
+.hc-page {
   display: flex;
   flex-direction: column;
   flex: 1;
   overflow: hidden;
   background: #0b0f19;
-  /* Deep premium dark canvas */
   color: #e2e8f0;
 }
 
-.scroll-area {
+.hc-scroll-area {
   flex: 1;
   overflow-y: auto;
   padding-bottom: 40px;
 }
 
 /* ─── Page Header ────────────────────────────────────────────── */
-.page-header {
+.hc-page-header {
   padding: 20px 32px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 
-  .page-title {
+  .hc-page-title {
     font-size: 20px;
     font-weight: 700;
     color: #ffffff;
@@ -47,7 +43,7 @@ select option {
     margin: 0;
   }
 
-  .btn-back {
+  .hc-btn-back {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -77,25 +73,24 @@ select option {
   }
 }
 
-/* ─── Filter Bar (Blended with Background) ───────────────────── */
-.filter-bar {
+/* ─── Filter Bar ─────────────────────────────────────────────── */
+.hc-filter-bar {
   display: flex;
   flex-direction: column;
   gap: 14px;
   margin: 0;
   padding: 20px 32px 0;
   background: transparent;
-  /* No card background - blends seamlessly! */
   border: none;
 }
 
-.filter-chips-row {
+.hc-filter-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.filter-chip {
+.hc-chip {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -118,7 +113,7 @@ select option {
   }
 }
 
-.chip-icon {
+.hc-chip-icon {
   display: flex;
   align-items: center;
   color: #38bdf8;
@@ -126,13 +121,13 @@ select option {
   opacity: 0.8;
 }
 
-.chip-body {
+.hc-chip-body {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.chip-label {
+.hc-chip-label {
   font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
@@ -143,7 +138,7 @@ select option {
   white-space: nowrap;
 }
 
-.chip-select {
+.hc-chip-select {
   background: transparent;
   border: none;
   outline: none;
@@ -165,7 +160,7 @@ select option {
   }
 }
 
-.chip-arrow {
+.hc-chip-arrow {
   display: flex;
   align-items: center;
   color: #475569;
@@ -176,7 +171,7 @@ select option {
 }
 
 /* ─── Toggles Row ────────────────────────────────────────────── */
-.filter-toggles-row {
+.hc-toggles {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -185,7 +180,7 @@ select option {
   border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.toggle-item {
+.hc-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -193,18 +188,18 @@ select option {
   user-select: none;
 }
 
-.toggle-label {
+.hc-toggle-label {
   font-size: 12px;
   font-weight: 500;
   color: #64748b;
   transition: color 0.15s ease;
 
-  .toggle-item:hover & {
+  .hc-toggle:hover & {
     color: #94a3b8;
   }
 }
 
-.toggle-track {
+.hc-toggle-track {
   position: relative;
   display: inline-block;
   width: 36px;
@@ -219,7 +214,7 @@ select option {
   }
 }
 
-.toggle-thumb {
+.hc-toggle-thumb {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -230,32 +225,32 @@ select option {
   transition: transform 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 
-  .toggle-track--on & {
+  .hc-toggle-track--on & {
     transform: translateX(18px);
   }
 }
 
 /* ─── Toolbar ────────────────────────────────────────────────── */
-.table-toolbar {
+.hc-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin: 16px 32px 12px;
 }
 
-.toolbar-left {
+.hc-toolbar-left {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.toolbar-right {
+.hc-toolbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.year-nav {
+.hc-year-nav {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -265,7 +260,7 @@ select option {
   border-radius: 7px;
 }
 
-.year-btn {
+.hc-year-btn {
   background: transparent;
   border: none;
   color: #64748b;
@@ -285,7 +280,7 @@ select option {
   }
 }
 
-.year-label {
+.hc-year-label {
   font-size: 14px;
   font-weight: 700;
   color: #e2e8f0;
@@ -293,7 +288,7 @@ select option {
   text-align: center;
 }
 
-.btn-add-row {
+.hc-btn-add {
   background: #0f7a56;
   color: #ffffff;
   border: none;
@@ -310,7 +305,7 @@ select option {
   }
 }
 
-.btn-save {
+.hc-btn-save {
   background: #38bdf8;
   color: #0b0f19;
   border: none;
@@ -327,7 +322,7 @@ select option {
   }
 }
 
-.btn-cancel {
+.hc-btn-cancel {
   background: transparent;
   color: #64748b;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -346,12 +341,12 @@ select option {
 }
 
 /* ─── Two-table Unified Layout ───────────────────────────────── */
-.tables-outer {
+.hc-tables-outer {
   padding: 0 32px 24px;
   width: 100%;
 }
 
-.tables-container {
+.hc-tables-container {
   display: flex;
   align-items: flex-start;
   width: 100%;
@@ -360,7 +355,6 @@ select option {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   background: #0f172a;
-  /* Slate elevated background block */
 
   &::-webkit-scrollbar {
     height: 6px;
@@ -380,7 +374,7 @@ select option {
   }
 }
 
-.left-table-wrap {
+.hc-left-wrap {
   flex-shrink: 0;
   position: sticky;
   left: 0;
@@ -389,14 +383,14 @@ select option {
   box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.2);
 }
 
-.right-table-wrap {
+.hc-right-wrap {
   flex: 1;
   overflow-x: visible;
 }
 
 /* ─── Table Base ─────────────────────────────────────────────── */
-.left-table,
-.right-table {
+.hc-left-table,
+.hc-right-table {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12px;
@@ -404,78 +398,39 @@ select option {
 }
 
 /* ─── Column Widths ──────────────────────────────────────────── */
-.lc-io {
-  width: 104px;
-  min-width: 104px;
+.hc-region  { width: 92px;  min-width: 92px; }
+.hc-country { width: 84px;  min-width: 84px; }
+.hc-site    { width: 116px; min-width: 116px; }
+.hc-cat     { width: 92px;  min-width: 92px; }
+.hc-emp     { width: 140px; min-width: 140px; }
+.hc-fn      { width: 120px; min-width: 120px; }
+
+.hc-scenario-col {
+  width: 110px;
+  min-width: 110px;
 }
 
-.lc-team {
-  width: 104px;
-  min-width: 104px;
-}
-
-.lc-type {
-  width: 76px;
-  min-width: 76px;
-}
-
-.lc-cat {
-  width: 104px;
-  min-width: 104px;
-}
-
-.lc-sup {
-  width: 104px;
-  min-width: 104px;
-}
-
-.lc-diff {
-  width: 68px;
-  min-width: 68px;
+.hc-month {
+  width: 56px;
+  min-width: 56px;
   text-align: center;
 }
 
-.lc-rch {
-  width: 68px;
-  min-width: 68px;
-  text-align: center;
-}
-
-.lc-curr {
-  width: 62px;
-  min-width: 62px;
-}
-
-.lc-act {
-  width: 36px;
-  min-width: 36px;
-  text-align: center;
-}
-
-.rc-label {
-  width: 170px;
-  min-width: 170px;
-}
-
-.rc-month {
-  width: 74px;
-  min-width: 74px;
+.hc-total-col {
+  width: 64px;
+  min-width: 64px;
   text-align: right;
 }
 
-.rc-total {
-  width: 92px;
-  min-width: 92px;
-  text-align: right;
+.hc-comments {
+  width: 200px;
+  min-width: 200px;
 }
 
-.rc-act {
+.hc-act {
   width: 44px;
   min-width: 44px;
   text-align: center;
-  /* Pin the action column to the right edge so the trash icon stays visible
-     without scrolling the months fully. Cells keep their per-row opaque
-     background, so the scrolling month cells pass cleanly underneath. */
   position: sticky;
   right: 0;
   z-index: 5;
@@ -483,8 +438,7 @@ select option {
 }
 
 /* ─── Table Headers ──────────────────────────────────────────── */
-
-.thead-cols th {
+.hc-thead th {
   background: #0b0f19;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   border-right: 1px solid rgba(255, 255, 255, 0.03);
@@ -500,29 +454,27 @@ select option {
     border-right: none;
   }
 
-  &.rc-month {
+  &.hc-month {
     text-align: center;
   }
 
-  &.rc-total {
+  &.hc-total-col {
     text-align: right;
     color: #64748b;
   }
 }
 
-/* ─── Table Body & Alternating Parent Row Shading ───────────── */
+/* ─── Table Body & Alternating Row Shading ───────────────────── */
 tbody tr {
   height: 34px;
 }
 
-tr.row-even.row-hovered td {
+tr.hc-row-even.hc-row-hovered td {
   background-color: #162137 !important;
-  /* Solid opaque hover highlight for even rows */
 }
 
-tr.row-odd.row-hovered td {
+tr.hc-row-odd.hc-row-hovered td {
   background-color: #1a273c !important;
-  /* Solid opaque hover highlight for odd rows */
 }
 
 tbody tr td {
@@ -537,29 +489,24 @@ tbody tr td {
   }
 }
 
-/* Alternate parent row block shading - Locks a row's lines together visually */
-tr.row-even td {
+tr.hc-row-even td {
   background-color: #0f172a;
-  /* Card Slate background */
 }
 
-tr.row-odd td {
+tr.hc-row-odd td {
   background-color: #141c2e;
-  /* Distinct slightly deeper slate background */
 }
 
-/* Row separations */
-tr.row-first td {
+tr.hc-row-first td {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-tr.row-last-sub td {
-  /* Thick solid border matching page background to create a premium card gap */
+tr.hc-row-last-sub td {
   border-bottom: 6px solid #0b0f19 !important;
 }
 
 /* ─── Editable Identity Cells (Left Table) ───────────────────── */
-.id-cell {
+.hc-id-cell {
 
   input[type="text"],
   select {
@@ -586,6 +533,11 @@ tr.row-last-sub td {
       border-color: rgba(56, 189, 248, 0.45) !important;
       color: #ffffff;
     }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
   }
 
   select {
@@ -598,116 +550,59 @@ tr.row-last-sub td {
   }
 }
 
-.cell-checkbox {
-  text-align: center;
-  vertical-align: middle;
+.hc-sub-empty {
+  /* Inherits row-even / row-odd background to keep blocks solid */
 }
-
-/* Premium Dark-themed Checkbox */
-.custom-table-checkbox {
-  appearance: none;
-  background-color: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 6px;
-  border-radius: 4px;
-  display: inline-block;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  vertical-align: middle;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-color: rgba(56, 189, 248, 0.4);
-  }
-
-  &:checked {
-    background-color: #38bdf8;
-    border-color: #38bdf8;
-  }
-
-  &:checked:after {
-    content: '\2713';
-    font-size: 9px;
-    color: #0b0f19;
-    position: absolute;
-    top: -2px;
-    left: 2px;
-    font-weight: bold;
-  }
-
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
-  }
-}
-
-// .sub-empty {
-//   Inherits row-even / row-odd background to keep blocks solid 
-// }
 
 /* ─── Left Table Specific Cleanups ─── */
-.left-table {
+.hc-left-table {
 
-  /* Remove horizontal borders between sub-rows of the same master block */
-  tbody tr:not(.row-last-sub) td {
+  tbody tr:not(.hc-row-last-sub) td {
     border-bottom: 1px solid transparent;
   }
 
-  /* Completely clear grid lines (both bottom and right borders) in empty placeholder cells */
-  td.sub-empty {
+  td.hc-sub-empty {
     border-right: 1px solid transparent !important;
     border-bottom: 1px solid transparent !important;
   }
 
-  /* Add dynamic, glowing left accent stripes to anchor each master row block */
-  tr.row-even td.lc-io {
+  tr.hc-row-even td.hc-region {
     border-left: 3px solid rgba(56, 189, 248, 0.5) !important;
-    /* Premium Cyan line */
   }
 
-  tr.row-odd td.lc-io {
+  tr.hc-row-odd td.hc-region {
     border-left: 3px solid rgba(129, 140, 248, 0.5) !important;
-    /* Premium Indigo line */
   }
 }
 
-/* ─── Sub-row Labels and Currency ────────────────────────────── */
-.sub-label-cell {
+/* ─── Scenario Label (Right Table) ───────────────────────────── */
+.hc-scenario-label-cell {
   white-space: nowrap;
   padding-left: 14px !important;
 }
 
-.sub-label-text {
+.hc-scenario-text {
   font-size: 11px;
-  font-weight: 500;
-  color: #64748b;
-}
-
-.sub-label-curr {
-  font-size: 9px;
   font-weight: 600;
-  opacity: 0.5;
-  margin-left: 4px;
-  text-transform: uppercase;
+  color: #cbd5e1;
 }
 
-/* ─── Sub-row Value Inputs (Right Table) ─────────────────────── */
-.value-cell {
-  max-width: 74px;
+/* ─── Binary Value Inputs (Right Table) ──────────────────────── */
+.hc-value-cell {
+  max-width: 56px;
 
   input[type="number"] {
     display: block;
     width: 100%;
     background: transparent;
     border: 1px solid transparent;
-    color: #94a3b8;
+    color: #475569;
     border-radius: 4px;
     padding: 3px 5px;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
     font-family: inherit;
-    text-align: right;
+    text-align: center;
     transition: all 0.15s ease;
 
     &::-webkit-outer-spin-button,
@@ -721,111 +616,84 @@ tr.row-last-sub td {
       border-color: rgba(56, 189, 248, 0.4);
       color: #e2e8f0;
     }
+  }
 
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
+  /* Present (1) cells get a clear, lit appearance */
+  &.hc-cell-on input[type="number"] {
+    color: #38bdf8;
+  }
+}
+
+/* Primary scenario reads brighter than the Budget (other) comparison row */
+tr.hc-sub-primary .hc-scenario-text {
+  color: #cbd5e1;
+}
+
+tr.hc-sub-other {
+  .hc-scenario-text {
+    color: #94a3b8;
+    opacity: 0.7;
+  }
+
+  .hc-value-cell input[type="number"] {
+    color: #64748b;
+  }
+
+  .hc-value-cell.hc-cell-on input[type="number"] {
+    color: #94a3b8;
+  }
+}
+
+/* ─── Row Total Column ────────────────────────────────────────── */
+.hc-row-total {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+  padding-right: 10px !important;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.005) !important;
+}
+
+tr.hc-sub-other .hc-row-total {
+  color: #64748b;
+}
+
+/* ─── Comments Cell ──────────────────────────────────────────── */
+.hc-comment-cell {
+
+  input[type="text"] {
+    width: 100%;
+    min-width: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #cbd5e1;
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: inherit;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    &:focus {
+      outline: none;
+      background: rgba(56, 189, 248, 0.05) !important;
+      border-color: rgba(56, 189, 248, 0.45) !important;
+      color: #ffffff;
+    }
+
+    &::placeholder {
+      color: #475569;
     }
   }
 }
 
-/* ─── Sub-row Colour Overrides (minimal) ─────────────────────── */
-
-/* Forecast / Local row */
-tr.sub-local .sub-label-text {
-  color: #cbd5e1;
-}
-
-tr.sub-local .value-cell input[type="number"] {
-  color: #cbd5e1;
-}
-
-/* Contract Currency row */
-tr.sub-contract {
-  .sub-label-text {
-    color: #60a5fa;
-    opacity: 0.8;
-  }
-
-  .value-cell input[type="number"] {
-    color: #60a5fa;
-    opacity: 0.8;
-  }
-}
-
-/* Actual row */
-tr.row-even.sub-actual td {
-  background-color: #131a29 !important;
-  /* Solid opaque actual row base for even rows */
-}
-
-tr.row-odd.sub-actual td {
-  background-color: #171d2b !important;
-  /* Solid opaque actual row base for odd rows */
-}
-
-tr.row-even.sub-actual.row-hovered td {
-  background-color: #1b2537 !important;
-  /* Solid opaque hovered actual row highlight for even rows */
-}
-
-tr.row-odd.sub-actual.row-hovered td {
-  background-color: #1e283b !important;
-  /* Solid opaque hovered actual row highlight for odd rows */
-}
-
-tr.sub-actual .sub-label-text {
-  color: #eab308;
-}
-
-tr.sub-actual .value-cell input[type="number"] {
-  color: #eab308;
-  font-style: italic;
-
-  &:disabled {
-    opacity: 0.85;
-  }
-}
-
-tr.sub-actual .sub-total {
-  color: #eab308;
-}
-
-/* Other Scenario */
-tr.sub-other-scenario {
-  .sub-label-text {
-    color: #94a3b8;
-    opacity: 0.6;
-  }
-
-  .value-cell input[type="number"] {
-    color: #94a3b8;
-    opacity: 0.6;
-  }
-}
-
-/* Recharge group */
-tr.sub-recharge .sub-label-text {
-  color: #10b981;
-}
-
-/* Elegant recharge green */
-tr.sub-recharge .value-cell input[type="number"] {
-  color: #10b981;
-}
-
-/* ─── Sub-row Total Column ───────────────────────────────────── */
-.sub-total {
-  font-size: 11px;
-  font-weight: 600;
-  text-align: right;
-  padding-right: 10px !important;
-  color: #64748b;
-  background: rgba(255, 255, 255, 0.005) !important;
-}
-
 /* ─── Remove Button ──────────────────────────────────────────── */
-.btn-del {
+.hc-btn-del {
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.35);
   color: #ef4444;
@@ -850,126 +718,6 @@ tr.sub-recharge .value-cell input[type="number"] {
   }
 }
 
-/* Row actions side by side — keeps the row the same height as the right table */
-.lc-act-stack {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-
-  .btn-del {
-    margin: 0;
-    /* override the standalone `margin: auto` so the two buttons sit together */
-  }
-}
-
-.btn-comment {
-  position: relative;
-  background: transparent;
-  border: 1px solid rgba(56, 189, 248, 0.18);
-  color: rgba(56, 189, 248, 0.55);
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(56, 189, 248, 0.12);
-    color: #38bdf8;
-    border-color: rgba(56, 189, 248, 0.4);
-  }
-
-  .comment-badge {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    min-width: 14px;
-    height: 14px;
-    padding: 0 3px;
-    border-radius: 7px;
-    background: #38bdf8;
-    color: #0b0f19;
-    font-size: 9px;
-    font-weight: 700;
-    line-height: 14px;
-    text-align: center;
-  }
-}
-
-/* ─── Monthly Comments Modal content ─────────────────────────────── */
-.comment-modal-body {
-  .comment-modal-hint {
-    margin: 0 0 16px;
-    font-size: 12.5px;
-    color: var(--text-secondary);
-
-    strong {
-      color: var(--accent-color);
-    }
-  }
-
-  .comment-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px 16px;
-  }
-
-  .comment-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .comment-month {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-label);
-  }
-
-  .comment-input {
-    width: 100%;
-    box-sizing: border-box;
-    resize: vertical;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    color: var(--text-primary);
-    font-size: 12.5px;
-    font-family: inherit;
-    padding: 6px 8px;
-    transition: border-color var(--transition-speed);
-
-    &:focus {
-      outline: none;
-      border-color: var(--accent-color);
-    }
-
-    &::placeholder {
-      color: var(--text-muted);
-    }
-  }
-
-  .comment-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 18px;
-  }
-}
-
-@media (max-width: 768px) {
-  .comment-modal-body .comment-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* ─── Table Footers ──────────────────────────────────────────── */
 tfoot tr {
   height: 34px;
@@ -987,22 +735,17 @@ tfoot tr td {
   }
 }
 
-/* First row of each footer block */
-tfoot tr.total-block-first td {
+tfoot tr.hc-total-block-first td {
   border-top: 2px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Recharge total block */
-tfoot tr.total-recharge-group td {
+/* Budget (other) total row sits visually beneath the primary */
+tfoot tr.hc-total-other td {
   background: #080c14;
 }
 
-tfoot tr.total-recharge-group.total-block-first td {
-  border-top: 2px solid rgba(56, 189, 248, 0.15);
-}
-
-.total-row {
-  .total-label {
+.hc-total-row {
+  .hc-total-label {
     font-size: 11px;
     font-weight: 600;
     padding-left: 14px !important;
@@ -1010,67 +753,47 @@ tfoot tr.total-recharge-group.total-block-first td {
     color: #64748b;
   }
 
-  .total-val {
+  .hc-total-val {
     font-size: 11px;
-    font-weight: 600;
-    text-align: right;
+    font-weight: 700;
+    text-align: center;
     color: #94a3b8;
   }
 
-  .total-val.grand {
+  .hc-total-val.hc-grand {
     font-size: 12px;
     font-weight: 700;
     color: #cbd5e1;
+    text-align: right;
     background: rgba(255, 255, 255, 0.01) !important;
   }
 
-  /* Actual rows in footer */
-  &.total-actual {
+  /* Budget (other) total row reads muted */
+  &.hc-total-other {
 
-    .total-label,
-    .total-val {
-      color: #ca8a04;
-    }
-
-    .total-val.grand {
-      color: #f59e0b;
-    }
-
-    td {
-      background: #0d121d !important;
-    }
-
-    /* Fully opaque dark amber/slate blend */
-  }
-
-  /* Scenario rows in footer */
-  &.total-scenario {
-
-    .total-label,
-    .total-val {
+    .hc-total-label,
+    .hc-total-val {
       color: #475569;
     }
 
-    td {
-      background: #0c101a !important;
-    }
-
-    /* Fully opaque dark slate blend */
-  }
-
-  /* Contract rows in footer */
-  &.total-contract {
-
-    .total-label,
-    .total-val {
-      color: #60a5fa;
-      opacity: 0.7;
+    .hc-total-val.hc-grand {
+      color: #64748b;
     }
   }
 }
 
-/* Block tag & sub-label inside total rows */
-.total-block-tag {
+/* Inline variance colour-coding on the primary total row:
+   red = over budget headcount, green = on/under budget. */
+.hc-total-row .hc-total-val.hc-over {
+  color: #f87171 !important;
+}
+
+.hc-total-row .hc-total-val.hc-under {
+  color: #34d399 !important;
+}
+
+/* Total block tag & sub-label */
+.hc-total-tag {
   display: inline-block;
   font-size: 10px;
   font-weight: 700;
@@ -1080,108 +803,65 @@ tfoot tr.total-recharge-group.total-block-first td {
   margin-right: 10px;
 }
 
-.total-sub-label {
+.hc-total-sub-label {
   font-size: 11px;
   font-weight: 600;
   color: #64748b;
 }
 
-/* ─── Responsive Layout Helper Classes ──────────────────────── */
-.mobile-only-total {
-  display: none;
-}
-
-.hide-mobile {
-  display: inline-block;
-}
-
 /* ─── Mobile Media Queries (max-width: 768px) ───────────────── */
 @media (max-width: 768px) {
-  .mobile-only-total {
-    display: inline-block !important;
-  }
-
-  .hide-mobile {
-    display: none !important;
-  }
-
-  /* Compact margins and padding */
-  .filter-bar {
+  .hc-filter-bar {
     padding: 14px 16px 0 !important;
     gap: 12px !important;
   }
 
-  .tables-outer {
+  .hc-tables-outer {
     padding: 0 16px 16px !important;
   }
 
-  .table-toolbar {
+  .hc-toolbar {
     margin: 12px 16px 10px !important;
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 12px !important;
   }
 
-  .toolbar-left,
-  .toolbar-right {
+  .hc-toolbar-left,
+  .hc-toolbar-right {
     display: flex !important;
     justify-content: space-between !important;
     width: 100% !important;
     gap: 8px !important;
   }
 
-  /* Filters 2x2 Grid Layout */
-  .filter-chips-row {
+  .hc-filter-chips {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
     width: 100% !important;
   }
 
-  .filter-chip {
+  .hc-chip {
     display: flex !important;
     width: 100% !important;
     box-sizing: border-box !important;
     padding: 6px 10px !important;
   }
 
-  .chip-body {
+  .hc-chip-body {
     flex: 1 !important;
     min-width: 0 !important;
   }
 
-  .chip-select {
+  .hc-chip-select {
     max-width: 100% !important;
     min-width: 0 !important;
     width: 100% !important;
   }
 
-  /* Toggles Grid Layout */
-  .filter-toggles-row {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 10px !important;
-    padding-top: 12px !important;
-  }
-
-  .toggle-item {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    background: rgba(255, 255, 255, 0.02) !important;
-    border: 1px solid rgba(255, 255, 255, 0.04) !important;
-    padding: 6px 10px !important;
-    border-radius: 8px !important;
-    gap: 8px !important;
-  }
-
-  .toggle-item:last-child {
-    grid-column: span 2 !important;
-    /* Let the odd toggle span full width */
-  }
-
-  /* Table layout modifications on mobile */
-  .left-table-wrap {
+  /* Sticky first identity column on mobile */
+  .hc-left-wrap {
     position: relative !important;
     left: auto !important;
     z-index: 5 !important;
@@ -1189,9 +869,8 @@ tfoot tr.total-recharge-group.total-block-first td {
     border-right: none !important;
   }
 
-  /* Make only the Internal Order (first column) sticky */
-  th.lc-io,
-  td.lc-io {
+  th.hc-region,
+  td.hc-region {
     position: sticky !important;
     left: 0 !important;
     z-index: 6 !important;
@@ -1199,82 +878,41 @@ tfoot tr.total-recharge-group.total-block-first td {
     box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2) !important;
   }
 
-  /* Table Header Sticky Background */
-  th.lc-io {
+  th.hc-region {
     background-color: #0b0f19 !important;
   }
 
-  /* Zebra shading for the sticky column on mobile */
-  td.lc-io {
+  td.hc-region {
     background-color: #0f172a !important;
   }
 
-  tr.row-even td.lc-io {
+  tr.hc-row-even td.hc-region {
     background-color: #131b2e !important;
   }
 
-  tr.row-odd td.lc-io {
+  tr.hc-row-odd td.hc-region {
     background-color: #1a233a !important;
   }
 
-  tr.row-even.row-hovered td.lc-io {
-    background-color: #162137 !important;
-  }
-
-  tr.row-odd.row-hovered td.lc-io {
-    background-color: #1a273c !important;
-  }
-
-  /* Sub-row specific overrides for the sticky column */
-  tr.sub-actual td.lc-io {
-    background-color: #171d2b !important;
-  }
-
-  tr.row-even.sub-actual td.lc-io {
-    background-color: #131a29 !important;
-  }
-
-  tr.row-odd.sub-actual td.lc-io {
-    background-color: #171d2b !important;
-  }
-
-  tr.row-even.sub-actual.row-hovered td.lc-io {
-    background-color: #1b2537 !important;
-  }
-
-  tr.row-odd.sub-actual.row-hovered td.lc-io {
-    background-color: #1e283b !important;
-  }
-
-  /* Footer total rows – sticky lc-io cell backgrounds */
-  tfoot tr.total-row td.lc-io {
+  tfoot tr.hc-total-row td.hc-region {
     background-color: #0b0f19 !important;
   }
 
-  tfoot tr.total-row.total-actual td.lc-io {
-    background-color: #0d121d !important;
-  }
-
-  tfoot tr.total-row.total-scenario td.lc-io {
-    background-color: #0c101a !important;
-  }
-
-  tfoot tr.total-recharge-group td.lc-io {
+  tfoot tr.hc-total-other td.hc-region {
     background-color: #080c14 !important;
   }
 
-  /* Footer total label cell: lock exactly to lc-io width */
-  .total-label.lc-io {
+  .hc-total-label.hc-region {
     display: table-cell !important;
-    width: 104px !important;
-    min-width: 104px !important;
-    max-width: 104px !important;
+    width: 92px !important;
+    min-width: 92px !important;
+    max-width: 92px !important;
     font-size: 10px !important;
     white-space: normal !important;
     overflow: hidden !important;
   }
 
-  .total-sub-label {
+  .hc-total-sub-label {
     font-size: 10px !important;
     display: block !important;
   }

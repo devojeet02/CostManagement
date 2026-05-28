@@ -10,6 +10,7 @@ import { HomeComponent } from './components/home/home.component';
 import { ThemeToggleComponent } from './features/theme-toggle/theme-toggle.component';
 import { InvoiceUploadComponent } from './components/invoice-upload/invoice-upload.component';
 import { ForecastComponent } from './components/forecast/forecast.component';
+import { HeadcountComponent } from './components/headcount/headcount.component';
 import { DatePickerComponent } from './features/date-picker/date-picker.component';
 import { HierarchySelectComponent } from './features/hierarchy-select/hierarchy-select.component';
 import { ModalComponent } from './features/modal/modal.component';
@@ -24,6 +25,7 @@ import { SnackbarComponent } from './features/snackbar/snackbar.component';
     ThemeToggleComponent,
     InvoiceUploadComponent,
     ForecastComponent,
+    HeadcountComponent,
     DatePickerComponent,
     HierarchySelectComponent,
     ModalComponent,

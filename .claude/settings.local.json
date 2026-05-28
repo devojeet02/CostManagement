@@ -16,7 +16,8 @@
       "Bash(npx ng *)",
       "Bash(Select-Object -First 5 FullName)",
       "Bash(npx tsc *)",
-      "Bash(node_modules/.bin/tsc --noEmit -p tsconfig.app.json)"
+      "Bash(node_modules/.bin/tsc --noEmit -p tsconfig.app.json)",
+      "PowerShell(Get-ChildItem -Path . -Directory -Recurse -Depth 4 | Where-Object { $_.FullName -notmatch 'node_modules|\\\\.git' } | Select-Object FullName)"
     ]
   }
 }
