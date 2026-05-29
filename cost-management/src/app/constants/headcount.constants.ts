@@ -5,8 +5,9 @@
 //       call using the matching HC_API_ENDPOINTS entry.
 //
 // Domain rule: headcount is tracked as a BINARY value per employee per month
-// (1 = present, 0 = absent) — never fractional. It follows the same Budget / RFC
-// cycle as the financial forecast.
+// (1 = present, 0 = absent) — never fractional. Each scenario stores a separate
+// set of 12 monthly values per scenario year (2026 / 2025 / 2024); switching the
+// "Scenario Year" filter swaps which year's values the grid shows/edits.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Type Definitions ────────────────────────────────────────────────────────
@@ -15,10 +16,11 @@ export type HcScenarioType = 'primary' | 'other';
 
 export interface HcScenarioRow {
   type: HcScenarioType;
-  /** Display label, e.g. 'RFC3 2026' or 'Budget 2026' */
-  label: string;
-  /** Binary presence per month (0 | 1 | null). */
-  values: (number | null)[];
+  /**
+   * Binary presence per month (0 | 1 | null), keyed by scenario year.
+   * e.g. valuesByYear[2026] = [0,0,1,1, …] (12 entries).
+   */
+  valuesByYear: { [year: number]: (number | null)[] };
 }
 
 export interface HeadcountRow {
@@ -31,6 +33,8 @@ export interface HeadcountRow {
   employee: string;
   /** Only meaningful for TBA (placeholder) rows — the role they will fill. */
   functionForTba: string;
+  /** Owning EISS team — used by the Team filter (not shown as a column). */
+  team: string;
   /** Free-text note shown in the Comments column. */
   comment: string;
   scenarioRows: HcScenarioRow[];
@@ -38,11 +42,13 @@ export interface HeadcountRow {
 }
 
 export interface HeadcountFilters {
-  region:   string;
-  country:  string;
-  site:     string;
-  category: string;
-  scenario: string;
+  /** Site / OneStream cost-stream code. */
+  site: string;
+  team: string;
+  /** Year for the primary (RFC3) scenario shown in the grid. */
+  scenarioYear: number;
+  /** Year for the comparison (Budget) scenario — lets you compare against any year. */
+  otherScenarioYear: number;
 }
 
 export interface HeadcountToggles {
@@ -75,10 +81,10 @@ export const HC_API_ENDPOINTS = {
     countries: () => `${HC_API_BASE_URL}/api/v1/master/countries`,
     /** GET /api/v1/master/hc-sites   → string[] */
     sites:     () => `${HC_API_BASE_URL}/api/v1/master/hc-sites`,
+    /** GET /api/v1/master/teams      → string[] */
+    teams:     () => `${HC_API_BASE_URL}/api/v1/master/teams`,
     /** GET /api/v1/master/employees  → string[] */
     employees: () => `${HC_API_BASE_URL}/api/v1/master/employees`,
-    /** GET /api/v1/master/hc-scenarios → string[] */
-    scenarios: () => `${HC_API_BASE_URL}/api/v1/master/hc-scenarios`,
   }
 };
 
@@ -89,22 +95,21 @@ export const HC_MONTHS         = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug
 export const HC_REGIONS        = ['EMEA','APAC','Americas'];
 export const HC_COUNTRIES      = ['UK','Turkey','Spain','France','Germany'];
 export const HC_SITES          = ['Montego-UKCP','Ankara-TR','Madrid-ES','Paris-FR','Global'];
+export const HC_TEAMS          = ['Infrastructure','Applications','Governance & Vendor','Model & Processes'];
 export const HC_EMPLOYEE_TYPES = ['Full Time','Part Time','VIE','TBA'];
 export const HC_EMPLOYEES      = ['A. Whitmore','B. Castellano','C. Okafor','D. Lindholm','E. Marchetti','New Analyst (unassigned)'];
 export const HC_FUNCTIONS      = ['Analyst','Engineer','Consultant','Manager','Coordinator'];
-export const HC_SCENARIOS      = ['RFC1 2026','RFC2 2026','RFC3 2026','Budget 2026'];
 
-/** The scenario the "Show Other Scenario" toggle compares the primary against. */
-export const HC_OTHER_SCENARIO = 'Budget 2026';
+/** Selectable scenario years — drives which year's monthly values the grid shows. */
+export const HC_SCENARIO_YEARS = [2026, 2025, 2024];
 
 // ─── Default State ────────────────────────────────────────────────────────────
 
 export const HC_DEFAULT_FILTERS: HeadcountFilters = {
-  region:   'EMEA',
-  country:  'UK',
-  site:     'Montego-UKCP',
-  category: '',
-  scenario: 'RFC3 2026',
+  site:              '',
+  team:              '',
+  scenarioYear:      2026,
+  otherScenarioYear: 2026,
 };
 
 export const HC_DEFAULT_TOGGLES: HeadcountToggles = {
@@ -113,16 +118,26 @@ export const HC_DEFAULT_TOGGLES: HeadcountToggles = {
 
 // ─── Helper: build blank scenario rows for a new headcount row ────────────────
 
-export function buildDefaultScenarioRows(primaryLabel: string): HcScenarioRow[] {
+function blankYearMap(): { [year: number]: (number | null)[] } {
+  const map: { [year: number]: (number | null)[] } = {};
+  for (const y of HC_SCENARIO_YEARS) {
+    map[y] = Array(12).fill(0);
+  }
+  return map;
+}
+
+export function buildDefaultScenarioRows(): HcScenarioRow[] {
   return [
-    { type: 'primary', label: primaryLabel,        values: Array(12).fill(0) },
-    { type: 'other',   label: HC_OTHER_SCENARIO,   values: Array(12).fill(0) },
+    { type: 'primary', valuesByYear: blankYearMap() },
+    { type: 'other',   valuesByYear: blankYearMap() },
   ];
 }
 
 // ─── Mock / Hardcoded Data ────────────────────────────────────────────────────
 // TODO: Replace with → this.http.get<HeadcountRow[]>(HC_API_ENDPOINTS.headcount.getAll())
 //       Map the API response to the HeadcountRow[] shape and assign to headcountRows.
+//       Each scenario row carries a distinct set of monthly values per year so the
+//       Scenario Year dropdown visibly changes the grid.
 
 export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
   {
@@ -133,10 +148,25 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     category: 'Full Time',
     employee: 'A. Whitmore',
     functionForTba: '',
+    team: 'Infrastructure',
     comment: 'Started in March 2026',
     scenarioRows: [
-      { type: 'primary', label: 'RFC3 2026',   values: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
-      { type: 'other',   label: 'Budget 2026', values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
     ]
   },
   {
@@ -147,10 +177,25 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     category: 'Part Time',
     employee: 'B. Castellano',
     functionForTba: '',
+    team: 'Applications',
     comment: '50% claim back from JV',
     scenarioRows: [
-      { type: 'primary', label: 'RFC3 2026',   values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
-      { type: 'other',   label: 'Budget 2026', values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
     ]
   },
   {
@@ -161,10 +206,25 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     category: 'Full Time',
     employee: 'C. Okafor',
     functionForTba: '',
+    team: 'Infrastructure',
     comment: 'Recharged to Operations',
     scenarioRows: [
-      { type: 'primary', label: 'RFC3 2026',   values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0] },
-      { type: 'other',   label: 'Budget 2026', values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
     ]
   },
   {
@@ -175,10 +235,25 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     category: 'VIE',
     employee: 'D. Lindholm',
     functionForTba: '',
+    team: 'Model & Processes',
     comment: '',
     scenarioRows: [
-      { type: 'primary', label: 'RFC3 2026',   values: [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0] },
-      { type: 'other',   label: 'Budget 2026', values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
     ]
   },
   {
@@ -189,10 +264,25 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     category: 'TBA',
     employee: 'New Analyst (unassigned)',
     functionForTba: 'Analyst',
+    team: 'Governance & Vendor',
     comment: 'Replacement for Rob',
     scenarioRows: [
-      { type: 'primary', label: 'RFC3 2026',   values: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1] },
-      { type: 'other',   label: 'Budget 2026', values: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
     ]
   },
 ];

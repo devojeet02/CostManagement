@@ -79,9 +79,18 @@ select option {
   flex-direction: column;
   gap: 14px;
   margin: 0;
-  padding: 20px 32px 0;
+  padding: 0px 32px 0;
   background: transparent;
   border: none;
+}
+
+/* Chips on the left, toggle + comparison-year selector on the right. */
+.hc-filter-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .hc-filter-chips {
@@ -170,14 +179,13 @@ select option {
   pointer-events: none;
 }
 
-/* ─── Toggles Row ────────────────────────────────────────────── */
+/* ─── Toggle + comparison selector (right side of the filter bar) ── */
 .hc-toggles {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 24px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 12px;
+  margin-left: auto;
 }
 
 .hc-toggle {
@@ -206,11 +214,18 @@ select option {
   height: 18px;
   background: rgba(255, 255, 255, 0.06);
   border-radius: 9px;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
   flex-shrink: 0;
 
+  /* Greenish "on" tone, matching the invoice-upload switch. */
   &--on {
-    background: #38bdf8;
+    background: rgb(68, 217, 68);
+    box-shadow: 0 0 8px rgba(50, 205, 50, 0.4);
+  }
+
+  .hc-toggle:hover &--on {
+    background: limegreen;
+    filter: brightness(1.05);
   }
 }
 
@@ -227,6 +242,52 @@ select option {
 
   .hc-toggle-track--on & {
     transform: translateX(18px);
+  }
+}
+
+/* Comparison-year selector — pick which Budget year the grid compares against. */
+.hc-compare-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(68, 217, 68, 0.06);
+  border: 1px solid rgba(68, 217, 68, 0.25);
+  border-radius: 20px;
+  position: relative;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+
+  &--off {
+    opacity: 0.45;
+  }
+}
+
+.hc-compare-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #4ade80;
+  white-space: nowrap;
+}
+
+.hc-compare-select {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #cbd5e1;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  padding: 0;
+  padding-right: 14px;
+  line-height: 1.2;
+
+  option {
+    background: #0f172a;
+    color: #e2e8f0;
   }
 }
 
@@ -248,44 +309,6 @@ select option {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.hc-year-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 3px;
-  border-radius: 7px;
-}
-
-.hc-year-btn {
-  background: transparent;
-  border: none;
-  color: #64748b;
-  border-radius: 5px;
-  width: 26px;
-  height: 26px;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: #38bdf8;
-  }
-}
-
-.hc-year-label {
-  font-size: 14px;
-  font-weight: 700;
-  color: #e2e8f0;
-  min-width: 44px;
-  text-align: center;
 }
 
 .hc-btn-add {
@@ -338,6 +361,14 @@ select option {
     color: #94a3b8;
     border-color: rgba(255, 255, 255, 0.15);
   }
+}
+
+.hc-table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 32px 24px;
 }
 
 /* ─── Two-table Unified Layout ───────────────────────────────── */
@@ -398,12 +429,35 @@ select option {
 }
 
 /* ─── Column Widths ──────────────────────────────────────────── */
-.hc-region  { width: 92px;  min-width: 92px; }
-.hc-country { width: 84px;  min-width: 84px; }
-.hc-site    { width: 116px; min-width: 116px; }
-.hc-cat     { width: 92px;  min-width: 92px; }
-.hc-emp     { width: 140px; min-width: 140px; }
-.hc-fn      { width: 120px; min-width: 120px; }
+.hc-region {
+  width: 92px;
+  min-width: 92px;
+}
+
+.hc-country {
+  width: 84px;
+  min-width: 84px;
+}
+
+.hc-site {
+  width: 116px;
+  min-width: 116px;
+}
+
+.hc-cat {
+  width: 92px;
+  min-width: 92px;
+}
+
+.hc-emp {
+  width: 140px;
+  min-width: 140px;
+}
+
+.hc-fn {
+  width: 120px;
+  min-width: 120px;
+}
 
 .hc-scenario-col {
   width: 110px;
@@ -422,9 +476,18 @@ select option {
   text-align: right;
 }
 
+/* Comments + action column are pinned together to the right edge so the
+   note field and the remove icon stay visible while the months scroll under.
+   Comments sits just left of the 44px action column. Both keep the per-row
+   opaque background, so the scrolling month cells pass cleanly underneath. */
 .hc-comments {
   width: 200px;
   min-width: 200px;
+  position: sticky;
+  right: 44px;
+  z-index: 5;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.2);
 }
 
 .hc-act {
@@ -434,7 +497,6 @@ select option {
   position: sticky;
   right: 0;
   z-index: 5;
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* ─── Table Headers ──────────────────────────────────────────── */
@@ -550,9 +612,9 @@ tr.hc-row-last-sub td {
   }
 }
 
-.hc-sub-empty {
-  /* Inherits row-even / row-odd background to keep blocks solid */
-}
+// .hc-sub-empty {
+//   /* Inherits row-even / row-odd background to keep blocks solid */
+// }
 
 /* ─── Left Table Specific Cleanups ─── */
 .hc-left-table {
@@ -563,6 +625,11 @@ tr.hc-row-last-sub td {
 
   td.hc-sub-empty {
     border-right: 1px solid transparent !important;
+  }
+
+  /* Clear the bottom grid line on placeholder cells WITHIN a block, but let the
+     last sub-row keep the 6px block-gap so the separator spans the whole table. */
+  tr:not(.hc-row-last-sub) td.hc-sub-empty {
     border-bottom: 1px solid transparent !important;
   }
 
@@ -818,6 +885,10 @@ tfoot tr.hc-total-other td {
 
   .hc-tables-outer {
     padding: 0 16px 16px !important;
+  }
+
+  .hc-table-actions {
+    margin: 0 16px 16px !important;
   }
 
   .hc-toolbar {

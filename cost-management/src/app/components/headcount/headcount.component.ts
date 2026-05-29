@@ -1,7 +1,7 @@
 import { Component, HostListener } from '@angular/core';
 import {
-  HC_MONTHS, HC_REGIONS, HC_COUNTRIES, HC_SITES, HC_EMPLOYEE_TYPES,
-  HC_EMPLOYEES, HC_FUNCTIONS, HC_SCENARIOS, HC_OTHER_SCENARIO,
+  HC_MONTHS, HC_REGIONS, HC_COUNTRIES, HC_SITES, HC_TEAMS, HC_EMPLOYEE_TYPES,
+  HC_EMPLOYEES, HC_FUNCTIONS, HC_SCENARIO_YEARS,
   HC_DEFAULT_FILTERS, HC_DEFAULT_TOGGLES,
   HeadcountRow, HeadcountFilters, HeadcountToggles, HcScenarioRow, HcScenarioType,
   MOCK_HEADCOUNT_ROWS, buildDefaultScenarioRows, HC_API_ENDPOINTS
@@ -26,15 +26,14 @@ export class HeadcountComponent {
   readonly regions       = HC_REGIONS;
   readonly countries     = HC_COUNTRIES;
   readonly sites         = HC_SITES;
+  readonly teams         = HC_TEAMS;
   readonly employeeTypes = HC_EMPLOYEE_TYPES;
   readonly employees     = HC_EMPLOYEES;
   readonly functions     = HC_FUNCTIONS;
-  readonly scenarios     = HC_SCENARIOS;
-  readonly otherScenario = HC_OTHER_SCENARIO;
+  readonly scenarioYears = HC_SCENARIO_YEARS;
   readonly apiEndpoints  = HC_API_ENDPOINTS; // kept for future wiring
 
   // ── State ──────────────────────────────────────────────────────────────────
-  currentYear = 2026;
   filters: HeadcountFilters = { ...HC_DEFAULT_FILTERS };
   toggles: HeadcountToggles = { ...HC_DEFAULT_TOGGLES };
 
@@ -45,12 +44,20 @@ export class HeadcountComponent {
 
   get filteredHeadcountRows(): HeadcountRow[] {
     return this.headcountRows.filter(row => {
-      if (this.filters.region   && row.region   !== this.filters.region)   return false;
-      if (this.filters.country  && row.country  !== this.filters.country)  return false;
-      if (this.filters.site     && row.site     !== this.filters.site)     return false;
-      if (this.filters.category && row.category !== this.filters.category) return false;
+      if (this.filters.site && row.site !== this.filters.site) return false;
+      if (this.filters.team && row.team !== this.filters.team) return false;
       return true;
     });
+  }
+
+  /** Which year a given sub-row reads: primary → scenarioYear, other → otherScenarioYear. */
+  yearFor(sub: HcScenarioRow): number {
+    return sub.type === 'other' ? this.filters.otherScenarioYear : this.filters.scenarioYear;
+  }
+
+  /** The monthly values for the year that applies to this sub-row. */
+  vals(sub: HcScenarioRow): (number | null)[] {
+    return sub.valuesByYear[this.yearFor(sub)] ?? [];
   }
 
   // ── Visible scenario sub-rows ───────────────────────────────────────────────
@@ -66,13 +73,15 @@ export class HeadcountComponent {
     return row.scenarioRows.filter(s => s.type === 'primary' || this.toggles.showOtherScenario);
   }
 
-  /** The label shown for the primary scenario follows the selected filter. */
+  /** Scenario label, year-aware: e.g. 'RFC3 2026' / 'Budget 2025'. */
   scenarioLabel(type: HcScenarioType): string {
-    return type === 'primary' ? this.filters.scenario : this.otherScenario;
+    const base = type === 'primary' ? 'RFC3' : 'Budget';
+    const year = type === 'other' ? this.filters.otherScenarioYear : this.filters.scenarioYear;
+    return `${base} ${year}`;
   }
 
   // ── Totals ─────────────────────────────────────────────────────────────────
-  /** Row total = number of months the employee is present in that scenario. */
+  /** Row total = number of months the employee is present in that scenario/year. */
   getRowTotal(values: (number | null)[]): number {
     return values.reduce((s: number, v) => s + (v ?? 0), 0);
   }
@@ -81,7 +90,7 @@ export class HeadcountComponent {
   getColTotal(type: HcScenarioType, mi: number): number {
     return this.filteredHeadcountRows.reduce((t, row) => {
       const sub = row.scenarioRows.find(s => s.type === type);
-      return t + (sub ? (sub.values[mi] ?? 0) : 0);
+      return t + (sub ? (this.vals(sub)[mi] ?? 0) : 0);
     }, 0);
   }
 
@@ -103,14 +112,11 @@ export class HeadcountComponent {
     return '';
   }
 
-  // ── Year navigation ────────────────────────────────────────────────────────
-  prevYear(): void { this.currentYear--; }
-  nextYear(): void { this.currentYear++; }
-
   // ── Binary enforcement (domain rule: 1 = present, 0 = absent, no fractions) ─
   normalizeBinary(sub: HcScenarioRow, mi: number): void {
-    const v = sub.values[mi];
-    sub.values[mi] = v && Number(v) >= 1 ? 1 : 0;
+    const arr = this.vals(sub);
+    const v = arr[mi];
+    arr[mi] = v && Number(v) >= 1 ? 1 : 0;
   }
 
   // ── Row management ─────────────────────────────────────────────────────────
@@ -118,14 +124,15 @@ export class HeadcountComponent {
     // TODO: After save, call HC_API_ENDPOINTS.headcount.create() to persist the new row.
     this.headcountRows.push({
       id:             Date.now(),
-      region:         this.filters.region   || '',
-      country:        this.filters.country  || '',
-      site:           this.filters.site     || '',
+      region:         '',
+      country:        '',
+      site:           this.filters.site || '',
       category:       'Full Time',
       employee:       '',
       functionForTba: '',
+      team:           this.filters.team || '',
       comment:        '',
-      scenarioRows:   buildDefaultScenarioRows(this.filters.scenario)
+      scenarioRows:   buildDefaultScenarioRows()
     });
   }
 

@@ -4,60 +4,29 @@
     <!-- Page Header -->
     <div class="hc-page-header">
       <h2 class="hc-page-title">Headcount Planning</h2>
-      <div class="hc-header-right">
+      <!-- <div class="hc-header-right">
         <button class="hc-btn-back" routerLink="/" title="Back to Home">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
           Back
         </button>
-      </div>
+      </div> -->
     </div>
 
     <!-- Filter Bar -->
     <div class="hc-filter-bar">
+     <div class="hc-filter-row">
 
       <!-- Chip-style dropdowns row -->
       <div class="hc-filter-chips">
 
         <div class="hc-chip">
           <span class="hc-chip-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </span>
-          <div class="hc-chip-body">
-            <span class="hc-chip-label">Region</span>
-            <select [(ngModel)]="filters.region" class="hc-chip-select" name="hc-filter-region" id="hc-filter-region" autocomplete="new-password">
-              <option value="">All Regions</option>
-              <option *ngFor="let r of regions; trackBy: trackByIndex" [value]="r">{{ r }}</option>
-            </select>
-          </div>
-          <span class="hc-chip-arrow">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
-        </div>
-
-        <div class="hc-chip">
-          <span class="hc-chip-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-          </span>
-          <div class="hc-chip-body">
-            <span class="hc-chip-label">Country</span>
-            <select [(ngModel)]="filters.country" class="hc-chip-select" name="hc-filter-country" id="hc-filter-country" autocomplete="new-password">
-              <option value="">All Countries</option>
-              <option *ngFor="let c of countries; trackBy: trackByIndex" [value]="c">{{ c }}</option>
-            </select>
-          </div>
-          <span class="hc-chip-arrow">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
-        </div>
-
-        <div class="hc-chip">
-          <span class="hc-chip-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
           </span>
           <div class="hc-chip-body">
-            <span class="hc-chip-label">Site</span>
+            <span class="hc-chip-label">Site / OneStream Code</span>
             <select [(ngModel)]="filters.site" class="hc-chip-select" name="hc-filter-site" id="hc-filter-site" autocomplete="new-password">
               <option value="">All Sites</option>
               <option *ngFor="let s of sites; trackBy: trackByIndex" [value]="s">{{ s }}</option>
@@ -73,10 +42,10 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </span>
           <div class="hc-chip-body">
-            <span class="hc-chip-label">Employee Type</span>
-            <select [(ngModel)]="filters.category" class="hc-chip-select" name="hc-filter-cat" id="hc-filter-cat" autocomplete="new-password">
-              <option value="">All Types</option>
-              <option *ngFor="let t of employeeTypes; trackBy: trackByIndex" [value]="t">{{ t }}</option>
+            <span class="hc-chip-label">Team</span>
+            <select [(ngModel)]="filters.team" class="hc-chip-select" name="hc-filter-team" id="hc-filter-team" autocomplete="new-password">
+              <option value="">All Teams</option>
+              <option *ngFor="let t of teams; trackBy: trackByIndex" [value]="t">{{ t }}</option>
             </select>
           </div>
           <span class="hc-chip-arrow">
@@ -86,12 +55,12 @@
 
         <div class="hc-chip hc-chip--active">
           <span class="hc-chip-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </span>
           <div class="hc-chip-body">
-            <span class="hc-chip-label">Scenario</span>
-            <select [(ngModel)]="filters.scenario" class="hc-chip-select" name="hc-filter-scenario" id="hc-filter-scenario" autocomplete="new-password">
-              <option *ngFor="let sc of scenarios; trackBy: trackByIndex" [value]="sc">{{ sc }}</option>
+            <span class="hc-chip-label">Scenario Year</span>
+            <select [(ngModel)]="filters.scenarioYear" class="hc-chip-select" name="hc-filter-year" id="hc-filter-year" autocomplete="new-password">
+              <option *ngFor="let y of scenarioYears; trackBy: trackByIndex" [ngValue]="y">{{ y }}</option>
             </select>
           </div>
           <span class="hc-chip-arrow">
@@ -101,38 +70,33 @@
 
       </div>
 
-      <!-- Toggle switches row -->
+      <!-- Toggle + comparison-year selector, pinned to the right of the filter bar -->
       <div class="hc-toggles">
         <label class="hc-toggle" (click)="toggles.showOtherScenario = !toggles.showOtherScenario">
-          <span class="hc-toggle-label">Show Other Scenario ({{ otherScenario }})</span>
+          <span class="hc-toggle-label">Show Other Forecast Scenario in the main grid</span>
           <span class="hc-toggle-track" [class.hc-toggle-track--on]="toggles.showOtherScenario">
             <span class="hc-toggle-thumb"></span>
           </span>
         </label>
+
+        <div class="hc-compare-chip" [class.hc-compare-chip--off]="!toggles.showOtherScenario">
+          <span class="hc-compare-label">Budget</span>
+          <select [(ngModel)]="filters.otherScenarioYear" class="hc-compare-select" name="hc-other-year" id="hc-other-year" autocomplete="new-password">
+            <option *ngFor="let y of scenarioYears; trackBy: trackByIndex" [ngValue]="y">{{ y }}</option>
+          </select>
+          <span class="hc-chip-arrow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
       </div>
 
+     </div>
     </div>
 
     <!-- Toolbar -->
     <div class="hc-toolbar">
       <div class="hc-toolbar-left">
-        <div class="hc-year-nav">
-          <button class="hc-year-btn" (click)="prevYear()">&#8249;</button>
-          <span class="hc-year-label">{{ currentYear }}</span>
-          <button class="hc-year-btn" (click)="nextYear()">&#8250;</button>
-        </div>
         <button class="hc-btn-add" id="hc-btn-add-row" (click)="addRow()">+ Add New Row</button>
-      </div>
-      <div class="hc-toolbar-right">
-        <button class="hc-btn-cancel" id="hc-btn-cancel" (click)="cancelChanges()">Cancel</button>
-        <button class="hc-btn-save" id="hc-btn-save" (click)="saveChanges()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: -2px;">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
-          </svg>
-          Save Changes
-        </button>
       </div>
     </div>
 
@@ -262,23 +226,23 @@
                     [class.hc-sub-other]="sub.type === 'other'">
 
                   <td class="hc-scenario-col hc-scenario-label-cell">
-                    <span class="hc-scenario-text">{{ sub.label }}</span>
+                    <span class="hc-scenario-text">{{ scenarioLabel(sub.type) }}</span>
                   </td>
 
-                  <td *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex"
+                  <td *ngFor="let val of vals(sub); let mi = index; trackBy: trackByIndex"
                       class="hc-month hc-value-cell"
-                      [class.hc-cell-on]="sub.values[mi]">
+                      [class.hc-cell-on]="vals(sub)[mi]">
                     <input type="number"
                            min="0" max="1" step="1"
-                           [(ngModel)]="sub.values[mi]"
+                           [(ngModel)]="sub.valuesByYear[yearFor(sub)][mi]"
                            (change)="normalizeBinary(sub, mi)"
-                           name="hc-val-{{row.id}}-{{sub.type}}-{{mi}}"
-                           id="hc-val-{{row.id}}-{{sub.type}}-{{mi}}"
+                           name="hc-val-{{row.id}}-{{sub.type}}-{{yearFor(sub)}}-{{mi}}"
+                           id="hc-val-{{row.id}}-{{sub.type}}-{{yearFor(sub)}}-{{mi}}"
                            autocomplete="new-password"
                            placeholder="0" />
                   </td>
 
-                  <td class="hc-total-col hc-row-total">{{ getRowTotal(sub.values) }}</td>
+                  <td class="hc-total-col hc-row-total">{{ getRowTotal(vals(sub)) }}</td>
 
                   <td class="hc-comments hc-comment-cell">
                     <input *ngIf="si === 0" type="text"
@@ -322,6 +286,19 @@
         </div>
 
       </div>
+    </div>
+
+    <!-- Action buttons below the table -->
+    <div class="hc-table-actions">
+      <button class="hc-btn-cancel" id="hc-btn-cancel" (click)="cancelChanges()">Cancel</button>
+      <button class="hc-btn-save" id="hc-btn-save" (click)="saveChanges()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: -2px;">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        Save Changes
+      </button>
     </div>
 
   </div><!-- /hc-scroll-area -->

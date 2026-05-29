@@ -654,9 +654,14 @@ tr.row-last-sub td {
     border-bottom: 1px solid transparent;
   }
 
-  /* Completely clear grid lines (both bottom and right borders) in empty placeholder cells */
+  /* Clear the right grid line on empty placeholder cells */
   td.sub-empty {
     border-right: 1px solid transparent !important;
+  }
+
+  /* Clear the bottom grid line on placeholder cells WITHIN a block, but let the
+     last sub-row keep the 6px block-gap so the separator spans the whole table. */
+  tr:not(.row-last-sub) td.sub-empty {
     border-bottom: 1px solid transparent !important;
   }
 

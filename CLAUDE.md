@@ -62,6 +62,61 @@ src/app/
 
 ---
 
+## Data-Grid Screens (Forecast & Headcount)
+
+The **Forecast** screen (`components/forecast/`) is the canonical template for any
+month-by-month editable data grid. The **Headcount** screen (`components/headcount/`)
+was built from it and follows the same anatomy:
+
+- **Two-table sticky layout**: a left `*-left-table` (identity/lookup columns) pinned
+  with `position: sticky; left: 0`, and a right `*-right-table` (12 month columns +
+  Total + …) that scrolls horizontally inside a shared `*-tables-container`.
+- **Right-edge sticky columns**: trailing columns can be pinned to the right with
+  `position: sticky; right: <offset>`. Headcount pins **both** Comments (`right: 44px`)
+  and the action/remove column (`right: 0`) so they stay visible while months scroll;
+  Forecast pins just the action column. Sticky cells must keep an opaque per-row
+  background (zebra/hover/footer states all set it on `td`) so scrolling cells pass under.
+- **Sub-rows per record**: each logical row expands into several sub-rows
+  (Forecast: local/contract/actual/other-scenario/recharge; Headcount: RFC3 + Budget).
+  A `*-row-last-sub` 6px bottom border (page-bg colour) creates the card gap between blocks.
+  Make it span the **whole width** by NOT letting placeholder `*-sub-empty` cells override
+  the last-sub border — scope their transparent `border-bottom` to
+  `tr:not(.*-row-last-sub)` only (applies in both Forecast and Headcount left tables).
+- **Filter chips + toggles** at the top, an **Add Row** toolbar (+ Save/Cancel), and a
+  `tfoot` **totals block** that re-aggregates the visible sub-rows.
+- Constants/types/mock-data/API-endpoint stubs live in `constants/<screen>.constants.ts`
+  (e.g. `forecast.constants.ts`, `headcount.constants.ts`), ready to swap mock arrays for
+  HTTP calls.
+
+**Rule:** when adding another grid screen, copy this structure but give every CSS class a
+**unique per-screen prefix** (Forecast uses `lc-`/`rc-`/`.filter-*`; Headcount uses `hc-`).
+Angular scopes styles per component, but distinct prefixes keep the screens independently
+greppable and prevent confusion when copying markup between them.
+
+### Headcount specifics
+- Left columns: Region, Country, Site, Category (employee type), Employee, Function for TBA.
+- **Filter bar = 3 chips on the left** (Site / OneStream Code, Team, Scenario Year) plus the
+  scenario **toggle pinned to the right** (`.hc-filter-row` is space-between; `.hc-toggles`
+  uses `margin-left: auto`). There is **no year-nav** in the toolbar — the year is driven
+  entirely by the Scenario Year chip.
+- **Per-year data**: each scenario sub-row stores `valuesByYear[2026 | 2025 | 2024]`
+  (12 binary entries each). `HC_SCENARIO_YEARS` lists the selectable years. Switching the
+  Scenario Year chip swaps which year the grid shows/edits.
+- **Two independent years**: `filters.scenarioYear` drives the primary (RFC3) row;
+  `filters.otherScenarioYear` drives the Budget comparison row. `yearFor(sub)` picks the
+  right one, and `vals(sub)` / `scenarioLabel(sub.type)` follow it — so RFC3 of one year can
+  be compared against Budget of any year. The **Budget year dropdown** sits next to the
+  toggle (`.hc-compare-chip`, dims when the toggle is off).
+- Month cells are **binary** (1 = present, 0 = absent) — enforced via `normalizeBinary()`;
+  no fractional values (see Business Domain Rules → Headcount).
+- The "other scenario" (Budget) row is revealed by the **Show Other Scenario** toggle, whose
+  "on" tone is the green (`rgb(68,217,68)` + glow) borrowed from the invoice-upload switch.
+- Per-row free-text **Comments** column (sticky, see above).
+- **TOTAL HEADCOUNT** footer sums presence per month/scenario, with inline variance colour
+  on the primary row vs Budget (red = over budget, green = on/under).
+
+---
+
 ## Page Component Layout Pattern
 
 Every page component must follow this shell so scrolling works correctly:
