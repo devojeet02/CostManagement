@@ -245,12 +245,17 @@
                   <td class="hc-total-col hc-row-total">{{ getRowTotal(vals(sub)) }}</td>
 
                   <td class="hc-comments hc-comment-cell">
-                    <input *ngIf="si === 0" type="text"
-                           [(ngModel)]="row.comment"
-                           name="hc-comment-{{row.id}}"
-                           id="hc-comment-{{row.id}}"
-                           autocomplete="new-password"
-                           placeholder="Add a note…" />
+                    <div *ngIf="si === 0" class="hc-comment-cell-inner">
+                      <button class="hc-btn-comment" (click)="openComments(row)" title="Monthly comments">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                          stroke-linejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span class="hc-comment-badge" *ngIf="commentCount(row) > 0">{{ commentCount(row) }}</span>
+                      </button>
+                      <span *ngIf="row.comment" class="hc-comment-ref" [title]="row.comment">{{ row.comment }}</span>
+                    </div>
                   </td>
 
                   <td class="hc-act">
@@ -303,3 +308,30 @@
 
   </div><!-- /hc-scroll-area -->
 </div>
+
+<!-- ─── Monthly Comments Modal ─────────────────────────────────────── -->
+<app-modal [title]="commentModalTitle" [isOpen]="commentModalOpen" (closed)="closeComments()">
+  <div class="hc-comment-modal-body">
+    <p class="hc-comment-modal-hint">
+      Comments are saved per month for <strong>{{ currentYear }}</strong>. Switch the Scenario Year to keep a
+      separate set of notes for each year.
+    </p>
+
+    <p class="hc-comment-modal-ref" *ngIf="commentRow?.comment">
+      Reference note: <span>{{ commentRow?.comment }}</span>
+    </p>
+
+    <div class="hc-comment-grid">
+      <div class="hc-comment-item" *ngFor="let m of months; let i = index; trackBy: trackByIndex">
+        <label class="hc-comment-month">{{ m }} {{ currentYear }}</label>
+        <textarea class="hc-comment-input" rows="2" [(ngModel)]="commentDraft[i]"
+          placeholder="Add a comment…"></textarea>
+      </div>
+    </div>
+
+    <div class="hc-comment-modal-actions">
+      <button class="hc-btn-cancel" (click)="closeComments()">Cancel</button>
+      <button class="hc-btn-save" (click)="saveComments()">Save Comments</button>
+    </div>
+  </div>
+</app-modal>

@@ -141,6 +141,71 @@ export class HeadcountComponent {
     this.headcountRows = this.headcountRows.filter(r => r.id !== id);
   }
 
+  // ── Monthly comments (per row, per scenario year) ───────────────────────────
+  // Mirrors the Forecast screen: a per-row button opens a modal with 12 monthly
+  // comment fields for the year selected in the Scenario Year dropdown, persisted
+  // to localStorage. The hardcoded row.comment seed stays as a read-only reference.
+  private readonly COMMENTS_KEY = 'headcount-row-comments';
+
+  commentModalOpen = false;
+  commentRow: HeadcountRow | null = null;
+  /** Working copy of the 12 month comments while the modal is open. */
+  commentDraft: string[] = [];
+
+  /** The year the comment modal reads/writes — driven by the Scenario Year chip. */
+  get currentYear(): number {
+    return this.filters.scenarioYear;
+  }
+
+  /** Shape in localStorage: { [rowId]: { [year]: string[12] } } */
+  private loadCommentStore(): Record<string, Record<string, string[]>> {
+    try {
+      const raw = localStorage.getItem(this.COMMENTS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private writeCommentStore(store: Record<string, Record<string, string[]>>): void {
+    localStorage.setItem(this.COMMENTS_KEY, JSON.stringify(store));
+  }
+
+  get commentModalTitle(): string {
+    const label = this.commentRow?.employee || 'Row';
+    return `Monthly Comments — ${label} (${this.currentYear})`;
+  }
+
+  /** Number of months with a saved comment for this row in the current year (badge). */
+  commentCount(row: HeadcountRow): number {
+    const saved = this.loadCommentStore()[row.id]?.[this.currentYear] ?? [];
+    return saved.filter(c => !!c && c.trim().length > 0).length;
+  }
+
+  openComments(row: HeadcountRow): void {
+    this.commentRow = row;
+    const saved = this.loadCommentStore()[row.id]?.[this.currentYear] ?? [];
+    // Always 12 slots, pre-filled with whatever was saved for this row+year.
+    this.commentDraft = this.months.map((_, i) => saved[i] ?? '');
+    this.commentModalOpen = true;
+  }
+
+  saveComments(): void {
+    if (!this.commentRow) return;
+    const store = this.loadCommentStore();
+    const rowKey = String(this.commentRow.id);
+    if (!store[rowKey]) store[rowKey] = {};
+    store[rowKey][this.currentYear] = [...this.commentDraft];
+    this.writeCommentStore(store);
+    this.closeComments();
+  }
+
+  closeComments(): void {
+    this.commentModalOpen = false;
+    this.commentRow = null;
+    this.commentDraft = [];
+  }
+
   // ── Save / Cancel ──────────────────────────────────────────────────────────
   saveChanges(): void {
     // TODO: Replace with:

@@ -79,7 +79,7 @@ select option {
   flex-direction: column;
   gap: 14px;
   margin: 0;
-  padding: 0px 32px 0;
+  padding: 5px 32px 0;
   background: transparent;
   border: none;
 }
@@ -295,7 +295,7 @@ select option {
 .hc-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin: 16px 32px 12px;
 }
 
@@ -381,13 +381,16 @@ select option {
   display: flex;
   align-items: flex-start;
   width: 100%;
-  overflow-x: auto;
+  overflow: auto;
+  max-height: calc(100vh - 340px);
+  min-height: 400px;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   background: #0f172a;
 
   &::-webkit-scrollbar {
+    width: 6px;
     height: 6px;
   }
 
@@ -511,6 +514,12 @@ select option {
   letter-spacing: 0.7px;
   color: #475569;
   white-space: nowrap;
+
+  /* Pin header to the top while the table body scrolls vertically.
+     z-index sits above the body's sticky right columns (z-index 5). */
+  position: sticky;
+  top: 0;
+  z-index: 6;
 
   &:last-child {
     border-right: none;
@@ -728,34 +737,146 @@ tr.hc-sub-other .hc-row-total {
 /* ─── Comments Cell ──────────────────────────────────────────── */
 .hc-comment-cell {
 
-  input[type="text"] {
-    width: 100%;
+  .hc-comment-cell-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
-    background: transparent;
-    border: 1px solid transparent;
-    color: #cbd5e1;
-    border-radius: 5px;
-    padding: 4px 6px;
+  }
+
+  /* Hardcoded seed comment shown as a muted, truncated reference next to the button. */
+  .hc-comment-ref {
+    flex: 1;
+    min-width: 0;
     font-size: 11px;
     font-weight: 500;
-    font-family: inherit;
-    transition: all 0.15s ease;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.03);
-      border-color: rgba(255, 255, 255, 0.08);
+/* ─── Comment Trigger Button + Badge (mirrors Forecast) ──────────── */
+.hc-btn-comment {
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  color: rgba(56, 189, 248, 0.55);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  .hc-comment-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 7px;
+    background: #38bdf8;
+    color: #0b0f19;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+  }
+}
+
+/* ─── Monthly Comments Modal content ─────────────────────────────── */
+.hc-comment-modal-body {
+  .hc-comment-modal-hint {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    color: #94a3b8;
+
+    strong {
+      color: #38bdf8;
     }
+  }
+
+  .hc-comment-modal-ref {
+    margin: 0 0 16px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #94a3b8;
+    background: rgba(56, 189, 248, 0.06);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 6px;
+
+    span {
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+  }
+
+  .hc-comment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 16px;
+  }
+
+  .hc-comment-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hc-comment-month {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #64748b;
+  }
+
+  .hc-comment-input {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #cbd5e1;
+    font-size: 12.5px;
+    font-family: inherit;
+    padding: 6px 8px;
+    transition: border-color 0.15s ease;
 
     &:focus {
       outline: none;
-      background: rgba(56, 189, 248, 0.05) !important;
-      border-color: rgba(56, 189, 248, 0.45) !important;
-      color: #ffffff;
+      border-color: #38bdf8;
     }
 
     &::placeholder {
       color: #475569;
     }
+  }
+
+  .hc-comment-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hc-comment-modal-body .hc-comment-grid {
+    grid-template-columns: 1fr;
   }
 }
 
