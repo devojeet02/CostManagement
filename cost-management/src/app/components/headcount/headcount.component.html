@@ -102,7 +102,65 @@
 
     <!-- Two-table layout -->
     <div class="hc-tables-outer">
-      <div class="hc-tables-container">
+
+      <!-- Drag rail (its own bordered container) + data tables container,
+           side by side with a visual gap. Scroll positions are kept in sync
+           via onRailScroll / onTableScroll so the rail rows line up with the
+           table rows during internal vertical scrolling. -->
+      <div class="hc-grid-with-rail">
+
+        <!-- ── DRAG RAIL: detached, sits to the LEFT of the table ─────── -->
+        <div class="hc-drag-rail-outer" #railScroll (scroll)="onRailScroll()">
+          <table class="hc-drag-rail-table">
+            <thead>
+              <tr class="hc-thead">
+                <th class="hc-drag-col">&nbsp;</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredHeadcountRows; let ri = index; trackBy: trackByRow">
+                <tr *ngFor="let sub of visibleScenarioRows(row); let si = index; let last = last; trackBy: trackByScenario"
+                    (mouseenter)="row.isHovered = true"
+                    (mouseleave)="row.isHovered = false"
+                    [class.hc-row-hovered]="row.isHovered"
+                    [class.hc-row-first]="si === 0"
+                    [class.hc-row-last-sub]="last"
+                    [class.hc-row-even]="ri % 2 === 0"
+                    [class.hc-row-odd]="ri % 2 !== 0"
+                    [class.hc-row-drop-over]="dragOverRowId === row.id"
+                    [class.hc-row-dragging]="draggedRowId === row.id"
+                    (dragover)="onRowDragOver($event, row)"
+                    (dragleave)="onRowDragLeave(row)"
+                    (drop)="onRowDrop($event, row)">
+                  <td class="hc-drag-col">
+                    <button *ngIf="si === 0"
+                            class="hc-drag-handle"
+                            [draggable]="true"
+                            (dragstart)="onRowDragStart($event, row)"
+                            (dragend)="onRowDragEnd()"
+                            title="Drag to reorder">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
+                        <circle cx="2.5" cy="2"  r="1.1"/><circle cx="7.5" cy="2"  r="1.1"/>
+                        <circle cx="2.5" cy="7"  r="1.1"/><circle cx="7.5" cy="7"  r="1.1"/>
+                        <circle cx="2.5" cy="12" r="1.1"/><circle cx="7.5" cy="12" r="1.1"/>
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+            <tfoot>
+              <tr *ngFor="let type of visibleScenarioTypes; let ti = index; trackBy: trackByIndex"
+                  class="hc-total-row"
+                  [class.hc-total-block-first]="ti === 0"
+                  [class.hc-total-other]="type === 'other'">
+                <td class="hc-drag-col">&nbsp;</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+      <div class="hc-tables-container" #tableScroll (scroll)="onTableScroll()">
 
         <!-- ── LEFT TABLE: identity columns ──────────────────────── -->
         <div class="hc-left-wrap">
@@ -254,7 +312,7 @@
                         </svg>
                         <span class="hc-comment-badge" *ngIf="commentCount(row) > 0">{{ commentCount(row) }}</span>
                       </button>
-                      <span *ngIf="row.comment" class="hc-comment-ref" [title]="row.comment">{{ row.comment }}</span>
+                      <span class="hc-comment-ref" title="Click to add Comments" (click)="openComments(row)">Click to add Comments</span>
                     </div>
                   </td>
 
@@ -290,7 +348,8 @@
           </table>
         </div>
 
-      </div>
+      </div><!-- /hc-tables-container -->
+      </div><!-- /hc-grid-with-rail -->
     </div>
 
     <!-- Action buttons below the table -->

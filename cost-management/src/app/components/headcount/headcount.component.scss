@@ -380,7 +380,8 @@ select option {
 .hc-tables-container {
   display: flex;
   align-items: flex-start;
-  width: 100%;
+  flex: 1;
+  min-width: 0;          /* allow shrinking inside .hc-grid-with-rail */
   overflow: auto;
   max-height: calc(100vh - 340px);
   min-height: 400px;
@@ -406,6 +407,85 @@ select option {
   &::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.12);
   }
+}
+
+/* Drag rail + data tables, side by side with a visible gap. The rail is a
+   fully detached bordered container — NOT part of `.hc-tables-container`. */
+.hc-grid-with-rail {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Detached drag rail: its own scroll container, vertical scroll is kept in
+   sync with the data tables via (scroll) handlers in the component. */
+.hc-drag-rail-outer {
+  flex-shrink: 0;
+  max-height: calc(100vh - 340px);
+  min-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+
+  /* Hide the rail's scrollbar — only the table's is interactive; the rail
+     follows along via the (scroll) listener. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { width: 0; height: 0; display: none; }
+}
+
+.hc-drag-rail-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+.hc-drag-col {
+  width: 32px;
+  min-width: 32px;
+  text-align: center;
+  padding: 0;
+}
+
+.hc-drag-handle {
+  background: transparent;
+  border: none;
+  color: rgba(148, 163, 184, 0.4);
+  cursor: grab;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &:active {
+    cursor: grabbing;
+    color: #38bdf8;
+  }
+
+  svg { display: block; }
+}
+
+/* While a row is being dragged, dim its rail entry. */
+tr.hc-row-dragging .hc-drag-handle {
+  opacity: 0.35;
+}
+
+/* Highlight the drop target row in the rail with an accent bar above it. */
+tr.hc-row-drop-over td.hc-drag-col {
+  box-shadow: inset 0 2px 0 #38bdf8;
+  background-color: rgba(56, 189, 248, 0.12) !important;
 }
 
 .hc-left-wrap {
@@ -744,7 +824,7 @@ tr.hc-sub-other .hc-row-total {
     min-width: 0;
   }
 
-  /* Hardcoded seed comment shown as a muted, truncated reference next to the button. */
+  /* Click target hint next to the comment button — also opens the modal. */
   .hc-comment-ref {
     flex: 1;
     min-width: 0;
@@ -754,6 +834,15 @@ tr.hc-sub-other .hc-row-total {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #cbd5e1;
+      text-decoration: underline;
+      text-decoration-color: rgba(56, 189, 248, 0.4);
+      text-underline-offset: 2px;
+    }
   }
 }
 

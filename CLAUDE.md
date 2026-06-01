@@ -84,6 +84,12 @@ was built from it and follows the same anatomy:
   `tr:not(.*-row-last-sub)` only (applies in both Forecast and Headcount left tables).
 - **Filter chips + toggles** at the top, an **Add Row** toolbar (+ Save/Cancel), and a
   `tfoot` **totals block** that re-aggregates the visible sub-rows.
+- **Internal vertical scroll (optional, per-screen)**: when row counts grow, give the
+  shared `*-tables-container` a `max-height` + `overflow: auto` and add
+  `position: sticky; top: 0; z-index: 6` (above the right-edge sticky columns at z:5)
+  to `.*-thead th` so column headers stay pinned while the body scrolls. The page-level
+  scroll-area keeps working — both scrollbars coexist. Headcount uses
+  `max-height: calc(100vh - 340px); min-height: 240px;`.
 - Constants/types/mock-data/API-endpoint stubs live in `constants/<screen>.constants.ts`
   (e.g. `forecast.constants.ts`, `headcount.constants.ts`), ready to swap mock arrays for
   HTTP calls.
@@ -111,9 +117,39 @@ greppable and prevent confusion when copying markup between them.
   no fractional values (see Business Domain Rules → Headcount).
 - The "other scenario" (Budget) row is revealed by the **Show Other Scenario** toggle, whose
   "on" tone is the green (`rgb(68,217,68)` + glow) borrowed from the invoice-upload switch.
-- Per-row free-text **Comments** column (sticky, see above).
+- **Per-row Comments column** (sticky right): no longer an inline input — it's a small
+  comment button + badge that opens an `<app-modal>` with 12 monthly textareas for the
+  current Scenario Year, mirroring Forecast. Saved in `localStorage` under
+  `headcount-row-comments` as `{ [rowId]: { [year]: string[12] } }`. The hardcoded
+  `row.comment` seed is preserved and shown as a truncated reference in the cell **and**
+  as a "Reference note" line at the top of the modal — never edited, never overwritten.
+  Switching the Scenario Year chip swaps the comment set the modal reads/writes.
+- **Row reordering via detached drag rail** (visually separated from the data tables):
+  the rail is its own bordered, scrolling container — a sibling of `.hc-tables-container`
+  inside a `.hc-grid-with-rail` flex wrapper, separated by a 10px gap. Both containers
+  share the same `max-height` / `min-height`; vertical scroll is kept in lockstep via
+  `(scroll)="onRailScroll()/onTableScroll()"` handlers using `@ViewChild` refs and a
+  `syncingScroll` guard flag to prevent feedback loops. The rail's own scrollbar is
+  hidden (it follows the table's scrollbar). The data tables (`.hc-left-table` /
+  `.hc-right-table`) and their wraps stay byte-for-byte unchanged — `.hc-left-wrap` sits
+  back at `left: 0` since the rail is no longer inside the container. Each rail body row
+  has a 9-dot `<button [draggable]="true">` (first sub-row only); `(dragstart)` records
+  the source row id **and** builds a visible drag-preview card (employee · site · team)
+  via `document.createElement` + `event.dataTransfer.setDragImage(...)` — inline styles
+  on the preview because component CSS doesn't reach `document.body`. `(dragover)` /
+  `(drop)` on the rail trs reorder the shared `headcountRows` array so the **whole
+  logical row** (left + right halves) moves as one unit. Heights auto-align because the
+  rail reuses the global unscoped row-height / sub-row rules. Order is persisted to
+  `localStorage` under `headcount-row-order` in `saveChanges()`; `applySavedOrder()` is
+  called in the constructor (after field initializers) and at the end of
+  `cancelChanges()` so cancel reverts to the *last saved* layout, not the factory-mock
+  order.
 - **TOTAL HEADCOUNT** footer sums presence per month/scenario, with inline variance colour
   on the primary row vs Budget (red = over budget, green = on/under).
+- **Toolbar layout**: the in-page header has **no Back button** (commented out), the
+  "+ Add New Row" button is right-aligned on its own toolbar row, and **Cancel / Save**
+  live in a separate `.hc-table-actions` row directly below the table (not in the
+  toolbar). Save Changes triggers persistence of the row order alongside the data POST.
 
 ---
 

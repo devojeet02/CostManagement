@@ -1,4 +1,4 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, ViewChild, ElementRef } from '@angular/core';
 import {
   HC_MONTHS, HC_REGIONS, HC_COUNTRIES, HC_SITES, HC_TEAMS, HC_EMPLOYEE_TYPES,
   HC_EMPLOYEES, HC_FUNCTIONS, HC_SCENARIO_YEARS,
@@ -13,6 +13,10 @@ import {
   styleUrls: ['./headcount.component.scss']
 })
 export class HeadcountComponent {
+
+  constructor() {
+    this.applySavedOrder();
+  }
 
   isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
 
@@ -141,6 +145,154 @@ export class HeadcountComponent {
     this.headcountRows = this.headcountRows.filter(r => r.id !== id);
   }
 
+  // ── Row reordering (drag & drop, persisted via Save) ────────────────────────
+  // The drag handle lives in a rail OUTSIDE the data tables. Dragging reorders
+  // the shared `headcountRows` array — both left and right tables iterate it,
+  // so the whole logical row (left + right) moves as a unit. The order is
+  // written to localStorage in saveChanges() and re-applied on init / cancel.
+  private readonly ORDER_KEY = 'headcount-row-order';
+
+  draggedRowId: number | null = null;
+  dragOverRowId: number | null = null;
+  /** Transient DOM node used as the drag ghost; cleaned up in dragend. */
+  private dragImageEl: HTMLElement | null = null;
+
+  // Scroll-sync between the detached drag rail and the data tables container.
+  @ViewChild('railScroll')  railScrollEl?:  ElementRef<HTMLElement>;
+  @ViewChild('tableScroll') tableScrollEl?: ElementRef<HTMLElement>;
+  private syncingScroll = false;
+
+  onRailScroll(): void {
+    if (this.syncingScroll || !this.railScrollEl || !this.tableScrollEl) return;
+    const src = this.railScrollEl.nativeElement;
+    const dst = this.tableScrollEl.nativeElement;
+    if (dst.scrollTop !== src.scrollTop) {
+      this.syncingScroll = true;
+      dst.scrollTop = src.scrollTop;
+      requestAnimationFrame(() => this.syncingScroll = false);
+    }
+  }
+
+  onTableScroll(): void {
+    if (this.syncingScroll || !this.railScrollEl || !this.tableScrollEl) return;
+    const src = this.tableScrollEl.nativeElement;
+    const dst = this.railScrollEl.nativeElement;
+    if (dst.scrollTop !== src.scrollTop) {
+      this.syncingScroll = true;
+      dst.scrollTop = src.scrollTop;
+      requestAnimationFrame(() => this.syncingScroll = false);
+    }
+  }
+
+  onRowDragStart(event: DragEvent, row: HeadcountRow): void {
+    this.draggedRowId = row.id;
+    if (!event.dataTransfer) return;
+    event.dataTransfer.effectAllowed = 'move';
+    // Required for Firefox to actually initiate the drag.
+    event.dataTransfer.setData('text/plain', String(row.id));
+
+    // Build a visible drag preview card so the user sees the row moving with
+    // the cursor. The browser snapshots this DOM node at setDragImage time, so
+    // inline styles are required (component-scoped CSS doesn't reach body).
+    const preview = document.createElement('div');
+    preview.textContent = this.dragPreviewLabel(row);
+    preview.style.cssText = [
+      'position: absolute',
+      'top: -1000px',
+      'left: -1000px',
+      'background: #1e293b',
+      'color: #e2e8f0',
+      'border: 1px solid #38bdf8',
+      'border-radius: 6px',
+      'padding: 7px 14px',
+      'font: 600 12px system-ui, sans-serif',
+      'box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45)',
+      'pointer-events: none',
+      'white-space: nowrap',
+      'z-index: 2147483647'
+    ].join(';');
+    document.body.appendChild(preview);
+    this.dragImageEl = preview;
+    event.dataTransfer.setDragImage(preview, 14, 14);
+  }
+
+  private dragPreviewLabel(row: HeadcountRow): string {
+    const parts = [row.employee, row.site, row.team].filter(p => !!p && String(p).trim().length > 0);
+    return parts.length ? parts.join(' · ') : 'Headcount row';
+  }
+
+  onRowDragOver(event: DragEvent, row: HeadcountRow): void {
+    if (this.draggedRowId == null || this.draggedRowId === row.id) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    this.dragOverRowId = row.id;
+  }
+
+  onRowDragLeave(row: HeadcountRow): void {
+    if (this.dragOverRowId === row.id) this.dragOverRowId = null;
+  }
+
+  onRowDrop(event: DragEvent, target: HeadcountRow): void {
+    event.preventDefault();
+    const srcId = this.draggedRowId;
+    this.draggedRowId = null;
+    this.dragOverRowId = null;
+    if (srcId == null || srcId === target.id) return;
+
+    const fromIdx = this.headcountRows.findIndex(r => r.id === srcId);
+    const toIdx   = this.headcountRows.findIndex(r => r.id === target.id);
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+
+    // Direction-aware insertion so the source always moves in the direction
+    // the user dragged:
+    //   - dragging DOWN (fromIdx < toIdx): drop AFTER the target. After we
+    //     splice the source out, the target's index has shifted left by 1,
+    //     so inserting at `toIdx` in the post-splice array places the source
+    //     just after the target.
+    //   - dragging UP (fromIdx > toIdx): drop BEFORE the target. The target's
+    //     index is unchanged (the splice happened after it), so inserting at
+    //     `toIdx` places the source just before the target.
+    // A previous version subtracted 1 in the downward case, which made
+    // adjacent downward drags collapse into a no-op.
+    const [moved] = this.headcountRows.splice(fromIdx, 1);
+    this.headcountRows.splice(toIdx, 0, moved);
+  }
+
+  onRowDragEnd(): void {
+    this.draggedRowId = null;
+    this.dragOverRowId = null;
+    if (this.dragImageEl) {
+      this.dragImageEl.remove();
+      this.dragImageEl = null;
+    }
+  }
+
+  private loadSavedOrder(): number[] | null {
+    try {
+      const raw = localStorage.getItem(this.ORDER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeSavedOrder(ids: number[]): void {
+    localStorage.setItem(this.ORDER_KEY, JSON.stringify(ids));
+  }
+
+  /** Re-sort headcountRows in-place to match the last saved order, if any. */
+  private applySavedOrder(): void {
+    const ids = this.loadSavedOrder();
+    if (!ids || !ids.length) return;
+    const indexOf = new Map<number, number>();
+    ids.forEach((id, i) => indexOf.set(id, i));
+    this.headcountRows.sort((a, b) => {
+      const ai = indexOf.has(a.id) ? indexOf.get(a.id)! : Number.MAX_SAFE_INTEGER;
+      const bi = indexOf.has(b.id) ? indexOf.get(b.id)! : Number.MAX_SAFE_INTEGER;
+      return ai - bi;
+    });
+  }
+
   // ── Monthly comments (per row, per scenario year) ───────────────────────────
   // Mirrors the Forecast screen: a per-row button opens a modal with 12 monthly
   // comment fields for the year selected in the Scenario Year dropdown, persisted
@@ -208,6 +360,8 @@ export class HeadcountComponent {
 
   // ── Save / Cancel ──────────────────────────────────────────────────────────
   saveChanges(): void {
+    // Persist the current row order locally so it survives reloads.
+    this.writeSavedOrder(this.headcountRows.map(r => r.id));
     // TODO: Replace with:
     //   this.http.post(HC_API_ENDPOINTS.headcount.bulkSave(), this.headcountRows)
     //     .subscribe(() => { /* success toast */ });
@@ -219,6 +373,9 @@ export class HeadcountComponent {
     this.headcountRows = JSON.parse(JSON.stringify(MOCK_HEADCOUNT_ROWS));
     this.filters       = { ...HC_DEFAULT_FILTERS };
     this.toggles       = { ...HC_DEFAULT_TOGGLES };
+    // Re-apply the last saved row order so cancel reverts to the saved state,
+    // not back to the factory-mock order.
+    this.applySavedOrder();
   }
 
   // ── Format helpers ─────────────────────────────────────────────────────────
