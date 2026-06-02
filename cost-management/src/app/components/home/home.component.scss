@@ -29,6 +29,7 @@
     padding: 10px 20px;
     font-size: 14px;
     font-weight: 600;
+    text-decoration: none;     /* keeps the <a> variant looking like a button */
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(46, 109, 164, 0.25);
     transition: background-color var(--transition-speed), transform 0.2s, box-shadow 0.2s;
