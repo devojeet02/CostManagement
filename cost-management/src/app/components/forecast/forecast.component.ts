@@ -13,6 +13,10 @@ import {
 })
 export class ForecastComponent {
 
+  constructor() {
+    this.applySavedOrder();
+  }
+
   isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
 
   @HostListener('window:resize', ['$event'])
@@ -162,6 +166,120 @@ export class ForecastComponent {
     this.forecastRows = this.forecastRows.filter(r => r.id !== id);
   }
 
+  // ── Row reordering (drag & drop via detached rail, persisted via Save) ──────
+  // Mirrors the Headcount drag-rail pattern: the drag handle lives in a
+  // separate column OUTSIDE the data tables, dragging reorders the shared
+  // `forecastRows` array (both left and right tables iterate it, so a logical
+  // row moves as a unit), and the order is written to localStorage on Save.
+  private readonly ORDER_KEY = 'forecast-row-order';
+
+  draggedRowId: number | null = null;
+  dragOverRowId: number | null = null;
+  /** Transient DOM node used as the drag ghost; cleaned up in dragend. */
+  private dragImageEl: HTMLElement | null = null;
+
+  onRowDragStart(event: DragEvent, row: ForecastRow): void {
+    this.draggedRowId = row.id;
+    if (!event.dataTransfer) return;
+    event.dataTransfer.effectAllowed = 'move';
+    // Required for Firefox to actually initiate the drag.
+    event.dataTransfer.setData('text/plain', String(row.id));
+
+    // Build a visible drag preview card so the user sees the row moving with
+    // the cursor. Inline styles because component-scoped CSS doesn't reach
+    // document.body where the preview node lives.
+    const preview = document.createElement('div');
+    preview.textContent = this.dragPreviewLabel(row);
+    preview.style.cssText = [
+      'position: absolute',
+      'top: -1000px',
+      'left: -1000px',
+      'background: #1e293b',
+      'color: #e2e8f0',
+      'border: 1px solid #38bdf8',
+      'border-radius: 6px',
+      'padding: 7px 14px',
+      'font: 600 12px system-ui, sans-serif',
+      'box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45)',
+      'pointer-events: none',
+      'white-space: nowrap',
+      'z-index: 2147483647'
+    ].join(';');
+    document.body.appendChild(preview);
+    this.dragImageEl = preview;
+    event.dataTransfer.setDragImage(preview, 14, 14);
+  }
+
+  private dragPreviewLabel(row: ForecastRow): string {
+    const parts = [row.internalOrder, row.supplier, row.team]
+      .filter(p => !!p && String(p).trim().length > 0);
+    return parts.length ? parts.join(' · ') : 'Forecast row';
+  }
+
+  onRowDragOver(event: DragEvent, row: ForecastRow): void {
+    if (this.draggedRowId == null || this.draggedRowId === row.id) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    this.dragOverRowId = row.id;
+  }
+
+  onRowDragLeave(row: ForecastRow): void {
+    if (this.dragOverRowId === row.id) this.dragOverRowId = null;
+  }
+
+  onRowDrop(event: DragEvent, target: ForecastRow): void {
+    event.preventDefault();
+    const srcId = this.draggedRowId;
+    this.draggedRowId = null;
+    this.dragOverRowId = null;
+    if (srcId == null || srcId === target.id) return;
+
+    const fromIdx = this.forecastRows.findIndex(r => r.id === srcId);
+    const toIdx   = this.forecastRows.findIndex(r => r.id === target.id);
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+
+    // Direction-aware: down drag → drop AFTER target; up drag → drop BEFORE.
+    // Inserting at `toIdx` in the post-splice array works for both because the
+    // target's index shifts by -1 only when src was above it.
+    const [moved] = this.forecastRows.splice(fromIdx, 1);
+    this.forecastRows.splice(toIdx, 0, moved);
+  }
+
+  onRowDragEnd(): void {
+    this.draggedRowId = null;
+    this.dragOverRowId = null;
+    if (this.dragImageEl) {
+      this.dragImageEl.remove();
+      this.dragImageEl = null;
+    }
+  }
+
+  private loadSavedOrder(): number[] | null {
+    try {
+      const raw = localStorage.getItem(this.ORDER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeSavedOrder(ids: number[]): void {
+    localStorage.setItem(this.ORDER_KEY, JSON.stringify(ids));
+  }
+
+  /** Re-sort forecastRows in-place to match the last saved order, if any. */
+  private applySavedOrder(): void {
+    const ids = this.loadSavedOrder();
+    if (!ids || !ids.length) return;
+    const indexOf = new Map<number, number>();
+    ids.forEach((id, i) => indexOf.set(id, i));
+    this.forecastRows.sort((a, b) => {
+      const ai = indexOf.has(a.id) ? indexOf.get(a.id)! : Number.MAX_SAFE_INTEGER;
+      const bi = indexOf.has(b.id) ? indexOf.get(b.id)! : Number.MAX_SAFE_INTEGER;
+      return ai - bi;
+    });
+  }
+
   // ── Monthly comments (per row, per year) ───────────────────────────────────
   private readonly COMMENTS_KEY = 'forecast-row-comments';
 
@@ -221,6 +339,8 @@ export class ForecastComponent {
 
   // ── Save / Cancel ──────────────────────────────────────────────────────────
   saveChanges(): void {
+    // Persist the current row order locally so it survives reloads.
+    this.writeSavedOrder(this.forecastRows.map(r => r.id));
     // TODO: Replace with:
     //   this.http.post(API_ENDPOINTS.forecast.bulkSave(), this.forecastRows)
     //     .subscribe(() => { /* success toast */ });
@@ -232,6 +352,9 @@ export class ForecastComponent {
     this.forecastRows = JSON.parse(JSON.stringify(MOCK_FORECAST_ROWS));
     this.filters      = { ...DEFAULT_FILTERS };
     this.toggles      = { ...DEFAULT_TOGGLES };
+    // Re-apply the last saved row order so cancel reverts to the saved state,
+    // not back to the factory-mock order.
+    this.applySavedOrder();
   }
 
   // ── Format helpers ─────────────────────────────────────────────────────────

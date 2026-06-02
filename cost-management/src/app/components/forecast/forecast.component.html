@@ -133,6 +133,74 @@
 
     <!-- Two-table layout -->
     <div class="tables-outer">
+
+      <!-- Drag rail (outside the data tables) + tables container, side by side.
+           The rail mirrors the row structure so heights auto-align via the
+           shared unscoped tbody/tr/row-last-sub rules. -->
+      <div class="fc-grid-with-rail">
+
+        <!-- ── DRAG RAIL: detached, sits to the LEFT of the tables ───── -->
+        <div class="fc-drag-rail-outer">
+          <table class="fc-drag-rail-table">
+            <thead>
+              <tr class="thead-cols">
+                <th class="fc-drag-col">&nbsp;</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredForecastRows; let ri = index; trackBy: trackByRow">
+                <tr *ngFor="let sub of visibleSubRows(row); let si = index; let last = last; trackBy: trackBySubRow"
+                    (mouseenter)="row.isHovered = true"
+                    (mouseleave)="row.isHovered = false"
+                    [class.row-hovered]="row.isHovered"
+                    [class.row-first]="si === 0"
+                    [class.row-last-sub]="last"
+                    [class.row-even]="ri % 2 === 0"
+                    [class.row-odd]="ri % 2 !== 0"
+                    [class.fc-row-drop-over]="dragOverRowId === row.id"
+                    [class.fc-row-dragging]="draggedRowId === row.id"
+                    (dragover)="onRowDragOver($event, row)"
+                    (dragleave)="onRowDragLeave(row)"
+                    (drop)="onRowDrop($event, row)">
+                  <td class="fc-drag-col">
+                    <button *ngIf="si === 0"
+                            class="fc-drag-handle"
+                            [draggable]="true"
+                            (dragstart)="onRowDragStart($event, row)"
+                            (dragend)="onRowDragEnd()"
+                            title="Drag to reorder">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
+                        <circle cx="2.5" cy="2"  r="1.1"/><circle cx="7.5" cy="2"  r="1.1"/>
+                        <circle cx="2.5" cy="7"  r="1.1"/><circle cx="7.5" cy="7"  r="1.1"/>
+                        <circle cx="2.5" cy="12" r="1.1"/><circle cx="7.5" cy="12" r="1.1"/>
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+            <tfoot>
+              <!-- TOTAL [Account] block — one placeholder row per visible type. -->
+              <tr *ngFor="let type of totalBlockTypes; let ti = index; trackBy: trackByIndex"
+                  class="total-row"
+                  [class.total-block-first]="ti === 0"
+                  [class.total-actual]="type === 'actual'"
+                  [class.total-scenario]="type === 'other-scenario'"
+                  [class.total-contract]="type === 'contract'">
+                <td class="fc-drag-col">&nbsp;</td>
+              </tr>
+              <!-- TOTAL RECHARGE [Account] block. -->
+              <tr *ngFor="let type of rechargeBlockTypes; let ri = index; trackBy: trackByIndex"
+                  class="total-row total-recharge-group"
+                  [class.total-block-first]="ri === 0"
+                  [class.total-actual]="type === 'recharge-actual'"
+                  [class.total-scenario]="type === 'recharge-other-scenario'">
+                <td class="fc-drag-col">&nbsp;</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
       <div class="tables-container">
 
         <!-- ── LEFT TABLE: identity columns ──────────────────────── -->
@@ -379,7 +447,8 @@
           </table>
         </div>
 
-      </div>
+      </div><!-- /tables-container -->
+      </div><!-- /fc-grid-with-rail -->
     </div>
 
   </div><!-- /scroll-area -->

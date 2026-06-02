@@ -351,10 +351,81 @@ select option {
   width: 100%;
 }
 
+/* Drag rail + data tables, side by side with a visible gap. The rail is a
+   fully detached bordered container — NOT part of `.tables-container`. */
+.fc-grid-with-rail {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Detached drag rail. Page-level vertical scroll keeps it aligned with the
+   data rows (both share the same page scroll context — no JS sync needed). */
+.fc-drag-rail-outer {
+  flex-shrink: 0;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.fc-drag-rail-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+.fc-drag-col {
+  width: 32px;
+  min-width: 32px;
+  text-align: center;
+  padding: 0;
+}
+
+.fc-drag-handle {
+  background: transparent;
+  border: none;
+  color: rgba(148, 163, 184, 0.4);
+  cursor: grab;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &:active {
+    cursor: grabbing;
+    color: #38bdf8;
+  }
+
+  svg { display: block; }
+}
+
+/* While a row is being dragged, dim its rail entry. */
+tr.fc-row-dragging .fc-drag-handle {
+  opacity: 0.35;
+}
+
+/* Highlight the drop target row in the rail with an accent bar above it. */
+tr.fc-row-drop-over td.fc-drag-col {
+  box-shadow: inset 0 2px 0 #38bdf8;
+  background-color: rgba(56, 189, 248, 0.12) !important;
+}
+
 .tables-container {
   display: flex;
   align-items: flex-start;
-  width: 100%;
+  flex: 1;
+  min-width: 0;          /* allow shrinking inside .fc-grid-with-rail */
   overflow-x: auto;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.06);
