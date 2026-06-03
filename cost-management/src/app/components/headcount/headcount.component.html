@@ -291,9 +291,8 @@
                       class="hc-month hc-value-cell"
                       [class.hc-cell-on]="vals(sub)[mi]">
                     <input type="number"
-                           min="0" max="1" step="1"
+                           min="0"
                            [(ngModel)]="sub.valuesByYear[yearFor(sub)][mi]"
-                           (change)="normalizeBinary(sub, mi)"
                            name="hc-val-{{row.id}}-{{sub.type}}-{{yearFor(sub)}}-{{mi}}"
                            id="hc-val-{{row.id}}-{{sub.type}}-{{yearFor(sub)}}-{{mi}}"
                            autocomplete="new-password"
@@ -374,10 +373,6 @@
     <p class="hc-comment-modal-hint">
       Comments are saved per month for <strong>{{ currentYear }}</strong>. Switch the Scenario Year to keep a
       separate set of notes for each year.
-    </p>
-
-    <p class="hc-comment-modal-ref" *ngIf="commentRow?.comment">
-      Reference note: <span>{{ commentRow?.comment }}</span>
     </p>
 
     <div class="hc-comment-grid">

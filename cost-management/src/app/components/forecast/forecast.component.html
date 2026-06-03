@@ -26,13 +26,9 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Site/Cost Stream</span>
-            <select [(ngModel)]="filters.site" class="chip-select" name="filter-site" id="filter-site" autocomplete="new-password">
-              <option *ngFor="let s of sites; trackBy: trackByIndex" [value]="s">{{ s }}</option>
-            </select>
+            <app-hierarchy-select [(ngModel)]="filters.site" [groups]="siteFilterGroups" placeholder="All Sites"
+              name="filter-site"></app-hierarchy-select>
           </div>
-          <span class="chip-arrow">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
         </div>
 
         <div class="filter-chip">
@@ -41,14 +37,9 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Team</span>
-            <select [(ngModel)]="filters.team" class="chip-select" name="filter-team" id="filter-team" autocomplete="new-password">
-              <option value="">All Teams</option>
-              <option *ngFor="let t of teams; trackBy: trackByIndex" [value]="t">{{ t }}</option>
-            </select>
+            <app-hierarchy-select [(ngModel)]="filters.team" [groups]="teamFilterGroups" placeholder="All Teams"
+              name="filter-team"></app-hierarchy-select>
           </div>
-          <span class="chip-arrow">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
         </div>
 
         <div class="filter-chip">
@@ -57,14 +48,9 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Account</span>
-            <select [(ngModel)]="filters.account" class="chip-select" name="filter-account" id="filter-account" autocomplete="new-password">
-              <option value="">All Accounts</option>
-              <option *ngFor="let a of accounts; trackBy: trackByIndex" [value]="a">{{ a }}</option>
-            </select>
+            <app-hierarchy-select [(ngModel)]="filters.account" [groups]="accountFilterGroups" placeholder="All Accounts"
+              name="filter-account"></app-hierarchy-select>
           </div>
-          <span class="chip-arrow">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
         </div>
 
         <div class="filter-chip filter-chip--active">
@@ -73,13 +59,9 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Scenario</span>
-            <select [(ngModel)]="filters.scenario" class="chip-select" name="filter-scenario" id="filter-scenario" autocomplete="new-password">
-              <option *ngFor="let sc of scenarios; trackBy: trackByIndex" [value]="sc">{{ sc }}</option>
-            </select>
+            <app-hierarchy-select [(ngModel)]="filters.scenario" [groups]="scenarioFilterGroups" placeholder="All Scenarios"
+              name="filter-scenario"></app-hierarchy-select>
           </div>
-          <span class="chip-arrow">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
         </div>
 
       </div>
@@ -393,7 +375,6 @@
                   <td *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex" class="rc-month value-cell">
                     <input type="number"
                            [(ngModel)]="sub.values[mi]"
-                           [disabled]="!!sub.readOnly"
                            name="val-{{row.id}}-{{sub.type}}-{{mi}}"
                            id="val-{{row.id}}-{{sub.type}}-{{mi}}"
                            autocomplete="new-password"

@@ -5,6 +5,7 @@ import {
   ForecastRow, ForecastFilters, ForecastToggles, SubRow, SubRowType,
   MOCK_FORECAST_ROWS, buildDefaultSubRows, API_ENDPOINTS
 } from '../../constants/forecast.constants';
+import { SelectGroup } from '../../features/hierarchy-select/hierarchy-select.component';
 
 @Component({
   selector: 'app-forecast',
@@ -35,6 +36,86 @@ export class ForecastComponent {
   readonly accounts     = ACCOUNTS;
   readonly scenarios    = SCENARIOS;
   readonly apiEndpoints = API_ENDPOINTS; // kept for future wiring
+
+  // ── Grouped catalogues for the filter chips (hierarchy-select dropdowns) ────
+  // Values stored are the same flat labels as before, so `filteredForecastRows`
+  // (which compares e.g. `row.site === filters.site`) keeps working unchanged.
+  // Default filter values are empty strings → no filter applied → all rows show.
+  readonly siteFilterGroups: SelectGroup[] = [
+    {
+      group: 'Regional Operations',
+      items: [
+        { value: 'EMEA Operations', label: 'EMEA Operations' },
+        { value: 'APAC Operations', label: 'APAC Operations' },
+        { value: 'US Operations',   label: 'US Operations'   }
+      ]
+    },
+    {
+      group: 'Cross-region',
+      items: [
+        { value: 'Global', label: 'Global' }
+      ]
+    }
+  ];
+
+  readonly teamFilterGroups: SelectGroup[] = [
+    {
+      group: 'Functional',
+      items: [
+        { value: 'Digital',     label: 'Digital'     },
+        { value: 'Operations',  label: 'Operations'  },
+        { value: 'Finance',     label: 'Finance'     },
+        { value: 'Procurement', label: 'Procurement' }
+      ]
+    },
+    {
+      group: 'Programs',
+      items: [
+        { value: 'Projects',         label: 'Projects'         },
+        { value: 'Logistics Hub A',  label: 'Logistics Hub A'  }
+      ]
+    }
+  ];
+
+  readonly accountFilterGroups: SelectGroup[] = [
+    {
+      group: 'IT & Operations',
+      items: [
+        { value: '62000 - IT Services', label: '62000 - IT Services' },
+        { value: '61000 - Operations',  label: '61000 - Operations'  }
+      ]
+    },
+    {
+      group: 'Corporate',
+      items: [
+        { value: '63000 - Finance',     label: '63000 - Finance'     },
+        { value: '65000 - Procurement', label: '65000 - Procurement' }
+      ]
+    },
+    {
+      group: 'Projects',
+      items: [
+        { value: '64000 - Projects',    label: '64000 - Projects'    }
+      ]
+    }
+  ];
+
+  readonly scenarioFilterGroups: SelectGroup[] = [
+    {
+      group: 'Forecasts',
+      items: [
+        { value: 'Q3 Forecast 2025', label: 'Q3 Forecast 2025' },
+        { value: 'Q4 Forecast 2025', label: 'Q4 Forecast 2025' }
+      ]
+    },
+    {
+      group: 'Reference',
+      items: [
+        { value: 'Budget 2025', label: 'Budget 2025' },
+        { value: 'Actuals YTD', label: 'Actuals YTD' }
+      ]
+    }
+  ];
 
   // ── State ──────────────────────────────────────────────────────────────────
   currentYear = 2026;

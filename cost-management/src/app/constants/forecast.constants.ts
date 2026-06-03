@@ -109,10 +109,12 @@ export const SCENARIOS    = ['Q3 Forecast 2025','Q4 Forecast 2025','Budget 2025'
 // ─── Default State ────────────────────────────────────────────────────────────
 
 export const DEFAULT_FILTERS: ForecastFilters = {
-  site:     'EMEA Operations',
+  // Empty by default → `filteredForecastRows` returns every row (no filter
+  // is applied unless the user actively picks a value from the chip dropdowns).
+  site:     '',
   team:     '',
-  account:  '62000 - IT Services',
-  scenario: 'Q3 Forecast 2025',
+  account:  '',
+  scenario: '',
   type:     '',
   category: '',
   supplier: '',

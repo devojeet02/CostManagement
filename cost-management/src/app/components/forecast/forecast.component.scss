@@ -102,10 +102,13 @@ select option {
   padding: 6px 14px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 20px;
+  border-radius: 10px;
+  /* squarer to better hold the dropdown input */
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  min-width: 180px;
+  /* room for grouped option labels */
 
   &:hover {
     background: rgba(255, 255, 255, 0.04);
@@ -115,6 +118,48 @@ select option {
   &--active {
     background: rgba(56, 189, 248, 0.04);
     border-color: rgba(56, 189, 248, 0.2);
+  }
+
+  /* Make the embedded <app-hierarchy-select> sit flush inside the chip:
+     drop its own background / border / padding so the chip provides the frame.
+     Scoped to .filter-chip so other hierarchy-select usages stay untouched. */
+  .chip-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  ::ng-deep app-hierarchy-select {
+    display: block;
+    width: 100%;
+
+    .hs-input-wrap {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+
+      &:hover,
+      &.open {
+        border: none;
+      }
+    }
+
+    .hs-input {
+      padding: 0;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+      cursor: pointer;
+
+      &::placeholder {
+        color: #cbd5e1;
+        opacity: 0.85;
+      }
+    }
+
+    .hs-chevron {
+      color: #475569;
+    }
   }
 }
 
@@ -407,7 +452,9 @@ select option {
     color: #38bdf8;
   }
 
-  svg { display: block; }
+  svg {
+    display: block;
+  }
 }
 
 /* While a row is being dragged, dim its rail entry. */
@@ -425,7 +472,8 @@ tr.fc-row-drop-over td.fc-drag-col {
   display: flex;
   align-items: flex-start;
   flex: 1;
-  min-width: 0;          /* allow shrinking inside .fc-grid-with-rail */
+  min-width: 0;
+  /* allow shrinking inside .fc-grid-with-rail */
   overflow-x: auto;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.06);
