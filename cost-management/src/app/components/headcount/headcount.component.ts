@@ -6,6 +6,7 @@ import {
   HeadcountRow, HeadcountFilters, HeadcountToggles, HcScenarioRow, HcScenarioType,
   MOCK_HEADCOUNT_ROWS, buildDefaultScenarioRows, HC_API_ENDPOINTS
 } from '../../constants/headcount.constants';
+import { formatAmount } from '../../features/number-format/number-format.util';
 
 @Component({
   selector: 'app-headcount',
@@ -380,7 +381,12 @@ export class HeadcountComponent {
 
   // ── Format helpers ─────────────────────────────────────────────────────────
   fmtTotal(v: number): string {
-    return v ? v.toLocaleString() : '—';
+    return v ? formatAmount(v, 2) : '—';
+  }
+
+  /** Like fmtTotal but preserves a literal "0" (used for per-row totals). */
+  fmtCount(v: number): string {
+    return formatAmount(v ?? 0, 2);
   }
 
   // ── TrackBy helpers to prevent focus loss & DOM recreation ─────────────────

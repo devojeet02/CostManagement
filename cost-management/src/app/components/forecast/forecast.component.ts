@@ -6,6 +6,7 @@ import {
   MOCK_FORECAST_ROWS, buildDefaultSubRows, API_ENDPOINTS
 } from '../../constants/forecast.constants';
 import { SelectGroup } from '../../features/hierarchy-select/hierarchy-select.component';
+import { formatAmount } from '../../features/number-format/number-format.util';
 
 @Component({
   selector: 'app-forecast',
@@ -441,12 +442,12 @@ export class ForecastComponent {
   // ── Format helpers ─────────────────────────────────────────────────────────
   fmt(v: number | null | undefined): string {
     if (v === null || v === undefined || v === 0) return '';
-    return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(2);
+    return formatAmount(v, 2);
   }
 
   fmtTotal(v: number): string {
     if (!v) return '—';
-    return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(2);
+    return formatAmount(v, 2);
   }
 
   // ── TrackBy helpers to prevent focus loss & DOM recreation ─────────────────

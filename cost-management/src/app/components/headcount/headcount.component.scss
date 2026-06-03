@@ -747,7 +747,7 @@ tr.hc-row-last-sub td {
 .hc-value-cell {
   max-width: 56px;
 
-  input[type="number"] {
+  input[type="text"] {
     display: block;
     width: 100%;
     background: transparent;
@@ -775,7 +775,7 @@ tr.hc-row-last-sub td {
   }
 
   /* Present (1) cells get a clear, lit appearance */
-  &.hc-cell-on input[type="number"] {
+  &.hc-cell-on input[type="text"] {
     color: #38bdf8;
   }
 }
@@ -791,11 +791,11 @@ tr.hc-sub-other {
     opacity: 0.7;
   }
 
-  .hc-value-cell input[type="number"] {
+  .hc-value-cell input[type="text"] {
     color: #64748b;
   }
 
-  .hc-value-cell.hc-cell-on input[type="number"] {
+  .hc-value-cell.hc-cell-on input[type="text"] {
     color: #94a3b8;
   }
 }

@@ -113,17 +113,23 @@ greppable and prevent confusion when copying markup between them.
   right one, and `vals(sub)` / `scenarioLabel(sub.type)` follow it — so RFC3 of one year can
   be compared against Budget of any year. The **Budget year dropdown** sits next to the
   toggle (`.hc-compare-chip`, dims when the toggle is off).
-- Month cells are **binary** (1 = present, 0 = absent) — enforced via `normalizeBinary()`;
-  no fractional values (see Business Domain Rules → Headcount).
+- Month cells: the domain rule is **binary** (1 = present, 0 = absent), and the
+  `normalizeBinary()` method is still defined for that purpose, but the cell `<input>` no
+  longer calls it on `(change)` and the `max="1" step="1"` HTML attributes were removed —
+  so the UI currently accepts arbitrary non-negative numbers (`min="0"` stays). Totals
+  sum these as-is. The method is left as inactive code so the binary clamp can be
+  re-enabled with a single `(change)` binding if the rule is re-tightened.
 - The "other scenario" (Budget) row is revealed by the **Show Other Scenario** toggle, whose
   "on" tone is the green (`rgb(68,217,68)` + glow) borrowed from the invoice-upload switch.
-- **Per-row Comments column** (sticky right): no longer an inline input — it's a small
-  comment button + badge that opens an `<app-modal>` with 12 monthly textareas for the
-  current Scenario Year, mirroring Forecast. Saved in `localStorage` under
-  `headcount-row-comments` as `{ [rowId]: { [year]: string[12] } }`. The hardcoded
-  `row.comment` seed is preserved and shown as a truncated reference in the cell **and**
-  as a "Reference note" line at the top of the modal — never edited, never overwritten.
-  Switching the Scenario Year chip swaps the comment set the modal reads/writes.
+- **Per-row Comments column** (sticky right): a small comment-button + badge sits next to
+  a **"Click to add Comments"** text link; clicking either opens an `<app-modal>` with 12
+  monthly textareas for the current Scenario Year (mirrors Forecast). Saved in
+  `localStorage` under `headcount-row-comments` as `{ [rowId]: { [year]: string[12] } }`.
+  The hardcoded `row.comment` seed is **still in the model and mock data** (kept intact —
+  no behavior depends on it being absent), but it is **no longer rendered** in the cell or
+  inside the modal — the previous "Reference note" line at the top of the modal was
+  removed at the user's request. Switching the Scenario Year chip swaps the comment set
+  the modal reads/writes.
 - **Row reordering via detached drag rail** (visually separated from the data tables):
   the rail is its own bordered, scrolling container — a sibling of `.hc-tables-container`
   inside a `.hc-grid-with-rail` flex wrapper, separated by a 10px gap. Both containers
@@ -150,6 +156,96 @@ greppable and prevent confusion when copying markup between them.
   "+ Add New Row" button is right-aligned on its own toolbar row, and **Cancel / Save**
   live in a separate `.hc-table-actions` row directly below the table (not in the
   toolbar). Save Changes triggers persistence of the row order alongside the data POST.
+
+### Forecast specifics
+- **Filter chips use `<app-hierarchy-select>`** (the shared global hierarchical dropdown
+  — see "Global Form Components" below) instead of native `<select>`s. The Forecast
+  component declares four `SelectGroup[]` catalogues (`siteFilterGroups`,
+  `teamFilterGroups`, `accountFilterGroups`, `scenarioFilterGroups`) — values stored are
+  the same flat labels the rows compare against, so `filteredForecastRows` keeps working
+  unchanged. `DEFAULT_FILTERS` are all empty strings so the page opens with **no filter
+  applied — every row is visible** until the user picks something. The legacy
+  `.chip-arrow` span was removed from each chip (the hierarchy-select brings its own
+  chevron), and `.filter-chip` was made less round (`border-radius: 8px-10px`,
+  `min-width: 180px`) to better hold the dropdown. Inside `.filter-chip`, a scoped
+  `::ng-deep app-hierarchy-select` block strips the component's own background / border /
+  padding so its input sits flush in the chip — **scope is important**: the same
+  component on Invoice Upload still renders with its default boxed appearance.
+- **Actual rows are editable.** `SubRow.readOnly` is still set to `true` on every
+  `actual` / `recharge-actual` entry in the mock data, but the cell `<input>` no longer
+  binds `[disabled]="!!sub.readOnly"` — so every month cell, including Actual, accepts
+  input. The flag is intentionally preserved in the data so the API can re-enable the
+  lock for posted actuals later by re-introducing the binding.
+- **Row reordering via detached drag rail** — same pattern as Headcount but **simpler**:
+  Forecast has no internal vertical table scroll, so the rail and `.tables-container`
+  both live inside `.fc-grid-with-rail` (flex, 10px gap) and share the page's scroll
+  context. No `@ViewChild` scroll-sync is needed. Rail classes are `fc-`-prefixed
+  (`.fc-drag-rail-outer`, `.fc-drag-rail-table`, `.fc-drag-col`, `.fc-drag-handle`,
+  `.fc-row-drop-over`, `.fc-row-dragging`). Custom drag preview shows
+  *internalOrder · supplier · team*. Order is persisted to `localStorage` under
+  `forecast-row-order` in `saveChanges()`; `applySavedOrder()` runs in the constructor
+  and at the end of `cancelChanges()`. The data tables (`.left-table` / `.right-table`)
+  and their wraps are byte-for-byte unchanged.
+- **Drop direction rule (shared with Headcount)**: `onRowDrop` uses `splice(toIdx, 0,
+  moved)` (no `-1` adjustment). This makes a downward drag drop AFTER the target row and
+  an upward drag drop BEFORE — a previous version with `fromIdx < toIdx ? toIdx - 1 :
+  toIdx` collapsed adjacent downward drags into a no-op.
+
+---
+
+## Global Form Components
+
+### `<app-hierarchy-select>`
+`features/hierarchy-select/` — searchable dropdown with grouped options. Implements
+`ControlValueAccessor`, so it works with `[(ngModel)]`. Inputs:
+
+- `[groups]: SelectGroup[]` — `{ group: string; items: { value: string; label: string }[] }[]`
+  for local filtering. Or `[searchFn]: (q: string) => Observable<SelectGroup[]>` for async
+  (e.g., SAP Internal Order lookup).
+- `bindValue: 'label' | 'value'` — what to emit on select (default `'label'`).
+- `placeholder`, `disabled`, `minChars`.
+
+Notable behavior:
+- Dropdown uses `position: fixed` with dynamic coordinates so it escapes any scroll/overflow
+  ancestor (works inside scrollable containers without clipping).
+- An in-dropdown **"Clear selection"** row appears whenever a value is set, emitting `''`.
+
+Currently used on **Invoice Upload** (supplier, site, team, currency, account, internal
+order, recharge sites) and on **Forecast** filter chips. When embedding inside a styled
+host (like the Forecast chip), wrap the override in a parent class + `::ng-deep` so other
+usages aren't affected.
+
+---
+
+## Top Navigation (`features/top-nav/`)
+
+Always visible above each route. Holds:
+- Internal `<a routerLink>` items: Home, Invoice Upload, Forecast, Headcount.
+- Two **external `<a href>` items** to sister deployments:
+  - "Cost Management Dashboard" → `https://cost-center-theta.vercel.app/`
+  - "Admin Screens" → `https://cost-management-admin.vercel.app/`
+- Both use `target="_blank" rel="noopener noreferrer"`. No `routerLinkActive` on external
+  links (inert there). The same two links also appear as buttons in the home page's
+  `.dashboard-actions` row.
+
+The shared `.nav-item` rule has `text-decoration: none`, so `<a>`-flavored entries look
+identical to internal nav links.
+
+---
+
+## Vercel Deployment
+
+- `vercel.json` at the repo root uses the **modern config** (no legacy `builds`):
+  `installCommand` + `buildCommand` (`cd cost-management && npm run build`) +
+  `outputDirectory` (`cost-management/dist/cost-management`) + `framework: null` +
+  `rewrites` (SPA fallback). `rewrites` checks the filesystem first, then falls back to
+  `/index.html` for SPA routes — don't go back to the legacy `routes` form unless you
+  also add `{ "handle": "filesystem" }` first.
+- `engines.node` in `cost-management/package.json` is set to `"22.x"` (Vercel dropped
+  Node 16; Angular 14 builds fine on 22 with `>=16.10.0`). The **Volta pin and `.nvmrc`
+  stay at 16.20.2** for local development — only the cloud build runtime was bumped.
+- Project Settings in the Vercel dashboard should be left empty — `vercel.json`
+  overrides them when present.
 
 ---
 

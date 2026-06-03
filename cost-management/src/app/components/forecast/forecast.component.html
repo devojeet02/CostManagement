@@ -373,7 +373,9 @@
                   </td>
 
                   <td *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex" class="rc-month value-cell">
-                    <input type="number"
+                    <input type="text"
+                           inputmode="decimal"
+                           appNumberFormat
                            [(ngModel)]="sub.values[mi]"
                            name="val-{{row.id}}-{{sub.type}}-{{mi}}"
                            id="val-{{row.id}}-{{sub.type}}-{{mi}}"

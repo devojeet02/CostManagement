@@ -15,6 +15,7 @@ import { DatePickerComponent } from './features/date-picker/date-picker.componen
 import { HierarchySelectComponent } from './features/hierarchy-select/hierarchy-select.component';
 import { ModalComponent } from './features/modal/modal.component';
 import { SnackbarComponent } from './features/snackbar/snackbar.component';
+import { NumberFormatDirective } from './features/number-format/number-format.directive';
 
 @NgModule({
   declarations: [
@@ -29,7 +30,8 @@ import { SnackbarComponent } from './features/snackbar/snackbar.component';
     DatePickerComponent,
     HierarchySelectComponent,
     ModalComponent,
-    SnackbarComponent
+    SnackbarComponent,
+    NumberFormatDirective
   ],
   imports: [
     BrowserModule,

@@ -87,7 +87,7 @@
             </div>
             <div class="field-group">
               <label>Inv Amount <span class="required-star">*</span></label>
-              <input type="number" min="0" step="0.01" placeholder="0.00" [(ngModel)]="invAmount" />
+              <input type="text" inputmode="decimal" appNumberFormat placeholder="0.00" [(ngModel)]="invAmount" />
             </div>
 
             <div class="field-group toggle-field">
@@ -230,7 +230,7 @@
 
               <div class="field-group">
                 <label>Amount Inv Currency <span class="required-star">*</span></label>
-                <input type="number" min="0" step="0.01" placeholder="0.00" [(ngModel)]="item.amountCurrency" />
+                <input type="text" inputmode="decimal" appNumberFormat placeholder="0.00" [(ngModel)]="item.amountCurrency" />
               </div>
               <div class="field-group">
                 <label>Direct Recharge To</label>
@@ -365,7 +365,7 @@
                           </label>
                         </td>
                         <td class="cell-amount">
-                          <input type="number" min="0" step="0.01" class="recharge-cell-input"
+                          <input type="text" inputmode="decimal" appNumberFormat class="recharge-cell-input"
                             [class.recharge-derived]="alloc.mode === 'pct' && displayAmount(rline, alloc)"
                             [ngModel]="displayAmount(rline, alloc)"
                             (ngModelChange)="onAmountEntry(rline, alloc, $event)"

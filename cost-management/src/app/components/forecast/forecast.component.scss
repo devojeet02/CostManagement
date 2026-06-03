@@ -820,7 +820,7 @@ tr.row-last-sub td {
 .value-cell {
   max-width: 74px;
 
-  input[type="number"] {
+  input[type="text"] {
     display: block;
     width: 100%;
     background: transparent;
@@ -860,7 +860,7 @@ tr.sub-local .sub-label-text {
   color: #cbd5e1;
 }
 
-tr.sub-local .value-cell input[type="number"] {
+tr.sub-local .value-cell input[type="text"] {
   color: #cbd5e1;
 }
 
@@ -871,7 +871,7 @@ tr.sub-contract {
     opacity: 0.8;
   }
 
-  .value-cell input[type="number"] {
+  .value-cell input[type="text"] {
     color: #60a5fa;
     opacity: 0.8;
   }
@@ -902,7 +902,7 @@ tr.sub-actual .sub-label-text {
   color: #eab308;
 }
 
-tr.sub-actual .value-cell input[type="number"] {
+tr.sub-actual .value-cell input[type="text"] {
   color: #eab308;
   font-style: italic;
 
@@ -922,7 +922,7 @@ tr.sub-other-scenario {
     opacity: 0.6;
   }
 
-  .value-cell input[type="number"] {
+  .value-cell input[type="text"] {
     color: #94a3b8;
     opacity: 0.6;
   }
@@ -934,7 +934,7 @@ tr.sub-recharge .sub-label-text {
 }
 
 /* Elegant recharge green */
-tr.sub-recharge .value-cell input[type="number"] {
+tr.sub-recharge .value-cell input[type="text"] {
   color: #10b981;
 }
 

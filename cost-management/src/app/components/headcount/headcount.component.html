@@ -290,7 +290,9 @@
                   <td *ngFor="let val of vals(sub); let mi = index; trackBy: trackByIndex"
                       class="hc-month hc-value-cell"
                       [class.hc-cell-on]="vals(sub)[mi]">
-                    <input type="number"
+                    <input type="text"
+                           inputmode="decimal"
+                           appNumberFormat
                            min="0"
                            [(ngModel)]="sub.valuesByYear[yearFor(sub)][mi]"
                            name="hc-val-{{row.id}}-{{sub.type}}-{{yearFor(sub)}}-{{mi}}"
@@ -299,7 +301,7 @@
                            placeholder="0" />
                   </td>
 
-                  <td class="hc-total-col hc-row-total">{{ getRowTotal(vals(sub)) }}</td>
+                  <td class="hc-total-col hc-row-total">{{ fmtCount(getRowTotal(vals(sub))) }}</td>
 
                   <td class="hc-comments hc-comment-cell">
                     <div *ngIf="si === 0" class="hc-comment-cell-inner">
