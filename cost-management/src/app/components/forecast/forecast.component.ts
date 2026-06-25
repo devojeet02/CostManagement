@@ -21,7 +21,7 @@ export class ForecastComponent {
 
   isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
 
-  @HostListener('window:resize', ['$event'])
+  @HostListener('window:resize')
   onResize(): void {
     this.isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
   }
@@ -459,7 +459,7 @@ export class ForecastComponent {
     return sub.type;
   }
 
-  trackByIndex(index: number): number {
+  trackByIndex(index: number, item: any): any {
     return index;
   }
 }

@@ -47,7 +47,13 @@
             </div>
             <div class="field-group">
               <label>PAR <span class="required-star">*</span></label>
+              <!-- OLD: plain free-text PAR input (kept commented out per new requirement)
               <input type="text" placeholder="PAR" [(ngModel)]="par" />
+              -->
+              <!-- NEW: typable/searchable PAR with dummy data for auto-population -->
+              <app-hierarchy-select [(ngModel)]="par" [groups]="parGroups" bindValue="value"
+                placeholder="Search or type PAR…">
+              </app-hierarchy-select>
             </div>
             <div class="field-group">
               <label>PO <span class="required-star">*</span></label>

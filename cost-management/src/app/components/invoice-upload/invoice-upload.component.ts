@@ -85,6 +85,43 @@ export class InvoiceUploadComponent implements OnDestroy {
     }
   ];
 
+  /**
+   * NEW REQUIREMENT: PAR is now a typable/searchable hierarchy-select with dummy data
+   * so it can be auto-populated from existing Purchase Approval Requests.
+   * The value selected/typed is written back into `par` (so the existing PAR validation
+   * keeps working unchanged). The old free-text input is commented out in the template.
+   */
+  parGroups: SelectGroup[] = [
+    {
+      group: 'Infrastructure',
+      items: [
+        { value: 'PAR-2026-0001', label: 'PAR-2026-0001 — Cloud Hosting' },
+        { value: 'PAR-2026-0002', label: 'PAR-2026-0002 — Network Refresh' },
+        { value: 'PAR-2026-0003', label: 'PAR-2026-0003 — Data Centre' }
+      ]
+    },
+    {
+      group: 'Applications',
+      items: [
+        { value: 'PAR-2026-0101', label: 'PAR-2026-0101 — ERP Licensing' },
+        { value: 'PAR-2026-0102', label: 'PAR-2026-0102 — SaaS Subscriptions' }
+      ]
+    },
+    {
+      group: 'Governance & Vendor',
+      items: [
+        { value: 'PAR-2026-0201', label: 'PAR-2026-0201 — Audit Services' },
+        { value: 'PAR-2026-0202', label: 'PAR-2026-0202 — Vendor Management' }
+      ]
+    },
+    {
+      group: 'Model & Processes',
+      items: [
+        { value: 'PAR-2026-0301', label: 'PAR-2026-0301 — Process Consultancy' }
+      ]
+    }
+  ];
+
   selectedCurrency = '';
 
   currencyGroups: SelectGroup[] = [
