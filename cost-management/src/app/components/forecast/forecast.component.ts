@@ -1,6 +1,7 @@
 import { Component, HostListener } from '@angular/core';
 import {
   MONTHS, SITES, TEAMS, TYPES, CATEGORIES, SUPPLIERS, CURRENCIES, ACCOUNTS, SCENARIOS,
+  SPEND_TYPES, SPEND_LAYERS, SYSTEMS,
   DEFAULT_FILTERS, DEFAULT_TOGGLES,
   ForecastRow, ForecastFilters, ForecastToggles, SubRow, SubRowType,
   MOCK_FORECAST_ROWS, buildDefaultSubRows, API_ENDPOINTS
@@ -33,6 +34,9 @@ export class ForecastComponent {
   readonly types        = TYPES;
   readonly categories   = CATEGORIES;
   readonly suppliers    = SUPPLIERS;
+  readonly spendTypes   = SPEND_TYPES;
+  readonly spendLayers  = SPEND_LAYERS;
+  readonly systems      = SYSTEMS;
   readonly currencies   = CURRENCIES;
   readonly accounts     = ACCOUNTS;
   readonly scenarios    = SCENARIOS;
@@ -148,6 +152,7 @@ export class ForecastComponent {
     const t: SubRowType[] = ['local'];
     if (this.toggles.showSourceCurrency) t.push('contract');
     if (this.toggles.showActual)         t.push('actual');
+    if (this.toggles.showActual && this.toggles.showSourceCurrency) t.push('contract-actual');
     if (this.toggles.showOtherScenario)  t.push('other-scenario');
     return t;
   }
@@ -169,6 +174,9 @@ export class ForecastComponent {
     return row.subRows.filter(s => {
       if (s.type === 'contract') {
         return row.differentCurrency && this.toggles.showSourceCurrency;
+      }
+      if (s.type === 'contract-actual') {
+        return row.differentCurrency && this.toggles.showSourceCurrency && this.toggles.showActual;
       }
       if (s.type === 'local') {
         return true;
@@ -197,6 +205,8 @@ export class ForecastComponent {
       if (type === 'recharge' && !row.rechargeRequired) return t;
       // For contract, only sum if row has differentCurrency
       if (type === 'contract' && !row.differentCurrency) return t;
+      // For contract actuals, only sum if row has differentCurrency
+      if (type === 'contract-actual' && !row.differentCurrency) return t;
 
       const sub = row.subRows.find(s => s.type === type);
       return t + (sub ? (sub.values[mi] ?? 0) : 0);
@@ -210,8 +220,9 @@ export class ForecastComponent {
   getTypeLabel(type: SubRowType): string {
     switch (type) {
       case 'local':                   return 'Forecast';
-      case 'contract':                return 'Contract Currency';
+      case 'contract':                return 'Forecasted in Contract Currency';
       case 'actual':                  return 'Actual';
+      case 'contract-actual':         return 'Actual in Contract Currency';
       case 'other-scenario':          return 'Other Scenario';
       case 'recharge':                return 'Forecast';
       case 'recharge-actual':         return 'Actual';
@@ -230,6 +241,10 @@ export class ForecastComponent {
     this.forecastRows.push({
       id:               Date.now(),
       internalOrder:    '',
+      par:              '',
+      spendType:        '',
+      spendLayer:       '',
+      system:           '',
       team:             '',
       type:             'OPEX',
       category:         '',

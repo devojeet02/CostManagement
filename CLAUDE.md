@@ -222,7 +222,7 @@ usages aren't affected.
 Always visible above each route. Holds:
 - Internal `<a routerLink>` items: Home, Invoice Upload, Forecast, Headcount.
 - Two **external `<a href>` items** to sister deployments:
-  - "Cost Management Dashboard" → `https://cost-center-theta.vercel.app/`
+  - "Scenario Management" → `https://cost-center-theta.vercel.app/`
   - "Admin Screens" → `https://cost-management-admin.vercel.app/`
 - Both use `target="_blank" rel="noopener noreferrer"`. No `routerLinkActive` on external
   links (inert there). The same two links also appear as buttons in the home page's

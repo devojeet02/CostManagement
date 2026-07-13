@@ -504,7 +504,8 @@ tr.fc-row-drop-over td.fc-drag-col {
   position: sticky;
   left: 0;
   z-index: 10;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  /* Cyan accent divider between the left and right tables (visual only). */
+  border-right: 2px solid #22d3ee;
   box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.2);
 }
 
@@ -526,6 +527,31 @@ tr.fc-row-drop-over td.fc-drag-col {
 .lc-io {
   width: 104px;
   min-width: 104px;
+}
+
+.lc-par {
+  width: 84px;
+  min-width: 84px;
+}
+
+.lc-spendtype {
+  width: 100px;
+  min-width: 100px;
+}
+
+.lc-spendlayer {
+  width: 110px;
+  min-width: 110px;
+}
+
+.lc-system {
+  width: 104px;
+  min-width: 104px;
+}
+
+.lc-desc {
+  width: 150px;
+  min-width: 150px;
 }
 
 .lc-team {
@@ -634,6 +660,22 @@ tbody tr {
   height: 34px;
 }
 
+/* Pin EVERY sub-row cell to an exact height in both tables. `height` on the
+   row alone is only a minimum, so cells holding a <select>, a value <input>,
+   or nothing at all (the left table's empty spacer cells) resolve to slightly
+   different heights and the two tables drift apart row-by-row — most visibly
+   on the LAST spacer row of each block and at the totals footer. Fixing the
+   cell height (border-box folds the separators in) forces both tables to the
+   same rhythm. The final sub-row is 34px + its 6px block-gap border = 40px. */
+tbody tr td {
+  height: 34px;
+  box-sizing: border-box;
+}
+
+tbody tr.row-last-sub td {
+  height: 40px;
+}
+
 tr.row-even.row-hovered td {
   background-color: #162137 !important;
   /* Solid opaque hover highlight for even rows */
@@ -684,6 +726,12 @@ tr.row-last-sub td {
   select {
     width: 100%;
     min-width: 0;
+    /* Fixed height + border-box so a <select> (taller intrinsic size) can't
+       make the left identity row grow past the right table's value rows.
+       This keeps both tables at an identical 34px row height so they don't
+       drift apart row-by-row. */
+    height: 24px;
+    box-sizing: border-box;
     background: transparent;
     border: 1px solid transparent;
     color: #cbd5e1;
@@ -823,6 +871,10 @@ tr.row-last-sub td {
   input[type="text"] {
     display: block;
     width: 100%;
+    /* Match the left table's identity inputs exactly (see .id-cell) so both
+       tables keep the same 34px row height and stay row-for-row aligned. */
+    height: 24px;
+    box-sizing: border-box;
     background: transparent;
     border: 1px solid transparent;
     color: #94a3b8;
@@ -1217,6 +1269,93 @@ tfoot tr.total-recharge-group.total-block-first td {
 
 .hide-mobile {
   display: inline-block;
+}
+
+/* ─── Constrained-width split (laptops/tablets ≤ 1600px) ───────
+   The full identity table is ~1270px wide, so on anything narrower than a
+   large desktop the left table eats the whole viewport. Below 1600px we
+   split the two tables 50/50, give each its OWN horizontal scrollbar, and
+   freeze each one's first column — Internal Order on the left, Description
+   on the right. Wider desktops keep the original single shared scroll with
+   the whole left table frozen. Everything here is layout-only; no data or
+   behaviour changes. */
+@media (max-width: 1600px) {
+  /* Hide the detached drag-reorder rail — it eats horizontal space and
+     HTML5 drag isn't usable on touch anyway. Reorder stays on wide desktop. */
+  .fc-drag-rail-outer {
+    display: none !important;
+  }
+
+  /* Drop the single shared horizontal scroll; each pane scrolls itself.
+     `stretch` forces both panes to the same height so their bottom edges
+     (and the horizontal scrollbars beneath them) line up seamlessly —
+     `flex-start` would top-align them and expose any height difference at
+     the bottom. */
+  .tables-container {
+    overflow-x: hidden !important;
+    align-items: stretch !important;
+  }
+
+  /* 50 / 50 panes, each independently scrollable. `scroll` (not `auto`) so
+     both panes always reserve an identical scrollbar strip at the bottom,
+     keeping the two tables aligned even if one happens to fit. */
+  .left-table-wrap,
+  .right-table-wrap {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    overflow-x: scroll !important;
+  }
+
+  .left-table-wrap {
+    left: auto !important;
+    z-index: 5 !important;
+    box-shadow: none !important;
+    border-right: none !important;
+  }
+
+  .right-table-wrap {
+    /* Cyan accent divider between the two panes (visual only). */
+    border-left: 2px solid #22d3ee !important;
+  }
+
+  .left-table-wrap::-webkit-scrollbar,
+  .right-table-wrap::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .left-table-wrap::-webkit-scrollbar-thumb,
+  .right-table-wrap::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+  }
+
+  /* Freeze Internal Order (first left column). */
+  th.lc-io,
+  td.lc-io {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 6 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  /* Freeze Description (first right column). Row/header/footer cells are
+     already opaque, so scrolling month cells pass cleanly underneath. */
+  th.rc-label,
+  td.rc-label {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 6 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  th.lc-io,
+  th.rc-label {
+    background-color: #0b0f19 !important;
+  }
 }
 
 /* ─── Mobile Media Queries (max-width: 768px) ───────────────── */

@@ -180,7 +180,7 @@
               <!-- TOTAL [Account] block — one placeholder row per visible type. -->
               <tr *ngFor="let type of totalBlockTypes; let ti = index; trackBy: trackByIndex" class="total-row"
                 [class.total-block-first]="ti === 0" [class.total-actual]="type === 'actual'"
-                [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract'">
+                [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract' || type === 'contract-actual'">
                 <td class="fc-drag-col">&nbsp;</td>
               </tr>
               <!-- TOTAL RECHARGE [Account] block. -->
@@ -202,10 +202,15 @@
               <thead>
                 <tr class="thead-cols">
                   <th class="lc-io">Internal Order</th>
+                  <th class="lc-par">PAR</th>
+                  <th class="lc-spendtype">Spend Type</th>
+                  <th class="lc-spendlayer">Spend Layer</th>
+                  <th class="lc-cat">Category</th>
+                  <th class="lc-system">System</th>
                   <th class="lc-team">Team</th>
                   <th class="lc-type">Type</th>
-                  <th class="lc-cat">Category</th>
                   <th class="lc-sup">Supplier</th>
+                  <th class="lc-desc">Item Desc</th>
                   <th class="lc-diff">Diff Curr</th>
                   <th class="lc-rch">Recharge</th>
                   <th class="lc-curr">Curr</th>
@@ -226,6 +231,38 @@
                         <input type="text" [(ngModel)]="row.internalOrder" name="io-{{row.id}}" id="io-{{row.id}}"
                           autocomplete="new-password" placeholder="IO-" />
                       </td>
+                      <td class="lc-par id-cell">
+                        <input type="text" [(ngModel)]="row.par" name="par-{{row.id}}" id="par-{{row.id}}"
+                          autocomplete="new-password" placeholder="PAR-" />
+                      </td>
+                      <td class="lc-spendtype id-cell">
+                        <select [(ngModel)]="row.spendType" name="spendtype-{{row.id}}" id="spendtype-{{row.id}}"
+                          autocomplete="new-password">
+                          <option value="">—</option>
+                          <option *ngFor="let st of spendTypes; trackBy: trackByIndex" [value]="st">{{ st }}</option>
+                        </select>
+                      </td>
+                      <td class="lc-spendlayer id-cell">
+                        <select [(ngModel)]="row.spendLayer" name="spendlayer-{{row.id}}" id="spendlayer-{{row.id}}"
+                          autocomplete="new-password">
+                          <option value="">—</option>
+                          <option *ngFor="let sl of spendLayers; trackBy: trackByIndex" [value]="sl">{{ sl }}</option>
+                        </select>
+                      </td>
+                      <td class="lc-cat id-cell">
+                        <select [(ngModel)]="row.category" name="cat-{{row.id}}" id="cat-{{row.id}}"
+                          autocomplete="new-password">
+                          <option value="">—</option>
+                          <option *ngFor="let c of categories; trackBy: trackByIndex" [value]="c">{{ c }}</option>
+                        </select>
+                      </td>
+                      <td class="lc-system id-cell">
+                        <select [(ngModel)]="row.system" name="system-{{row.id}}" id="system-{{row.id}}"
+                          autocomplete="new-password">
+                          <option value="">—</option>
+                          <option *ngFor="let sy of systems; trackBy: trackByIndex" [value]="sy">{{ sy }}</option>
+                        </select>
+                      </td>
                       <td class="lc-team id-cell">
                         <select [(ngModel)]="row.team" name="team-{{row.id}}" id="team-{{row.id}}"
                           autocomplete="new-password">
@@ -240,19 +277,16 @@
                           <option *ngFor="let ty of types; trackBy: trackByIndex" [value]="ty">{{ ty }}</option>
                         </select>
                       </td>
-                      <td class="lc-cat id-cell">
-                        <select [(ngModel)]="row.category" name="cat-{{row.id}}" id="cat-{{row.id}}"
-                          autocomplete="new-password">
-                          <option value="">—</option>
-                          <option *ngFor="let c of categories; trackBy: trackByIndex" [value]="c">{{ c }}</option>
-                        </select>
-                      </td>
                       <td class="lc-sup id-cell">
                         <select [(ngModel)]="row.supplier" name="sup-{{row.id}}" id="sup-{{row.id}}"
                           autocomplete="new-password">
                           <option value="">—</option>
                           <option *ngFor="let s of suppliers; trackBy: trackByIndex" [value]="s">{{ s }}</option>
                         </select>
+                      </td>
+                      <td class="lc-desc id-cell">
+                        <input type="text" [(ngModel)]="row.description" name="desc-{{row.id}}" id="desc-{{row.id}}"
+                          autocomplete="new-password" placeholder="Item description" />
                       </td>
                       <td class="lc-diff id-cell cell-checkbox">
                         <input type="checkbox" [(ngModel)]="row.differentCurrency" name="diff-{{row.id}}"
@@ -285,10 +319,15 @@
                     <!-- Sub-rows 2+: empty cells to maintain row height -->
                     <ng-container *ngIf="si > 0">
                       <td class="lc-io sub-empty"></td>
+                      <td class="lc-par sub-empty"></td>
+                      <td class="lc-spendtype sub-empty"></td>
+                      <td class="lc-spendlayer sub-empty"></td>
+                      <td class="lc-cat sub-empty"></td>
+                      <td class="lc-system sub-empty"></td>
                       <td class="lc-team sub-empty"></td>
                       <td class="lc-type sub-empty"></td>
-                      <td class="lc-cat sub-empty"></td>
                       <td class="lc-sup sub-empty"></td>
+                      <td class="lc-desc sub-empty"></td>
                       <td class="lc-diff sub-empty"></td>
                       <td class="lc-rch sub-empty"></td>
                       <td class="lc-curr sub-empty"></td>
@@ -302,8 +341,8 @@
                 <!-- ── TOTAL [Account] block ── -->
                 <tr *ngFor="let type of totalBlockTypes; let ti = index; trackBy: trackByIndex" class="total-row"
                   [class.total-block-first]="ti === 0" [class.total-actual]="type === 'actual'"
-                  [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract'">
-                  <td [attr.colspan]="isMobileView ? 1 : 8" class="total-label lc-io">
+                  [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract' || type === 'contract-actual'">
+                  <td [attr.colspan]="isMobileView ? 1 : 13" class="total-label lc-io">
                     <ng-container *ngIf="ti === 0">
                       <span class="total-block-tag hide-mobile">TOTAL [Account]</span>
                       <span class="total-block-tag mobile-only-total">TOTAL</span>
@@ -312,7 +351,7 @@
                       <span class="hide-mobile">GBP&nbsp;&nbsp;</span>{{ getTypeLabel(type) }}
                     </span>
                   </td>
-                  <td [attr.colspan]="isMobileView ? 8 : 1"></td>
+                  <td [attr.colspan]="isMobileView ? 13 : 1"></td>
                 </tr>
 
                 <!-- ── TOTAL RECHARGE [Account] block ── -->
@@ -320,7 +359,7 @@
                   class="total-row total-recharge-group" [class.total-block-first]="ri === 0"
                   [class.total-actual]="type === 'recharge-actual'"
                   [class.total-scenario]="type === 'recharge-other-scenario'">
-                  <td [attr.colspan]="isMobileView ? 1 : 8" class="total-label lc-io">
+                  <td [attr.colspan]="isMobileView ? 1 : 13" class="total-label lc-io">
                     <ng-container *ngIf="ri === 0">
                       <span class="total-block-tag hide-mobile">TOTAL RECHARGE [Account]</span>
                       <span class="total-block-tag mobile-only-total">RECHARGE</span>
@@ -329,7 +368,7 @@
                       <span class="hide-mobile">GBP&nbsp;&nbsp;</span>{{ getTypeLabel(type) }}
                     </span>
                   </td>
-                  <td [attr.colspan]="isMobileView ? 8 : 1"></td>
+                  <td [attr.colspan]="isMobileView ? 13 : 1"></td>
                 </tr>
               </tfoot>
             </table>
@@ -352,7 +391,7 @@
                     (mouseenter)="row.isHovered = true" (mouseleave)="row.isHovered = false"
                     [class.row-hovered]="row.isHovered" [class.row-first]="si === 0" [class.row-last-sub]="last"
                     [class.row-even]="ri % 2 === 0" [class.row-odd]="ri % 2 !== 0"
-                    [class.sub-local]="sub.type === 'local'" [class.sub-contract]="sub.type === 'contract'"
+                    [class.sub-local]="sub.type === 'local'" [class.sub-contract]="sub.type === 'contract' || sub.type === 'contract-actual'"
                     [class.sub-actual]="sub.type === 'actual'"
                     [class.sub-other-scenario]="sub.type === 'other-scenario'"
                     [class.sub-recharge]="sub.type === 'recharge'"
@@ -390,7 +429,7 @@
                 <!-- ── TOTAL [Account] block ── -->
                 <tr *ngFor="let type of totalBlockTypes; let ti = index; trackBy: trackByIndex" class="total-row"
                   [class.total-block-first]="ti === 0" [class.total-actual]="type === 'actual'"
-                  [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract'">
+                  [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract' || type === 'contract-actual'">
                   <td class="rc-label total-label">{{ getTypeLabel(type) }}</td>
                   <td *ngFor="let m of months; let mi = index; trackBy: trackByIndex" class="rc-month total-val">
                     {{ fmtTotal(getTypeColTotal(type, mi)) }}
