@@ -1,0 +1,262 @@
+<div class="scenario-page">
+
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Scenario Management</h2>
+      <p class="page-subtitle">Prepare reporting forecast scenarios and compare them against Actuals</p>
+    </div>
+  </div>
+
+  <!-- ── Control bar ── -->
+  <div class="control-bar">
+    <div class="filter-group">
+      <div class="filter-item">
+        <label for="site-selector">Site</label>
+        <select id="site-selector" class="form-select" [(ngModel)]="selectedSite" (ngModelChange)="onFilterChange()">
+          <option *ngFor="let site of sites" [value]="site">{{ site }}</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label for="team-selector">Team</label>
+        <select id="team-selector" class="form-select" [(ngModel)]="selectedTeam" (ngModelChange)="onFilterChange()">
+          <option *ngFor="let team of teams" [value]="team">{{ team }}</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-add-scenario" (click)="openAddScenario()">
+      <span class="btn-icon">&#43;</span> Prepare Scenario
+    </button>
+  </div>
+
+  <!-- ── Split grid ── -->
+  <div class="table-outer-wrapper">
+    <div class="table-scroll-container">
+      <div class="grid-split-container">
+
+        <!-- Left fixed pane: metadata columns -->
+        <div class="metadata-pane" #metadataPane>
+          <table class="cost-table metadata-table">
+            <thead>
+              <tr class="header-super">
+                <th class="super-header-cell super-header-title" colspan="8">Cost Center Metadata</th>
+              </tr>
+              <tr class="header-sub">
+                <th class="col-1">Account</th>
+                <th class="col-2">Spend Type</th>
+                <th class="col-3">Spend Layer</th>
+                <th class="col-4">Category</th>
+                <th class="col-5">System</th>
+                <th class="col-6">Supplier</th>
+                <th class="col-7">Internal Order</th>
+                <th class="col-8">Item Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredCostRows">
+                <tr class="parent-row"
+                    [class.row-hovered]="hoveredRowId === row.id"
+                    (mouseenter)="hoveredRowId = row.id"
+                    (mouseleave)="hoveredRowId = null">
+                  <td class="col-1 font-bold">{{ row.account }}</td>
+                  <td class="col-2"></td>
+                  <td class="col-3"></td>
+                  <td class="col-4"></td>
+                  <td class="col-5"></td>
+                  <td class="col-6"></td>
+                  <td class="col-7"></td>
+                  <td class="col-8"></td>
+                </tr>
+                <ng-container *ngIf="row.isExpandable">
+                  <tr *ngFor="let child of row.children"
+                      class="child-row"
+                      [class.row-hovered]="hoveredRowId === child.id"
+                      (mouseenter)="hoveredRowId = child.id"
+                      (mouseleave)="hoveredRowId = null">
+                    <td class="col-1 child-row-indent"></td>
+                    <td class="col-2">{{ child.spendType }}</td>
+                    <td class="col-3">{{ child.spendLayer }}</td>
+                    <td class="col-4">{{ child.category }}</td>
+                    <td class="col-5">{{ child.system }}</td>
+                    <td class="col-6">{{ child.supplier }}</td>
+                    <td class="col-7">{{ child.internalOrder }}</td>
+                    <td class="col-8 truncate-text" [title]="child.itemDescription || ''">{{ child.itemDescription }}</td>
+                  </tr>
+                </ng-container>
+              </ng-container>
+              <tr *ngIf="filteredCostRows.length === 0" class="no-rows-row">
+                <td colspan="8" class="no-rows-cell">No cost center data matching current filters</td>
+              </tr>
+              <tr class="spacer-row"><td colspan="8"></td></tr>
+            </tbody>
+            <tfoot>
+              <tr class="total-row font-bold"
+                  [class.row-hovered]="hoveredRowId === 'TOTAL'"
+                  (mouseenter)="hoveredRowId = 'TOTAL'"
+                  (mouseleave)="hoveredRowId = null">
+                <td class="col-1">TOTAL</td>
+                <td class="col-2"></td>
+                <td class="col-3"></td>
+                <td class="col-4"></td>
+                <td class="col-5"></td>
+                <td class="col-6"></td>
+                <td class="col-7"></td>
+                <td class="col-8"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Right scrollable pane: scenario + variance columns -->
+        <div class="scenarios-pane" #scenariosPane>
+          <table class="cost-table scenarios-table">
+            <thead>
+              <tr class="header-super">
+                <th [attr.colspan]="scenarios.length" class="scenarios-header-span">Forecast / Actual Scenarios</th>
+                <th [attr.colspan]="varianceCols.length" class="variance-header-span">Variance</th>
+              </tr>
+              <tr class="header-sub">
+                <th *ngFor="let scenario of scenarios; let i = index"
+                    class="scenario-header-cell"
+                    draggable="true"
+                    (dragstart)="onDragStart($event, i)"
+                    (dragover)="onDragOver($event, i)"
+                    (drop)="onDrop($event, i)"
+                    (dragend)="onDragEnd()"
+                    [class.dragging]="draggedColIndex === i"
+                    [class.drag-over-left]="dragOverColIndex === i && draggedColIndex !== null && draggedColIndex > i"
+                    [class.drag-over-right]="dragOverColIndex === i && draggedColIndex !== null && draggedColIndex < i">
+                  <div class="header-drag-content">
+                    <div class="drag-indicator">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                        <path d="M8.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm0 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm0 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM15.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm0 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm0 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+                      </svg>
+                    </div>
+                    <div class="title-meta">
+                      <span class="scenario-type">
+                        {{ scenario.code }}
+                        <svg *ngIf="scenario.locked" class="lock-icon" title="Read-only reporting scenario" viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                          <path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 1 1 6 0v3z"/>
+                        </svg>
+                      </span>
+                      <span class="scenario-year">{{ scenario.year }}</span>
+                    </div>
+                  </div>
+                </th>
+                <th *ngFor="let vCol of varianceCols" class="variance-header-cell">
+                  <div class="variance-header-content">
+                    <span class="variance-title">Variance</span>
+                    <span class="variance-formula">{{ vCol.label }}</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredCostRows">
+                <tr class="parent-row"
+                    [class.row-hovered]="hoveredRowId === row.id"
+                    (mouseenter)="hoveredRowId = row.id"
+                    (mouseleave)="hoveredRowId = null">
+                  <td *ngFor="let scenario of scenarios" class="number-cell font-bold parent-value-cell">
+                    {{ getRowValue(row, scenario.id) / 1000 | number:'1.0-0' }}k
+                  </td>
+                  <td *ngFor="let vCol of varianceCols" class="variance-cell parent-value-cell">
+                    <div class="variance-badge-wrapper">
+                      <span [class]="getVarianceBadgeClass(row, vCol)">{{ getFormattedVariance(row, vCol) }}</span>
+                    </div>
+                  </td>
+                </tr>
+                <ng-container *ngIf="row.isExpandable">
+                  <tr *ngFor="let child of row.children"
+                      class="child-row"
+                      [class.row-hovered]="hoveredRowId === child.id"
+                      (mouseenter)="hoveredRowId = child.id"
+                      (mouseleave)="hoveredRowId = null">
+                    <td *ngFor="let scenario of scenarios" class="number-cell">
+                      {{ getRowValue(child, scenario.id) / 1000 | number:'1.0-0' }}k
+                    </td>
+                    <td *ngFor="let vCol of varianceCols" class="variance-cell">
+                      <div class="variance-badge-wrapper">
+                        <span [class]="getVarianceBadgeClass(child, vCol)">{{ getFormattedVariance(child, vCol) }}</span>
+                      </div>
+                    </td>
+                  </tr>
+                </ng-container>
+              </ng-container>
+              <tr *ngIf="filteredCostRows.length === 0" class="no-rows-row">
+                <td [attr.colspan]="scenarios.length + varianceCols.length" class="no-rows-cell">No rows to show</td>
+              </tr>
+              <tr class="spacer-row"><td [attr.colspan]="scenarios.length + varianceCols.length"></td></tr>
+            </tbody>
+            <tfoot>
+              <tr class="total-row font-bold"
+                  [class.row-hovered]="hoveredRowId === 'TOTAL'"
+                  (mouseenter)="hoveredRowId = 'TOTAL'"
+                  (mouseleave)="hoveredRowId = null">
+                <td *ngFor="let scenario of scenarios" class="number-cell total-val">
+                  {{ getColumnTotal(scenario.id) / 1000 | number:'1.0-0' }}k
+                </td>
+                <td *ngFor="let vCol of varianceCols" class="variance-cell total-val">
+                  <div class="variance-badge-wrapper">
+                    <span [class]="getVarianceTotalBadgeClass(vCol)">{{ getFormattedVarianceTotal(vCol) }}</span>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Prepare Scenario modal (RFP §8.1) ── -->
+<div class="modal-overlay" *ngIf="showAddScenarioModal" (click)="closeAddScenario()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Prepare Reporting Scenario</h3>
+      <button class="close-btn" (click)="closeAddScenario()">&#10005;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">Scenario Code</label>
+        <input type="text" class="field-input" [(ngModel)]="newScenarioCode" placeholder="e.g. RFC2" />
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Scenario Type</label>
+        <input type="text" class="field-input" [(ngModel)]="newScenarioType" placeholder="e.g. Forecast, Budget, Actual" />
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Year</label>
+        <select class="field-input" [(ngModel)]="newScenarioYear">
+          <option *ngFor="let yr of years" [value]="yr">{{ yr }}</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Copy forecast entries from</label>
+        <select class="field-input" [(ngModel)]="copyFromScenarioId">
+          <option value="">— Start blank —</option>
+          <option *ngFor="let s of scenarios" [value]="s.code">{{ s.displayName }}</option>
+        </select>
+      </div>
+
+      <span class="field-hint">
+        Per §8.1, "Prepare Scenario" copies every forecast entry (keys and monthly values)
+        from the selected scenario into the new one. Leave blank to start empty.
+      </span>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddScenario()">Cancel</button>
+      <button class="btn-save" [disabled]="isSavingScenario" (click)="addScenario()">
+        {{ isSavingScenario ? 'Creating…' : 'Create Scenario' }}
+      </button>
+    </div>
+  </div>
+</div>

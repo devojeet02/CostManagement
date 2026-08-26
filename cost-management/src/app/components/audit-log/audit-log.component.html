@@ -1,0 +1,106 @@
+<div class="generaladminsection-page">
+
+  <div class="scroll-area">
+
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2 class="page-title">Audit Log</h2>
+        <p class="page-subtitle">System-wide, read-only record of create/update/delete actions across Invoice, Forecast, Headcount, Period and Master Data. Entries older than 1 year are purged automatically.</p>
+      </div>
+    </div>
+
+    <!-- ── Filter bar (AC #2: date range, user, action type, module) ── -->
+    <div class="filter-bar">
+      <div class="field-group">
+        <label class="field-label" for="from-date">From</label>
+        <input id="from-date" class="field-input" type="date" [(ngModel)]="fromDate" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="to-date">To</label>
+        <input id="to-date" class="field-input" type="date" [(ngModel)]="toDate" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="user-select">User</label>
+        <select id="user-select" class="field-input" [(ngModel)]="selectedUser">
+          <option value="">All Users</option>
+          <option *ngFor="let u of filterOptions.users" [value]="u">{{ u }}</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="action-select">Action Type</label>
+        <select id="action-select" class="field-input" [(ngModel)]="selectedActionType">
+          <option value="">All Actions</option>
+          <option *ngFor="let a of filterOptions.actionTypes" [value]="a">{{ a }}</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="module-select">Module</label>
+        <select id="module-select" class="field-input" [(ngModel)]="selectedModule">
+          <option value="">All Modules</option>
+          <option *ngFor="let m of filterOptions.modules" [value]="m">{{ m }}</option>
+        </select>
+      </div>
+      <div class="field-group filter-actions">
+        <button class="btn-apply" (click)="applyFilters()">Apply</button>
+        <button class="btn-clear" (click)="clearFilters()">Clear</button>
+      </div>
+    </div>
+
+    <!-- ── Read-only log grid (AC #3, #4, #5) ── -->
+    <div class="section-card">
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th class="col-timestamp">Timestamp</th>
+              <th>User</th>
+              <th>Action</th>
+              <th>Module</th>
+              <th>Record Affected</th>
+              <th>Old Value</th>
+              <th>New Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of rows">
+              <td class="cell-timestamp">{{ row.timestamp | date:'yyyy-MM-dd HH:mm:ss' }}</td>
+              <td>{{ row.user }}</td>
+              <td>
+                <span class="action-badge"
+                      [class.action-create]="row.actionType === 'Create'"
+                      [class.action-update]="row.actionType === 'Update'"
+                      [class.action-delete]="row.actionType === 'Delete'">
+                  {{ row.actionType }}
+                </span>
+              </td>
+              <td>{{ row.module }}</td>
+              <td class="cell-record">{{ row.recordAffected }}</td>
+              <td class="cell-value" [title]="row.oldValue">{{ row.oldValue || '—' }}</td>
+              <td class="cell-value" [title]="row.newValue">{{ row.newValue || '—' }}</td>
+            </tr>
+            <tr *ngIf="!isLoading && rows.length === 0">
+              <td colspan="7" class="empty-cell">No audit log entries match the current filters.</td>
+            </tr>
+            <tr *ngIf="isLoading">
+              <td colspan="7" class="empty-cell">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Pagination ── -->
+      <div class="pagination-bar" *ngIf="total > 0">
+        <span class="pagination-summary">
+          Showing {{ (page - 1) * pageSize + 1 }}–{{ (page - 1) * pageSize + rows.length }} of {{ total }}
+        </span>
+        <div class="pagination-controls">
+          <button class="page-btn" [disabled]="page <= 1" (click)="goToPage(page - 1)">Prev</button>
+          <span class="page-indicator">Page {{ page }} of {{ totalPages }}</span>
+          <button class="page-btn" [disabled]="page >= totalPages" (click)="goToPage(page + 1)">Next</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /scroll-area -->
+
+</div>

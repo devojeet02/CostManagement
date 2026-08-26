@@ -1,0 +1,227 @@
+<!--
+  Budget Planner — sets the whole year's budget for the BUD scenario.
+  NOTE: the <section> element is avoided throughout. The global stylesheet has
+  `section { background-color: #f8f9fa !important }`, which silently whitens any card.
+-->
+<div class="budget-planner">
+
+  <header class="planner-header">
+    <div>
+      <h2>Budget Planner</h2>
+      <p>
+        Set the agreed budget for a year. This is the baseline the dashboard measures actual
+        spend against — it is separate from the rolling forecast, which is the current estimate.
+      </p>
+    </div>
+
+    <div class="header-controls">
+      <label class="year-chip">
+        <span class="chip-prefix">Year:</span>
+        <select [ngModel]="year" (ngModelChange)="onYearChange($event)">
+          <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <!-- No Budget scenario for the year: saving would write into nothing, so say so plainly. -->
+  <div class="planner-notice error" *ngIf="plan && !plan.scenarioExists">
+    <strong>No Budget scenario exists for {{ year }}.</strong>
+    Create one on the Scenario Management screen — code <code>BUD</code>, name
+    <code>Budget</code> — then come back here. The name must be "Budget" or the dashboard will
+    not recognise these figures as a budget.
+  </div>
+
+  <!-- Approved: everything below is read-only until the user deliberately reopens it. -->
+  <div class="planner-notice approved" *ngIf="isApproved">
+    <div>
+      <strong>Approved and locked.</strong>
+      The {{ year }} budget was approved by {{ plan?.approvedBy }} on
+      {{ plan?.approvedDate | date: 'dd MMM yyyy' }}. It is now the baseline the dashboard
+      compares actual spend against, so it cannot be edited by accident.
+    </div>
+    <button type="button" class="ghost-btn" (click)="askToReopen()" [disabled]="isSaving">
+      Edit anyway
+    </button>
+  </div>
+
+  <!-- Unlocking is a deliberate act, never a side effect of saving — hence the confirmation. -->
+  <cm-confirm-dialog
+    title="This budget is already approved"
+    [isOpen]="showReopenConfirm"
+    [message]="reopenMessage"
+    [detail]="reopenDetail"
+    confirmLabel="Yes, let me edit it"
+    cancelLabel="No, keep it locked"
+    (confirmed)="confirmReopen()"
+    (cancelled)="cancelReopen()"
+  ></cm-confirm-dialog>
+
+  <ng-container *ngIf="plan?.scenarioExists">
+
+    <!-- ── Booking context ──────────────────────────────────────────────────────────────
+         tblCMForecast requires a Site and Account that a top-down budget has no natural value
+         for. They are shown rather than invented silently, and can be overridden. -->
+    <div class="dashboard-card context-card">
+      <h3>Where these lines are booked</h3>
+      <p class="context-hint">
+        A budget is decided per team, but every forecast row needs a site and account.
+        <strong>Each team's budget is booked against the account that team already plans
+        against</strong>, so it appears alongside that team's lines on Scenario Management. The
+        account below is only used for teams with no forecast history to learn from.
+      </p>
+      <div class="context-row">
+        <label>
+          <span>Site</span>
+          <select [(ngModel)]="siteId" [disabled]="!canEdit">
+            <option *ngFor="let s of sites" [value]="s.id">{{ s.name || s.code }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Account (fallback)</span>
+          <select [(ngModel)]="accountId" [disabled]="!canEdit">
+            <option *ngFor="let a of accounts" [value]="a.id">{{ a.name || a.code }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Currency</span>
+          <select [(ngModel)]="currencyId" [disabled]="!canEdit">
+            <option *ngFor="let c of currencies" [value]="c.id">{{ c.code }}</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Top-down spread ─────────────────────────────────────────────────────────────── -->
+    <div class="dashboard-card spread-card" *ngIf="canEdit">
+      <h3>Set the total, spread it evenly</h3>
+      <p class="context-hint">
+        Enter the whole year's budget and split it evenly across every team and all twelve
+        months. Any rounding remainder lands on December, so the months always add back to
+        exactly the figure you typed. You can edit individual cells afterwards.
+      </p>
+      <div class="spread-row">
+        <label>
+          <span>Total annual budget</span>
+          <input type="number" [(ngModel)]="spreadTotal" placeholder="e.g. 1200000" min="0" />
+        </label>
+        <button type="button" class="primary-btn" (click)="spreadEvenlyAcrossTeams()">
+          Spread evenly
+        </button>
+        <button type="button" class="ghost-btn" (click)="clearAll()">Clear all</button>
+      </div>
+    </div>
+
+    <!-- ── The grid ────────────────────────────────────────────────────────────────────── -->
+    <div class="dashboard-card grid-card">
+      <div class="grid-scroll">
+        <table class="budget-grid">
+          <thead>
+            <tr>
+              <th class="team-col">Team</th>
+              <th *ngFor="let m of monthLabels" class="month-col">{{ m }}</th>
+              <th class="total-col">Annual total</th>
+              <th class="forecast-col">Forecast</th>
+              <th class="action-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of rows">
+              <th class="team-col">{{ row.teamName }}</th>
+
+              <td *ngFor="let m of monthLabels; let i = index" class="month-col">
+                <input
+                  type="number"
+                  [value]="row.months[i] ?? ''"
+                  (input)="onCellChange(row, i, $any($event.target).value)"
+                  [disabled]="!canEdit"
+                  placeholder="—"
+                />
+              </td>
+
+              <td class="total-col">
+                <input
+                  type="number"
+                  [value]="rowTotal(row) || ''"
+                  (change)="onRowTotalChange(row, $any($event.target).value)"
+                  [disabled]="!canEdit"
+                  placeholder="—"
+                  cmTooltip="Type a total here to spread it evenly across this team's 12 months"
+                  cmTooltipPosition="left"
+                />
+              </td>
+
+              <td class="forecast-col">{{ row.forecastTotal ? money(row.forecastTotal) : '—' }}</td>
+
+              <td class="action-col">
+                <button
+                  type="button"
+                  class="row-spread-btn"
+                  *ngIf="canEdit"
+                  (click)="spreadRowEvenly(row)"
+                  cmTooltip="Spread this team's total evenly across 12 months"
+                  cmTooltipPosition="left"
+                >⇄</button>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th class="team-col">Total</th>
+              <td *ngFor="let m of monthLabels; let i = index" class="month-col">
+                {{ monthTotal(i) ? money(monthTotal(i)) : '—' }}
+              </td>
+              <td class="total-col"><strong>{{ money(grandTotal) }}</strong></td>
+              <td class="forecast-col">{{ money(totalForecast) }}</td>
+              <td class="action-col"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Summary + actions ───────────────────────────────────────────────────────────── -->
+    <div class="dashboard-card summary-card">
+      <div class="summary-figures">
+        <div>
+          <span>Budget {{ year }}</span>
+          <strong>{{ money(grandTotal) }}</strong>
+        </div>
+        <div>
+          <span>Rolling forecast</span>
+          <strong>{{ money(totalForecast) }}</strong>
+        </div>
+        <div>
+          <span>Budget vs forecast</span>
+          <!-- Budget above forecast is headroom (good); below it means the plan already
+               exceeds what was agreed. -->
+          <strong [class.negative]="varianceVsForecast < 0" [class.positive]="varianceVsForecast >= 0">
+            {{ varianceVsForecast >= 0 ? '+' : '' }}{{ money(varianceVsForecast) }}
+          </strong>
+        </div>
+      </div>
+
+      <div class="summary-actions" *ngIf="canEdit">
+        <span class="dirty-flag" *ngIf="isDirty">Unsaved changes</span>
+        <button type="button" class="primary-btn" (click)="save()" [disabled]="isSaving">
+          Save budget
+        </button>
+        <button
+          type="button"
+          class="approve-btn"
+          (click)="approve()"
+          [disabled]="isSaving || isDirty || grandTotal === 0"
+          cmTooltip="Freezes the budget as the dashboard's baseline. This cannot be undone."
+          cmTooltipPosition="top"
+        >Approve &amp; lock</button>
+      </div>
+    </div>
+
+    <p class="planner-footnote">
+      Saving replaces the whole year's budget and can be repeated as often as needed. Approving
+      is final — there is no un-approve, because a baseline that can be quietly reopened is not
+      a baseline.
+    </p>
+
+  </ng-container>
+</div>

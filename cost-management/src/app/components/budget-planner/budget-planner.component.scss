@@ -1,0 +1,389 @@
+/* Budget Planner.
+   Palette is taken from the Cost Dashboard (`cost-dashboard.component.scss`) so the two screens
+   are visibly the same product. That screen is unconditionally dark — NOT driven by
+   `prefers-color-scheme` — so this one must be too, or it flips to white on a light OS while
+   the dashboard beside it stays dark.
+
+   ⚠️ Never use the `background` shorthand on a <select> here — it erases the chevron
+   `background-image`. Set `background-color` only. Same trap as the dashboard filter chips. */
+
+$page-bg:      #071b2f;
+$card-bg:      #111722;
+$card-border:  rgba(70, 88, 115, 0.22);
+$text:         #f7fbff;
+$text-muted:   #8fa2ba;
+$field-bg:     #0b1420;
+$field-border: rgba(70, 88, 115, 0.35);
+$accent:       #a78bfa;
+$green:        #14d59a;
+$red:          #ff6477;
+$amber:        #ffcf3d;
+
+.budget-planner {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 22px 34px;
+  background: $page-bg;
+  color: $text;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  /* ⚠️ This is what makes the dropdowns dark, not the `option` rules.
+     A native <select>'s popup list is painted by the BROWSER, not by page CSS — on Windows
+     Chrome it ignores `option { background }` in most cases and always renders light unless the
+     element declares a dark colour scheme. `color-scheme` is the supported lever: it also fixes
+     the number-input spinners, the scrollbars and the focus rings in one go.
+     Don't replace this with `option { background-color: … }` — that was the first attempt and
+     it produced exactly the white dropdowns this replaced. */
+  color-scheme: dark;
+
+  /* The global stylesheet paints h1..h6 #344767 and adds -0.05rem tracking to h1..h4, which is
+     unreadable on a dark card. Same reset the dashboard applies. */
+  h1, h2, h3, h4, h5, h6 {
+    color: inherit;
+    letter-spacing: normal;
+    font-weight: 600;
+  }
+
+  /* Bootstrap resets these to its own stack; this screen assumes the app font. */
+  button, select, input, textarea { font-family: inherit; }
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────────────── */
+
+.planner-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+
+  h2 { margin: 0 0 4px; font-size: 20px; }
+
+  p {
+    margin: 0;
+    max-width: 74ch;
+    font-size: 13px;
+    line-height: 1.55;
+    color: $text-muted;
+  }
+}
+
+.header-controls { display: flex; align-items: center; gap: 12px; }
+
+.year-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 0 0 16px;
+  background: #111827;
+  border-radius: 8px;
+  overflow: hidden;
+
+  .chip-prefix {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-muted;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  select {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 32px 0 6px;
+    border: 0;
+    border-radius: 0;
+    /* ⚠️ Must be OPAQUE, matching .year-chip's own background — not `transparent`.
+       With `appearance: none`, Windows Chrome paints a transparent <select> using the SYSTEM
+       control background, which is white, so the chip rendered light while the Site / Account /
+       Currency selects below stayed dark (those set an opaque background-color). Letting the
+       chip show through looks equivalent but is not. */
+    background-color: #111827;
+    color: $text;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238fa2ba' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+  }
+}
+
+/* ── Notices ───────────────────────────────────────────────────────────────────────── */
+
+.planner-notice {
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+
+  code {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: inherit;
+    font-size: 12px;
+  }
+
+  &.error {
+    background: rgba(255, 100, 119, 0.12);
+    border: 1px solid rgba(255, 100, 119, 0.35);
+    color: #ffb3bd;
+  }
+
+  &.approved {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    background: rgba(20, 213, 154, 0.12);
+    border: 1px solid rgba(20, 213, 154, 0.35);
+    color: #8ff0d0;
+
+    /* "Edit anyway" is deliberately understated — unlocking a signed-off budget should not
+       look like the obvious next step. */
+    .ghost-btn {
+      flex-shrink: 0;
+      border-color: rgba(20, 213, 154, 0.45);
+      color: #8ff0d0;
+    }
+  }
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────────────── */
+
+.dashboard-card {
+  padding: 18px 20px;
+  background: $card-bg;
+  border: 1px solid $card-border;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+
+  h3 { margin: 0 0 4px; font-size: 14px; }
+}
+
+.context-hint {
+  margin: 0 0 14px;
+  max-width: 84ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: $text-muted;
+}
+
+.context-row,
+.spread-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: $text-muted;
+  }
+
+  select,
+  input {
+    height: 38px;
+    min-width: 190px;
+    padding: 0 10px;
+    border: 1px solid $field-border;
+    border-radius: 8px;
+    background-color: $field-bg;
+    color: $text;
+    font-size: 13px;
+
+    &::placeholder { color: rgba(143, 162, 186, 0.6); }
+    &:focus { outline: none; border-color: $accent; }
+
+    &:disabled {
+      background-color: rgba(11, 20, 32, 0.5);
+      color: rgba(143, 162, 186, 0.55);
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────────────── */
+
+.primary-btn,
+.ghost-btn,
+.approve-btn {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: filter 0.15s ease;
+
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  &:not(:disabled):hover { filter: brightness(1.08); }
+}
+
+.primary-btn { background: $accent; color: #1b1233; }   /* same accent as Invoice View */
+.ghost-btn   { background: transparent; border-color: $field-border; color: $text-muted; }
+.approve-btn { background: $green; color: #06301f; }
+
+/* ── Grid ──────────────────────────────────────────────────────────────────────────── */
+
+.grid-card { padding: 0; overflow: hidden; }
+
+/* Wide table scrolls inside its own container — the page body must never scroll sideways. */
+.grid-scroll { overflow-x: auto; }
+
+.budget-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: $text;
+
+  th, td {
+    padding: 0;
+    border-bottom: 1px solid rgba(70, 88, 115, 0.18);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  thead th {
+    padding: 10px 8px;
+    background: #0d1420;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $text-muted;
+    position: sticky;
+    top: 0;
+  }
+
+  tbody th,
+  tfoot th {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: $text;
+  }
+
+  /* Team name stays visible while the twelve months scroll under it. */
+  .team-col {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 170px;
+    background: $card-bg;
+    text-align: left;
+  }
+
+  thead .team-col { background: #0d1420; z-index: 2; }
+
+  .month-col { min-width: 92px; }
+  .total-col { min-width: 120px; background: rgba(167, 139, 250, 0.07); }
+  .forecast-col { min-width: 120px; padding: 8px 12px; color: $text-muted; }
+  .action-col { width: 44px; }
+
+  /* Inputs fill their cell so the grid reads as a spreadsheet, not a form. */
+  input {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    text-align: right;
+    font-size: 13px;
+    color: $text;
+
+    &::placeholder { color: rgba(143, 162, 186, 0.45); }
+
+    &:focus {
+      outline: 2px solid $accent;
+      outline-offset: -2px;
+      background: rgba(167, 139, 250, 0.1);
+    }
+
+    &:disabled { color: rgba(143, 162, 186, 0.6); cursor: not-allowed; }
+
+    /* Spinners crowd a 92px cell and are useless for money entry. */
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    & { -moz-appearance: textfield; }
+  }
+
+  tfoot td,
+  tfoot th {
+    padding: 10px 12px;
+    background: #0d1420;
+    font-weight: 600;
+    color: $text;
+  }
+}
+
+.row-spread-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid $field-border;
+  border-radius: 6px;
+  background: transparent;
+  color: $text-muted;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+
+  &:hover { border-color: $accent; color: $accent; }
+}
+
+/* ── Summary ───────────────────────────────────────────────────────────────────────── */
+
+.summary-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.summary-figures {
+  display: flex;
+  gap: 36px;
+  flex-wrap: wrap;
+
+  div { display: flex; flex-direction: column; gap: 2px; }
+
+  span {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $text-muted;
+  }
+
+  strong { font-size: 18px; color: $text; }
+  strong.positive { color: $green; }
+  strong.negative { color: $red; }
+}
+
+.summary-actions { display: flex; align-items: center; gap: 12px; }
+
+.dirty-flag { font-size: 12px; font-weight: 600; color: $amber; }
+
+.planner-footnote {
+  margin: 0;
+  max-width: 84ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(143, 162, 186, 0.8);
+}

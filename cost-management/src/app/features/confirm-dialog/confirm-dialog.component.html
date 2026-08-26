@@ -1,0 +1,29 @@
+<div class="confirm-overlay" *ngIf="isOpen" (click)="onCancel()">
+  <div class="confirm-card" (click)="$event.stopPropagation()" role="alertdialog" aria-modal="true">
+
+    <div class="confirm-head">
+      <span class="confirm-icon" [class.confirm-icon--danger]="variant === 'danger'">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      </span>
+      <h3 class="confirm-title">{{ title }}</h3>
+    </div>
+
+    <div class="confirm-body">
+      <p class="confirm-message">{{ message }}</p>
+      <p class="confirm-detail" *ngIf="detail">{{ detail }}</p>
+    </div>
+
+    <div class="confirm-actions">
+      <button class="confirm-btn-cancel" (click)="onCancel()">{{ cancelLabel }}</button>
+      <button class="confirm-btn-ok"
+              [class.confirm-btn-ok--danger]="variant === 'danger'"
+              (click)="onConfirm()">{{ confirmLabel }}</button>
+    </div>
+
+  </div>
+</div>

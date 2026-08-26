@@ -46,7 +46,9 @@ export class SideNavComponent {
       title: 'Administration',
       items: [
         { label: 'Scenario Management', route: '/scenario-management', icon: 'layers' },
-        { label: 'Admin Screens', route: '/admin', icon: 'shield' },
+        { label: 'Master Data', route: '/admin/master-data', icon: 'shield' },
+        { label: 'Period Management', route: '/admin/periods', icon: 'calendar' },
+        { label: 'Audit Log', route: '/admin/audit-log', icon: 'list' },
       ],
     },
   ];

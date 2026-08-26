@@ -1,0 +1,61 @@
+<div class="generaladminsection-page">
+
+  <div class="scroll-area">
+
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2 class="page-title">Opening / Locking Periods</h2>
+        <p class="page-subtitle">Open a month to allow forecast data entry; close it to make that month read-only. RFC1/RFC2/RFC3/BUDGET scenarios are always read-only regardless of period state.</p>
+      </div>
+      <div class="page-header-right">
+        <label class="field-label" for="year-select">Year</label>
+        <select id="year-select" class="field-input year-select" [(ngModel)]="selectedYear" (ngModelChange)="onYearChange()">
+          <option *ngFor="let yr of years" [value]="yr">{{ yr }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th>Month</th>
+              <th>Status</th>
+              <th>Last Updated By</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let period of periods; let i = index">
+              <td class="col-num">{{ i + 1 }}</td>
+              <td class="cell-name">{{ period.monthName }} {{ period.year }}</td>
+              <td>
+                <span class="status-badge" [class.status-open]="period.isOpen" [class.status-closed]="!period.isOpen">
+                  {{ period.isOpen ? 'Open' : 'Closed' }}
+                </span>
+              </td>
+              <td class="cell-code">{{ period.lastUpdatedBy || '—' }}</td>
+              <td class="col-actions">
+                <button
+                  class="toggle-btn"
+                  [class.toggle-btn-close]="period.isOpen"
+                  [class.toggle-btn-open]="!period.isOpen"
+                  [disabled]="savingId === period.id"
+                  (click)="toggle(period)">
+                  {{ savingId === period.id ? 'Saving…' : (period.isOpen ? 'Close' : 'Open') }}
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!isLoading && periods.length === 0">
+              <td colspan="5" class="empty-cell">No periods found for {{ selectedYear }}.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /scroll-area -->
+
+</div>

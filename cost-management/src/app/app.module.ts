@@ -25,6 +25,12 @@ import { SourceOfChangeComponent } from './features/source-of-change/source-of-c
 import { LoaderComponent } from './features/loader/loader.component';
 import { TooltipDirective } from './features/tooltip/tooltip.directive';
 import { CmModalComponent } from './features/cm-modal/cm-modal.component';
+import { ScenarioManagementComponent } from './components/scenario-management/scenario-management.component';
+import { AdminCostManagementComponent } from './components/admin-cost-management/admin-cost-management.component';
+import { PeriodManagementComponent } from './components/period-management/period-management.component';
+import { AuditLogComponent } from './components/audit-log/audit-log.component';
+import { BudgetPlannerComponent } from './components/budget-planner/budget-planner.component';
+import { ConfirmDialogComponent } from './features/confirm-dialog/confirm-dialog.component';
 
 
 @NgModule({
@@ -50,7 +56,13 @@ import { CmModalComponent } from './features/cm-modal/cm-modal.component';
     SourceOfChangeComponent,
     LoaderComponent,
     TooltipDirective,
-    CmModalComponent
+    CmModalComponent,
+    ScenarioManagementComponent,
+    AdminCostManagementComponent,
+    PeriodManagementComponent,
+    AuditLogComponent,
+    BudgetPlannerComponent,
+    ConfirmDialogComponent
   ],
   imports: [
     BrowserModule,

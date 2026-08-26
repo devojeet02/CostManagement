@@ -5,12 +5,11 @@ export class ThemeService {
   private _isDark: boolean;
 
   constructor() {
+    // SHOWCASE: dark is the default, not the OS preference. These screens are designed dark —
+    // the dashboard is unconditionally dark — so a light-mode visitor would otherwise land on a
+    // half-light shell around a dark dashboard. A saved choice still wins, so the toggle sticks.
     const saved = localStorage.getItem('theme');
-    if (saved) {
-      this._isDark = saved === 'dark';
-    } else {
-      this._isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
+    this._isDark = saved ? saved === 'dark' : true;
   }
 
   get isDark(): boolean {
