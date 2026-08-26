@@ -1,0 +1,19 @@
+<!-- Inline: sits in the flow where the content will land. -->
+<div class="cm-loader"
+  *ngIf="visible && !global"
+  [class.cm-loader--row]="layout === 'row'"
+  [class.cm-loader--padded]="padded"
+  role="status"
+  aria-live="polite">
+  <span class="cm-loader-ring" [ngClass]="'cm-loader-ring--' + size"></span>
+  <span class="cm-loader-text" *ngIf="text">{{ text }}</span>
+</div>
+
+<!-- Global: a fixed scrim over the whole viewport, driven by LoaderService.
+     aria-busy tells assistive tech the app is working, not that a dialog opened. -->
+<div class="cm-loader-overlay" *ngIf="visible && global" role="status" aria-live="polite" aria-busy="true">
+  <div class="cm-loader-overlay-card">
+    <span class="cm-loader-ring cm-loader-ring--lg"></span>
+    <span class="cm-loader-text" *ngIf="text">{{ text }}</span>
+  </div>
+</div>

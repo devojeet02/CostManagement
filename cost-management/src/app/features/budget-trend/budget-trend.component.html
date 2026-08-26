@@ -1,0 +1,180 @@
+<!--
+  Actuals vs Budget over time. Separate from the Rolling Forecast chart on purpose — see the
+  component doc. NOTE: <section> is avoided; the global sheet whitens it.
+-->
+<div class="budget-trend">
+
+  <header class="trend-header">
+    <div>
+      <h3>
+        Actual Spend vs Budget — {{ year }}
+        <span class="mode-tag">{{ mode === 'cumulative' ? 'cumulative' : 'per month' }}</span>
+      </h3>
+      <div class="legend-row">
+        <span class="legend-dot actual"></span> Actual
+        <span class="legend-dot budget"></span> Budget
+        <span class="legend-dot variance" *ngIf="hasVariance"></span>
+        <span *ngIf="hasVariance">Variance</span>
+        <span class="legend-note" *ngIf="currency">Figures in {{ currency }}</span>
+      </div>
+    </div>
+
+    <!-- F4-AC2. Both views come from the same server data; cumulative is a running total
+         computed here, so switching costs no request. -->
+    <div class="mode-switch" role="group" aria-label="Chart view">
+      <button type="button" [class.on]="mode === 'monthly'" (click)="setMode('monthly')"
+        cmTooltip="Spend in each individual month" cmTooltipPosition="bottom">Monthly</button>
+      <button type="button" [class.on]="mode === 'cumulative'" (click)="setMode('cumulative')"
+        cmTooltip="Running year-to-date total" cmTooltipPosition="bottom">Cumulative</button>
+    </div>
+  </header>
+
+  <!-- No budget: a chart of zeros would imply everything is overspent. Two very different
+       reasons for that, and sending the user to the Budget Planner is only right for one. -->
+  <ng-container *ngIf="!hasBudget">
+
+    <!-- Narrowed away. A year's budget is booked against ONE site, so any other site — or a
+         currency that site does not use — has no budget even though spend may exist. The fix
+         is to clear a filter, not to go and enter a budget. -->
+    <div class="trend-empty narrowed" *ngIf="isNarrowed">
+      <strong>No budget matches {{ narrowedBy }}.</strong>
+      A year's budget is entered against a single site, so filtering to another site — or to a
+      currency that site does not use — leaves nothing to compare against
+      <span *ngIf="hasActuals">even though there is spend here</span>.
+      Clear the Site and Currency filters to see the full-year budget.
+    </div>
+
+    <!-- Genuinely nothing budgeted for the year. -->
+    <div class="trend-empty" *ngIf="!isNarrowed">
+      <strong>No budget entered for {{ year }}.</strong>
+      This chart compares actual spend against the agreed budget, which is set on the
+      <em>Budget Planner</em> screen. Until a budget exists there is nothing to compare against —
+      the Rolling Forecast chart above still shows the current estimate.
+    </div>
+  </ng-container>
+
+  <div class="trend-chart" *ngIf="hasBudget">
+    <svg #trendSvg [attr.viewBox]="'0 0 ' + width + ' ' + height" role="img"
+      aria-label="Actual spend against budget by month"
+      (mouseleave)="!isScrubbing && clearHovered()">
+
+      <defs>
+        <linearGradient id="budgetTrendArea" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#6559ee" stop-opacity="0.34" />
+          <stop offset="100%" stop-color="#6559ee" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+
+      <!-- Grid + y axis -->
+      <g class="grid">
+        <g *ngFor="let tick of axisTicks">
+          <line [attr.x1]="padding.left" [attr.x2]="width - padding.right"
+            [attr.y1]="yFor(tick)" [attr.y2]="yFor(tick)"></line>
+          <text [attr.x]="padding.left - 12" [attr.y]="yFor(tick) + 4">{{ axisLabel(tick) }}</text>
+        </g>
+      </g>
+
+      <line class="axis" [attr.x1]="padding.left" [attr.x2]="width - padding.right"
+        [attr.y1]="baselineY" [attr.y2]="baselineY"></line>
+      <line class="axis" [attr.x1]="padding.left" [attr.x2]="padding.left"
+        [attr.y1]="padding.top" [attr.y2]="baselineY"></line>
+
+      <!-- Actual: filled area + line. Breaks after the last posted month. -->
+      <path class="actual-area" [attr.d]="actualArea" fill="url(#budgetTrendArea)"></path>
+      <path class="actual-line" [attr.d]="path('actual')"></path>
+
+      <!-- Budget: dashed, because it is a plan rather than something that happened. -->
+      <path class="budget-line" [attr.d]="path('budget')"></path>
+
+      <!-- ── Variance strip (F4-AC3) ────────────────────────────────────────────────
+           Its own band with a zero line: variance goes negative, and the spend axis above
+           starts at 0, so an overspend would fall off the bottom of that scale. -->
+      <g class="variance-strip" *ngIf="hasVariance"
+        [class.over]="isNetOverBudget" [class.under]="!isNetOverBudget">
+
+        <!-- Sits well clear of both the spend baseline above and the strip's own top tick. -->
+        <text class="strip-title" [attr.x]="padding.left" [attr.y]="varianceTop - 16">
+          Variance (actual &#8722; budget){{ mode === 'cumulative' ? ' — cumulative' : '' }}
+        </text>
+
+        <!-- Zero line is the reference the whole strip is read against, so it is drawn solid
+             while the extremes are faint. -->
+        <line class="variance-zero" [attr.x1]="padding.left" [attr.x2]="width - padding.right"
+          [attr.y1]="varianceZeroY" [attr.y2]="varianceZeroY"></line>
+        <text class="variance-axis" [attr.x]="padding.left - 12" [attr.y]="varianceZeroY + 4">0</text>
+
+        <g *ngFor="let tick of varianceTicks">
+          <line class="variance-tick" [attr.x1]="padding.left" [attr.x2]="width - padding.right"
+            [attr.y1]="tick.y" [attr.y2]="tick.y"></line>
+          <text class="variance-axis" [attr.x]="padding.left - 12" [attr.y]="tick.y + 4">
+            {{ tick.value > 0 ? '+' : '' }}{{ axisLabel(tick.value) }}
+          </text>
+        </g>
+
+        <path class="variance-area" [attr.d]="varianceArea"></path>
+        <path class="variance-line" [attr.d]="variancePath"></path>
+
+        <ng-container *ngFor="let point of points; trackBy: trackByMonth">
+          <circle class="variance-dot" *ngIf="point.variance !== null"
+            [attr.cx]="point.x" [attr.cy]="varianceYFor(point)" r="3.5"
+            [attr.fill]="varianceColor(point)"></circle>
+        </ng-container>
+      </g>
+
+      <!-- Points + hover targets. Full height so hovering anywhere in a month's column works
+           for both the spend chart and the variance strip. -->
+      <g *ngFor="let point of points; trackBy: trackByMonth"
+        (mouseenter)="setHovered(point)">
+        <rect class="hover-target" [attr.x]="point.x - 30" [attr.y]="padding.top"
+          width="60" [attr.height]="varianceBottom - padding.top"></rect>
+
+        <circle class="budget-dot" *ngIf="point.budgetY !== null"
+          [attr.cx]="point.x" [attr.cy]="point.budgetY" r="3.5"></circle>
+        <circle class="actual-dot" *ngIf="point.actualY !== null"
+          [attr.cx]="point.x" [attr.cy]="point.actualY" r="4"></circle>
+
+        <text class="x-label" [attr.x]="point.x" [attr.y]="height - 16">{{ point.month }}</text>
+      </g>
+
+      <!-- Today marker — same behaviour as the Rolling Forecast chart: drag the pill across the
+           months, click it once parked to come back. Only on the current year. -->
+      <g class="today-marker" *ngIf="showTodayMarker">
+        <line [attr.x1]="markerX" [attr.x2]="markerX"
+          [attr.y1]="padding.top" [attr.y2]="markerBottom"></line>
+
+        <g class="marker-handle" (mousedown)="startScrub($event)" (click)="onMarkerClick($event)">
+          <rect [attr.x]="markerX - markerPillWidth / 2" y="4"
+            [attr.width]="markerPillWidth" height="18" rx="5"></rect>
+          <text [attr.x]="markerX" y="17">{{ markerLabel }}</text>
+        </g>
+      </g>
+
+      <!-- Tooltip -->
+      <g class="trend-tooltip" *ngIf="hovered"
+        [attr.transform]="'translate(' + tooltipX(hovered) + ' ' + padding.top + ')'">
+        <!-- Geometry and type match the dashboard's chart tooltip exactly, so the two charts
+             read as one product. Only the ROWS differ, because the figures differ. -->
+        <rect width="220" height="92" rx="7"></rect>
+        <text x="12" y="20">{{ hovered.month }} {{ year }}</text>
+        <text x="12" y="42">Actual</text>
+        <text x="208" y="42" text-anchor="end">{{ money(hovered.actual) }}</text>
+        <text x="12" y="61">Budget</text>
+        <text x="208" y="61" text-anchor="end">{{ money(hovered.budget) }}</text>
+        <text x="12" y="80">Variance</text>
+        <text x="208" y="80" text-anchor="end"
+          [attr.fill]="varianceColor(hovered)">{{ varianceLabel(hovered) }}</text>
+      </g>
+    </svg>
+  </div>
+
+  <p class="trend-footnote" *ngIf="hasBudget">
+    Budget is the figure signed off on the Budget Planner, not the rolling forecast.
+    <ng-container *ngIf="mode === 'monthly'">
+      The actual line stops at the last month with posted invoices rather than dropping to zero.
+    </ng-container>
+    <ng-container *ngIf="mode === 'cumulative'">
+      Running totals. The actual line starts at the first month with posted invoices and stops at
+      the last — it is not carried flat across months that have not happened yet.
+    </ng-container>
+  </p>
+</div>

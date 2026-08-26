@@ -1,0 +1,158 @@
+<!-- attachToBody: the shell's stacking context otherwise clips this modal and paints
+     over its header — see cm-modal. -->
+<cm-modal [title]="title" [isOpen]="isOpen" [attachToBody]="true" cardWidth="min(1180px, calc(100vw - 48px))" (closed)="closed.emit()">
+  <div class="soc-body">
+
+    <div class="soc-state" *ngIf="loading">
+      <cm-loader [show]="true" message="Building the report…"></cm-loader>
+    </div>
+
+    <p class="soc-state soc-state--error" *ngIf="!loading && loadError">
+      Could not build the Source of Change report.
+    </p>
+
+    <ng-container *ngIf="!loading && !loadError && data">
+
+      <!-- No budget: RFC − 0 would report every line as fully overspent, which is noise, not a
+           finding. Say what is missing instead of printing a page of false variances. -->
+      <div class="soc-empty" *ngIf="!data.hasBudget">
+        <strong>No budget entered for {{ year }}.</strong>
+        This report compares an RFC cycle against the agreed budget. Without one, every line
+        would read as entirely overspent. Set a budget on the <em>Budget Planner</em> screen
+        first.
+      </div>
+
+      <ng-container *ngIf="data.hasBudget">
+
+        <!-- Controls -->
+        <div class="soc-controls">
+          <label class="soc-field">
+            <span>RFC cycle</span>
+            <select [ngModel]="scenario" (ngModelChange)="onScenarioChange($event)">
+              <option *ngFor="let s of data.availableScenarios" [value]="s">{{ s }}</option>
+            </select>
+          </label>
+
+          <span class="soc-vs">vs</span>
+          <span class="soc-baseline">{{ data.budgetScenarioCode }} (Budget)</span>
+
+          <button type="button" class="soc-toggle" [class.on]="overspendOnly"
+            (click)="toggleOverspendOnly()"
+            cmTooltip="Show only teams whose RFC exceeds the agreed budget"
+            cmTooltipPosition="bottom">
+            Overspend only
+          </button>
+        </div>
+
+        <!-- Headline -->
+        <div class="soc-summary">
+          <div>
+            <span>{{ data.scenarioCode }} total</span>
+            <strong>{{ money(data.rfcTotal) }}</strong>
+          </div>
+          <div>
+            <span>Budget</span>
+            <strong>{{ money(data.budgetTotal) }}</strong>
+          </div>
+          <div>
+            <span>Variance</span>
+            <strong [class.over]="data.variance > 0" [class.under]="data.variance <= 0">
+              {{ signedMoney(data.variance) }}
+            </strong>
+          </div>
+          <div>
+            <span>Teams over budget</span>
+            <strong [class.over]="overspendCount > 0">{{ overspendCount }}</strong>
+          </div>
+        </div>
+
+        <!-- The grain caveat, from the server. Stated on screen because the story asks for a
+             per-line comparison and this is deliberately not one. -->
+        <p class="soc-grain">{{ data.grainNote }}</p>
+
+        <p class="soc-state" *ngIf="data.teams.length === 0">
+          No teams match the current filters.
+        </p>
+
+        <!-- Teams, largest overspend first (F5-AC4) -->
+        <div class="soc-teams">
+          <div class="soc-team" *ngFor="let team of data.teams; trackBy: trackByTeam"
+            [class.overspend]="team.isOverspend">
+
+            <button type="button" class="soc-team-head" (click)="toggleTeam(team)">
+              <span class="soc-caret" [class.open]="isExpanded(team)">&#9656;</span>
+
+              <span class="soc-team-name">
+                {{ team.teamName }}
+                <span class="soc-flag" *ngIf="!team.hasBudget">not budgeted</span>
+              </span>
+
+              <span class="soc-figure">
+                <em>{{ data.scenarioCode }}</em>{{ money(team.rfcValue) }}
+              </span>
+              <span class="soc-figure">
+                <em>Budget</em>{{ team.hasBudget ? money(team.budgetValue) : '—' }}
+              </span>
+              <span class="soc-figure soc-variance" [ngClass]="varianceClass(team)">
+                <em>Variance</em>{{ team.hasBudget ? signedMoney(team.variance) : '—' }}
+                <small>{{ variancePercentLabel(team) }}</small>
+              </span>
+
+              <span class="soc-count"
+                [cmTooltip]="commentCount(team) + ' justification(s) recorded across ' + team.lines.length + ' line(s)'"
+                cmTooltipPosition="left">
+                {{ team.lines.length }} line{{ team.lines.length === 1 ? '' : 's' }}
+                <span class="soc-dot" *ngIf="commentCount(team) > 0">{{ commentCount(team) }}</span>
+              </span>
+            </button>
+
+            <div class="soc-lines" *ngIf="isExpanded(team)">
+
+              <p class="soc-nolines" *ngIf="team.lines.length === 0">
+                No {{ data.scenarioCode }} lines for this team — its entire budget of
+                {{ money(team.budgetValue) }} is unaccounted for in this cycle.
+              </p>
+
+              <!-- Lines, largest contributor first -->
+              <div class="soc-line" *ngFor="let line of team.lines; trackBy: trackByLine">
+                <div class="soc-line-head">
+                  <span class="soc-line-name">{{ lineLabel(line) }}</span>
+                  <span class="soc-line-meta">
+                    <span *ngIf="line.internalOrder">{{ line.internalOrder }}</span>
+                    <span *ngIf="line.category">{{ line.category }}</span>
+                    <span *ngIf="line.supplier">{{ line.supplier }}</span>
+                  </span>
+                  <span class="soc-tag soc-tag--add" *ngIf="line.isOverspendAddition">overspend addition</span>
+                  <span class="soc-tag soc-tag--unbudgeted" *ngIf="line.isUnbudgeted">unbudgeted</span>
+                  <span class="soc-line-value">{{ money(line.rfcValue) }}</span>
+                </div>
+
+                <!-- F5-AC3: the append-only justification trail. -->
+                <div class="soc-comments" *ngIf="line.comments.length > 0">
+                  <div class="soc-comment" *ngFor="let c of line.comments">
+                    <span class="soc-edit">Edit {{ c.editNumber }}</span>
+                    <span class="soc-month" *ngIf="c.monthName">{{ c.monthName }}</span>
+                    <span class="soc-text">{{ c.comment }}</span>
+                    <span class="soc-by">{{ c.createdBy }} · {{ fmtDate(c.createdDate) }}</span>
+                  </div>
+                </div>
+
+                <!-- A changed line with no justification is itself the finding. -->
+                <p class="soc-nocomment" *ngIf="line.comments.length === 0">
+                  No justification recorded<span *ngIf="line.changeCount > 0">
+                    — this line has been changed {{ line.changeCount }} time(s)</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="soc-footnote">
+          Justifications are the cell comments captured while RFC values were edited. They are
+          append-only, so each line shows the full history of why its number moved rather than
+          only the latest note.
+        </p>
+      </ng-container>
+    </ng-container>
+  </div>
+</cm-modal>

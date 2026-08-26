@@ -1,0 +1,96 @@
+/* ─── Shared loader ────────────────────────────────────────────────────────
+   Metrics carried over verbatim from the four hand-rolled spinners this replaced
+   (Invoice View, Invoice Edit, Forecast, Forecast Audit): 28px ring, 2px border,
+   0.7s linear spin, 14px/600 label. Colours come from the theme custom properties,
+   so the light theme works too — the Forecast copy had them hardcoded dark. */
+
+.cm-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+/* Message alongside the ring rather than under it — for tight strips and table rows. */
+.cm-loader--row {
+  flex-direction: row;
+  gap: 8px;
+}
+
+/* Standalone block: the same breathing room the state blocks gave their contents. */
+.cm-loader--padded {
+  padding: 56px 32px;
+}
+
+.cm-loader-ring {
+  flex-shrink: 0;
+  display: block;
+  border-style: solid;
+  border-color: var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: cm-loader-spin 0.7s linear infinite;
+  transition: border-color var(--transition-speed);
+}
+
+.cm-loader-ring--sm { width: 14px; height: 14px; border-width: 2px; }
+.cm-loader-ring--md { width: 28px; height: 28px; border-width: 2px; }
+.cm-loader-ring--lg { width: 40px; height: 40px; border-width: 3px; }
+
+.cm-loader-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: color var(--transition-speed);
+}
+
+@keyframes cm-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Global overlay ──────────────────────────────────────────────────────
+   Fixed to the viewport so it covers the shell regardless of which screen is
+   routed in.
+
+   z-index 2900 sits above cm-modal (2000), cm-pdf-viewer (2000) and
+   cm-confirm-dialog (2100), and below cm-snackbar (3000) — a result or error
+   message must stay readable even if another request is still running.
+
+   It does NOT cover cm-hierarchy-select's dropdown, which is portalled to
+   <body> at 9000. That is a deliberate trade: hiding the snackbar behind the
+   scrim would happen often and matter, whereas an open dropdown at the exact
+   moment a blocking wait starts is rare, cosmetic, and closes on the next click. */
+.cm-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(1.5px);
+  /* Swallows clicks by design: the point of the overlay is that the wait is blocking. */
+  cursor: progress;
+  animation: cm-loader-fade 0.12s ease-out;
+}
+
+.cm-loader-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 36px;
+  min-width: 180px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px var(--card-shadow-hover);
+  transition: background-color var(--transition-speed), border-color var(--transition-speed);
+}
+
+@keyframes cm-loader-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

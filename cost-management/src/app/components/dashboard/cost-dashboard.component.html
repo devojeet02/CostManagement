@@ -1,0 +1,684 @@
+<!-- <div>, NOT <section>: the host app's global styles.css carries
+     `section { background-color: #f8f9fa !important }`, which would paint this whole
+     dashboard near-white and cannot be overridden from a component stylesheet.
+     role="region" keeps the landmark semantics the <section> gave it. -->
+<div class="insight-dashboard" role="region" aria-label="Cost center dashboard">
+
+  <!-- ⚠️ Nothing is rendered until the first response lands. `data` is seeded from the bundled
+       SAMPLE dataset at construction, so without this the dashboard flashed invented figures —
+       real-looking spend, vendors and alerts — before the live numbers replaced them. Showing
+       fabricated money, however briefly, is worse than showing a spinner. -->
+  <div class="dashboard-first-load" *ngIf="!hasLoadedOnce">
+    <cm-loader [show]="true" message="Loading cost data…" size="lg"></cm-loader>
+  </div>
+
+  <ng-container *ngIf="hasLoadedOnce">
+  <!-- Year + Clear on their own row: the six filter chips already fill a line, and mixing a
+       stepper and a button in among them made the row read as seven unrelated controls. -->
+  <div class="dashboard-toolbar-row">
+    <div class="year-chip">
+      <button type="button" class="year-btn" (click)="prevYear()" [disabled]="!canGoPrevYear"
+        cmTooltip="Previous year" cmTooltipPosition="bottom">&#8249;</button>
+      <span class="year-value">{{ year }}</span>
+      <button type="button" class="year-btn" (click)="nextYear()" [disabled]="!canGoNextYear"
+        cmTooltip="Next year" cmTooltipPosition="bottom">&#8250;</button>
+    </div>
+
+    <!-- Period sits beside the year because it narrows WITHIN the selected year — putting it
+         among the dimension chips below would suggest it is another dimension. Months, not
+         dates: see cm-period-range for why. -->
+    <cm-period-range
+      [from]="periodFrom"
+      [to]="periodTo"
+      [actualsThroughMonth]="actualsThroughMonth"
+      (rangeChange)="onPeriodChange($event)"
+    ></cm-period-range>
+
+    <!-- F5. Opens the report in its own modal — no route, no sidenav entry, and the dashboard
+         does not fetch or know anything about it beyond whether it is showing. -->
+    <button type="button" class="soc-open-btn" (click)="openSourceOfChange()"
+      cmTooltip="Which cost lines drove this year's RFC above the agreed budget, and why"
+      cmTooltipPosition="bottom">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="13" y2="17" />
+      </svg>
+      Source of Change
+    </button>
+
+    <!-- Only the working filters can be "active" — clearing a placeholder would be
+         meaningless, and offering it implies they do something. -->
+    <button class="btn-clear-filters" *ngIf="hasActiveFilters" (click)="clearDashboardFilters()"
+      cmTooltip="Clear Department, Vendor, Scenario, Site, Category and Currency"
+      cmTooltipPosition="bottom">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+      Clear filters
+    </button>
+  </div>
+
+  <div class="dashboard-filter-row">
+    <label *ngFor="let group of filterGroups" class="filter-chip">
+      <!-- trackBy for the same reason as the Site chip below: these lists are rebuilt on every
+           refetch, and recreating the <option> nodes drops the current selection. -->
+      <select [ngModel]="selectedFilters[group.key]" (ngModelChange)="onFilterChange(group.key, $event)">
+        <option *ngFor="let option of group.options; trackBy: trackByOptionValue"
+          [value]="option.value">{{ option.label }}</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- Second filter row: Site and Currency. Both narrow the figures server-side, unlike the
+       Region / Country / Entity placeholders above. -->
+  <div class="dashboard-filter-row secondary">
+    <label class="filter-chip">
+      <!-- trackBy so a refetch cannot recreate the <option> nodes and drop the selection. -->
+      <select [ngModel]="selectedSite" (ngModelChange)="onSiteChange($event)">
+        <option *ngFor="let option of siteOptions; trackBy: trackByOptionValue"
+          [value]="option.value">{{ option.label }}</option>
+      </select>
+    </label>
+
+    <!-- Spend category (F4-AC4, F5-AC5). Value is the category NAME — tblCMCategory has no
+         code column, and the breakdown panel already groups by name. -->
+    <label class="filter-chip">
+      <select [ngModel]="selectedCategory" (ngModelChange)="onCategoryChange($event)">
+        <option *ngFor="let option of categoryOptions; trackBy: trackByOptionValue"
+          [value]="option.value">{{ option.label }}</option>
+      </select>
+    </label>
+
+    <!-- Multi-select, not a GBP/USD toggle: a toggle implies conversion and there is no
+         corporate rate here. Selecting ONE currency is what makes the totals coherent. -->
+    <div class="filter-chip currency-multiselect" [class.open]="currencyMenuOpen">
+      <button type="button" class="currency-trigger" (click)="toggleCurrencyMenu()"
+        cmTooltip="Include only these site currencies. Picking one makes the totals a single-currency figure."
+        cmTooltipPosition="bottom">
+        <span>{{ currencyLabel }}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      <div class="currency-menu" *ngIf="currencyMenuOpen">
+        <button type="button" class="currency-item all" (click)="clearCurrencies()">
+          <span class="tick" [class.on]="selectedCurrencies.length === 0">✓</span>
+          All currencies
+        </button>
+        <button type="button" class="currency-item"
+          *ngFor="let option of currencyOptions; trackBy: trackByOptionValue"
+          (click)="toggleCurrency(option.value)">
+          <span class="tick" [class.on]="isCurrencySelected(option.value)">✓</span>
+          {{ option.label }}
+        </button>
+        <p class="currency-note" *ngIf="currencyOptions.length === 0">
+          No site currencies in this year's data.
+        </p>
+      </div>
+    </div>
+
+    <!-- The counterpart to the mixed-currency warning: say so when the figures ARE coherent. -->
+    <span class="currency-state" *ngIf="isSingleCurrency">
+      Totals are in {{ singleCurrencyCode }} only.
+    </span>
+  </div>
+
+  <div class="kpi-grid">
+    <article *ngFor="let kpi of data.kpis" class="dashboard-card kpi-card">
+      <div class="kpi-title-row">
+        <div>
+          <span class="kpi-label">{{ kpi.label }}</span>
+          <span class="kpi-period">{{ kpi.period }}</span>
+        </div>
+        <span class="kpi-icon" [style.color]="kpi.iconColor">{{ getKpiIcon(kpi) }}</span>
+      </div>
+      <strong>{{ kpi.value }}</strong>
+      <div class="kpi-footer">
+        <span
+          class="trend-label"
+          [style.color]="kpi.statusColor"
+        >
+          <span *ngIf="kpi.statusIcon === 'up'">&#8599;</span>
+          <span *ngIf="kpi.statusIcon === 'down'">&#8600;</span>
+          <span *ngIf="kpi.statusIcon === 'flat'">&#8211;</span>
+          {{ kpi.status }}
+        </span>
+      </div>
+    </article>
+  </div>
+
+  <article class="dashboard-card forecast-card">
+    <header class="section-header">
+      <div>
+        <h2>
+          Actual Spend vs Rolling Forecast
+          <!-- Names the active view so a screenshot is not ambiguous once it leaves the screen;
+               the two look similar and mean very different things. -->
+          <span class="mode-tag" *ngIf="forecastMode === 'cumulative'">cumulative</span>
+        </h2>
+        <div class="legend-row">
+          <span class="legend-dot actual"></span> Actual Spend
+          <span class="legend-dot forecast"></span> Rolling Forecast
+          <span class="revision-note">{{ data.forecast.revisionNote }}</span>
+        </div>
+      </div>
+      <div class="revision-meta">
+        <span>Active revision <strong>{{ data.forecast.activeRevision }}</strong></span>
+        <span>Actuals loaded <strong>{{ data.forecast.actualsLoaded }}</strong></span>
+
+        <!-- Monthly stays the default, so this chart looks exactly as it always has until
+             someone switches. Both views come from the same data — no request. -->
+        <div class="mode-switch" role="group" aria-label="Chart view">
+          <button type="button" [class.on]="forecastMode === 'monthly'"
+            (click)="setForecastMode('monthly')"
+            cmTooltip="Spend in each individual month" cmTooltipPosition="bottom">Monthly</button>
+          <button type="button" [class.on]="forecastMode === 'cumulative'"
+            (click)="setForecastMode('cumulative')"
+            cmTooltip="Running year-to-date total" cmTooltipPosition="bottom">Cumulative</button>
+        </div>
+        <!-- Reveals the separate Actuals-vs-Budget chart below. Kept as its own component so
+             this chart, which is in daily use, is not touched. -->
+        <button type="button" class="budget-trend-toggle" (click)="toggleBudgetTrend()"
+          [class.on]="showBudgetTrend"
+          cmTooltip="Compare actual spend against the approved budget, month by month"
+          cmTooltipPosition="bottom">
+          {{ showBudgetTrend ? 'Hide' : 'Show' }} Actuals vs Budget
+        </button>
+      </div>
+    </header>
+    <div class="chart-frame">
+      <svg #forecastSvg class="forecast-svg" [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight" role="img" aria-label="Actual spend and rolling forecast chart"
+        (mouseleave)="!isScrubbing && clearHoveredChartPoint()">
+        <defs>
+          <linearGradient id="forecastAreaGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.24"></stop>
+            <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"></stop>
+          </linearGradient>
+          <linearGradient id="actualAreaGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#2f8cff" stop-opacity="0.18"></stop>
+            <stop offset="100%" stop-color="#2f8cff" stop-opacity="0"></stop>
+          </linearGradient>
+        </defs>
+
+        <g class="y-axis">
+          <g *ngFor="let tick of yAxisTicks">
+            <line [attr.x1]="chartPadding.left" [attr.x2]="chartWidth - chartPadding.right" [attr.y1]="getChartY(tick)" [attr.y2]="getChartY(tick)"></line>
+            <text [attr.x]="chartPadding.left - 14" [attr.y]="getChartY(tick) + 4">{{ formatAxisMoney(tick) }}</text>
+          </g>
+        </g>
+
+        <line class="axis-line" [attr.x1]="chartPadding.left" [attr.x2]="chartWidth - chartPadding.right" [attr.y1]="chartHeight - chartPadding.bottom" [attr.y2]="chartHeight - chartPadding.bottom"></line>
+        <line class="axis-line" [attr.x1]="chartPadding.left" [attr.x2]="chartPadding.left" [attr.y1]="chartPadding.top" [attr.y2]="chartHeight - chartPadding.bottom"></line>
+
+        <path class="forecast-area" [attr.d]="forecastAreaPath"></path>
+        <path class="series-line forecast-series" [attr.d]="forecastPath"></path>
+        <path class="series-line actual-series" [attr.d]="actualPath"></path>
+
+        <g class="revision-markers">
+          <ng-container *ngFor="let point of chartPoints">
+            <g *ngIf="point.marker" [class]="'revision-marker ' + point.marker">
+              <line [attr.x1]="point.x" [attr.x2]="point.x" [attr.y1]="chartPadding.top" [attr.y2]="chartHeight - chartPadding.bottom"></line>
+              <circle r="4" [attr.cx]="point.x" [attr.cy]="point.forecastY"></circle>
+            </g>
+          </ng-container>
+        </g>
+
+        <!-- Only on the current year: a "Today" line inside a closed year is misleading.
+             Draggable across the months — the pill is the grab handle, and the tooltip follows.
+             Double-click anywhere on it to snap back to today. -->
+        <g class="today-marker" *ngIf="showTodayMarker">
+
+          <line [attr.x1]="markerX" [attr.x2]="markerX"
+            [attr.y1]="chartPadding.top" [attr.y2]="chartHeight - chartPadding.bottom"></line>
+
+          <!-- The PILL is the handle — grabbing the whole line meant a wide invisible strip
+               sitting over the chart. Click it once parked to return to today. -->
+          <g class="marker-handle" (mousedown)="startScrub($event)" (click)="onMarkerClick($event)">
+            <rect [attr.x]="markerX - markerPillWidth / 2" y="4"
+              [attr.width]="markerPillWidth" height="18" rx="5"></rect>
+            <text [attr.x]="markerX" y="17">{{ markerLabel }}</text>
+          </g>
+        </g>
+
+        <g class="chart-points">
+          <ng-container *ngFor="let point of chartPoints">
+            <circle
+              class="forecast-point"
+              r="5"
+              [attr.cx]="point.x"
+              [attr.cy]="point.forecastY"
+              (mouseenter)="setHoveredChartPoint(point, 'forecast')"
+              (mouseleave)="clearHoveredChartPoint()"
+            ></circle>
+            <circle
+              *ngIf="point.actualY !== null"
+              class="actual-point"
+              r="5"
+              [attr.cx]="point.x"
+              [attr.cy]="point.actualY"
+              (mouseenter)="setHoveredChartPoint(point, 'actual')"
+              (mouseleave)="clearHoveredChartPoint()"
+            ></circle>
+          </ng-container>
+        </g>
+
+        <g class="x-axis">
+          <g *ngFor="let point of chartPoints">
+            <line [attr.x1]="point.x" [attr.x2]="point.x" [attr.y1]="chartHeight - chartPadding.bottom" [attr.y2]="chartHeight - chartPadding.bottom + 5"></line>
+            <text
+              [attr.x]="point.x"
+              [attr.y]="chartHeight - 14"
+              [class.revision-month]="point.marker"
+              [class.rev1]="point.marker === 'rev1'"
+              [class.rev2]="point.marker === 'rev2'"
+              [class.rev3]="point.marker === 'rev3'"
+            >{{ point.month }}</text>
+          </g>
+        </g>
+
+        <g *ngIf="hoveredChartPoint" class="chart-tooltip" [attr.transform]="'translate(' + getTooltipX(hoveredChartPoint) + ' ' + getTooltipY(hoveredChartPoint) + ')'">
+          <rect width="220" height="92" rx="7"></rect>
+          <text x="12" y="20">{{ hoveredChartPoint.month }} snapshot</text>
+          <text x="12" y="42">Actual</text>
+          <text x="208" y="42" text-anchor="end">{{ formatChartMoney(hoveredChartPoint.actual) }}</text>
+          <text x="12" y="61">Rolling Forecast</text>
+          <text x="208" y="61" text-anchor="end">{{ formatChartMoney(hoveredChartPoint.forecast) }}</text>
+          <text x="12" y="80">Revision</text>
+          <text x="208" y="80" text-anchor="end">{{ getRevisionLabel(hoveredChartPoint) }}</text>
+        </g>
+      </svg>
+    </div>
+  </article>
+
+  <!-- Actuals vs Budget (epic F4). A separate component, revealed on demand, so the Rolling
+       Forecast chart above is untouched. Rendered only from LIVE data — the sample dataset has
+       no budget series, and a sample budget would be an invented baseline. -->
+  <div class="budget-trend-slot" *ngIf="showBudgetTrend && live">
+    <cm-budget-trend
+      [monthly]="budgetTrendMonths"
+      [currency]="budgetTrendCurrency"
+      [year]="live.year"
+      [activeSiteLabel]="selectedSiteLabel"
+      [activeCurrencies]="selectedCurrencies"
+    ></cm-budget-trend>
+  </div>
+
+  <div class="middle-grid">
+    <article class="dashboard-card">
+      <header class="section-header compact">
+        <div>
+          <h2>Top Vendors by Spend</h2>
+          <p>Calculated from invoice, budget, and actual spend records</p>
+        </div>
+        <!-- Label follows what the rows now show. (Still inert sample-era chrome — no handler.) -->
+        <button class="mini-pill">YTD spend</button>
+      </header>
+      <div class="vendor-list">
+        <div *ngFor="let vendor of data.vendors" class="vendor-row"
+          [class.over-budget]="vendor.status === 'over'">
+          <div class="vendor-name-cell">
+            <span>{{ vendor.name }}</span>
+            <span class="vendor-info" tabindex="0" aria-label="Vendor details">i
+              <span class="vendor-tooltip">
+                <span class="vendor-tooltip-header">
+                  <strong>{{ vendor.name }} details</strong>
+                  <em>{{ vendor.status === 'over' ? 'Hover state' : 'Budget context' }}</em>
+                </span>
+                <span>Approved budget: <strong>{{ vendor.approvedBudget }}</strong></span>
+                <span>Current spend: <strong>{{ vendor.currentSpend }}</strong></span>
+                <!-- The percentage moved here when the row started showing money. ⚠️ It is a
+                     share of the vendors SHOWN, not of total spend — the list is capped, so it
+                     needs saying or the figures look like they should sum to 100% of spend. -->
+                <span>Share of vendors shown: <strong>{{ vendor.percent }}%</strong></span>
+                <span>{{ vendor.budgetContext }}</span>
+              </span>
+            </span>
+
+            <!-- F2-AC5. A dedicated control rather than a clickable row: the row already
+                 carries a tooltip target, so a whole-row hover competed with it. Sits at the
+                 right edge of the name cell (margin-left: auto) rather than taking its own
+                 grid column. Live data only — the sample fallback's vendors have no invoices. -->
+            <button type="button" class="vendor-drill-btn" *ngIf="canDrillVendors"
+              (click)="openVendorDrill(vendor.name)"
+              [attr.aria-label]="'Show invoice lines for ' + vendor.name"
+              cmTooltip="Show the invoice lines behind this figure" cmTooltipPosition="left">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="16.5" y1="16.5" x2="21" y2="21" />
+              </svg>
+            </button>
+          </div>
+          <div class="vendor-track">
+            <span [style.width.%]="vendor.utilization"></span>
+          </div>
+          <!-- F2-AC1: the amount paid, which is what the user story asks for. It was a
+               percentage here and the money was hover-only, so the headline question — how much
+               have we paid this supplier — could not be answered by looking at the panel. -->
+          <strong class="vendor-amount">{{ vendor.currentSpend }}</strong>
+        </div>
+        <!-- The list is capped at the largest few, so these rows do not sum to Total Spend. -->
+        <p class="more-note" *ngIf="vendorsMoreNote">{{ vendorsMoreNote }}</p>
+      </div>
+
+      <cm-vendor-drill
+        [isOpen]="vendorDrillOpen"
+        [vendor]="vendorDrillName"
+        [year]="year"
+        [rows]="vendorDrillRows"
+        [total]="vendorDrillTotal"
+        [expected]="vendorDrillExpected"
+        [currencyMix]="vendorDrillCurrencyMix"
+        [loading]="vendorDrillLoading"
+        [loadError]="vendorDrillError"
+        (closed)="closeVendorDrill()"
+      ></cm-vendor-drill>
+    </article>
+
+    <article class="dashboard-card">
+      <header class="section-header compact">
+        <h2>Financial Alerts</h2>
+        <span>Requires Action</span>
+      </header>
+      <div class="alert-legend">
+        <span *ngFor="let item of data.alertLegend">
+          <span class="alert-dot" [style.background-color]="item.color"></span>
+          {{ item.label }} = {{ item.description }}
+        </span>
+      </div>
+      <div class="alert-list">
+        <!-- Alerts are DERIVED, not authored — the tooltip carries the derivation so a figure
+             can be traced back rather than taken on trust. -->
+        <div *ngFor="let alert of data.alerts" class="alert-row"
+          [cmTooltip]="alertDetail(alert.title)" cmTooltipPosition="left">
+          <span class="alert-dot" [style.background-color]="alert.color"></span>
+          <span>{{ alert.title }}</span>
+          <strong [style.color]="alert.color">{{ alert.value }}</strong>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <div #pdfExportSection class="dashboard-export-section">
+    <article class="dashboard-card department-card">
+      <header class="section-header compact">
+        <div>
+          <h2>{{ data.departmentTitle }}</h2>
+          <p>{{ data.departmentSubtitle }}</p>
+        </div>
+        <!-- ── DISABLED 2026-08-20: Export PDF needs html2canvas + jspdf, neither installed.
+             See the note on exportPdf() in the component.
+             TO RESTORE:  npm install html2canvas jspdf
+                          then uncomment this block AND the method. ──
+        <div class="export-actions">
+          <button
+            type="button"
+            class="export-button"
+            [disabled]="isExporting"
+            (click)="exportPdf()"
+          >
+            {{ isExporting ? 'Exporting...' : 'Export PDF' }}
+          </button>
+        </div>
+        ── end disabled export button ── -->
+      </header>
+      <div class="department-legend">
+        <span *ngFor="let item of data.departmentLegend" [class]="'department-legend-item ' + item.style">
+          <i [style.background-color]="item.color" [style.border-color]="item.color"></i>
+          {{ item.label }}
+        </span>
+      </div>
+      <div class="department-layout">
+        <aside class="department-summary">
+          <span>Department</span>
+          <strong>{{ data.departmentName }}</strong>
+          <p>{{ data.departmentDescription }}</p>
+          <div class="department-card-list">
+            <button
+              *ngFor="let tower of data.departments"
+              type="button"
+              class="department-mini-card"
+              [class.overspend]="tower.variancePercent > 0"
+              (mouseenter)="setHoveredDepartment(tower)"
+              (mouseleave)="clearHoveredDepartment()"
+            >
+              <span>{{ tower.name }}</span>
+              <strong [style.color]="getDepartmentVarianceColor(tower)">
+                {{ getDepartmentVarianceLabel(tower) }}
+              </strong>
+            </button>
+          </div>
+        </aside>
+        <div class="department-chart-shell">
+          <svg class="department-svg" [attr.viewBox]="'0 0 ' + departmentChartWidth + ' ' + departmentChartHeight" aria-label="Department performance chart" (mouseleave)="clearHoveredDepartment()">
+            <g class="department-y-axis">
+              <g *ngFor="let tick of departmentYAxisTicks">
+                <line [attr.x1]="departmentChartPadding.left" [attr.x2]="departmentChartWidth - departmentChartPadding.right" [attr.y1]="getDepartmentY(tick)" [attr.y2]="getDepartmentY(tick)"></line>
+                <text [attr.x]="departmentChartPadding.left - 12" [attr.y]="getDepartmentY(tick) + 4">{{ formatAxisMoney(tick) }}</text>
+              </g>
+            </g>
+            <line class="department-axis-line" [attr.x1]="departmentChartPadding.left" [attr.x2]="departmentChartWidth - departmentChartPadding.right" [attr.y1]="departmentChartHeight - departmentChartPadding.bottom" [attr.y2]="departmentChartHeight - departmentChartPadding.bottom"></line>
+            <line class="department-axis-line" [attr.x1]="departmentChartPadding.left" [attr.x2]="departmentChartPadding.left" [attr.y1]="departmentChartPadding.top" [attr.y2]="departmentChartHeight - departmentChartPadding.bottom"></line>
+
+            <g *ngFor="let tower of data.departments; let i = index" class="department-bar-group" (mouseenter)="setHoveredDepartment(tower)" (mouseleave)="clearHoveredDepartment()">
+              <line
+                class="department-baseline"
+                [attr.x1]="getDepartmentBarX(i)"
+                [attr.x2]="getDepartmentBarEndX(i)"
+                [attr.y1]="getDepartmentY(tower.forecast)"
+                [attr.y2]="getDepartmentY(tower.forecast)"
+                [attr.stroke]="tower.baselineColor"
+              ></line>
+              <rect
+                class="department-remainder"
+                [attr.x]="getDepartmentBarX(i)"
+                [attr.y]="getDepartmentY(tower.actual + tower.remainder)"
+                [attr.width]="departmentBarWidth"
+                [attr.height]="getDepartmentBarHeight(tower.remainder)"
+                rx="3"
+                [attr.fill]="tower.remainderColor"
+              ></rect>
+              <rect
+                class="department-actual"
+                [attr.x]="getDepartmentBarX(i)"
+                [attr.y]="getDepartmentY(tower.actual)"
+                [attr.width]="departmentBarWidth"
+                [attr.height]="getDepartmentBarHeight(tower.actual)"
+                rx="3"
+                [attr.fill]="tower.actualColor"
+              ></rect>
+              <line
+                class="department-stack-separator"
+                [attr.x1]="getDepartmentBarX(i)"
+                [attr.x2]="getDepartmentBarEndX(i)"
+                [attr.y1]="getDepartmentY(tower.actual)"
+                [attr.y2]="getDepartmentY(tower.actual)"
+              ></line>
+              <text class="department-variance-label" [attr.x]="getDepartmentX(i)" [attr.y]="getDepartmentY(tower.actual) - 7" [attr.fill]="getDepartmentVarianceColor(tower)">
+                {{ getDepartmentVarianceLabel(tower) }}
+              </text>
+              <text class="department-x-label" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 38">{{ tower.name }}</text>
+              <text class="department-x-subtitle" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 23">{{ tower.subtitle }}</text>
+              <text class="department-x-fy" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 4">{{ tower.fiscalLabel }}</text>
+            </g>
+
+            <g *ngIf="hoveredDepartment" class="department-tooltip" [attr.transform]="'translate(' + getDepartmentTooltipX(hoveredDepartment) + ' ' + getDepartmentTooltipY(hoveredDepartment) + ')'">
+              <rect width="230" height="132" rx="8"></rect>
+              <text x="12" y="20">{{ hoveredDepartment.name }}</text>
+              <text x="12" y="42">Forecast</text>
+              <text x="218" y="42" text-anchor="end" [style.fill]="hoveredDepartment.baselineColor">{{ formatChartMoney(hoveredDepartment.forecast) }}</text>
+              <text x="12" y="61">Actual</text>
+              <text x="218" y="61" text-anchor="end" [style.fill]="hoveredDepartment.actualColor">{{ formatChartMoney(hoveredDepartment.actual) }}</text>
+              <text x="12" y="80">Remainder</text>
+              <text x="218" y="80" text-anchor="end" [style.fill]="hoveredDepartment.remainderColor">{{ formatChartMoney(hoveredDepartment.remainder) }}</text>
+              <text x="12" y="99">Variance</text>
+              <text x="218" y="99" text-anchor="end" [style.fill]="getDepartmentVarianceColor(hoveredDepartment)">{{ getDepartmentVarianceLabel(hoveredDepartment) }}</text>
+              <text x="12" y="118">Drill</text>
+              <text x="218" y="118" text-anchor="end" class="department-tooltip-link">{{ hoveredDepartment.drillLabel }}</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </article>
+
+    <div class="bottom-grid">
+    <article class="dashboard-card mini-panel">
+      <h2>Internal Recharge</h2>
+      <div class="recharge-layout">
+        <div class="donut">
+          <svg viewBox="0 0 120 120" class="donut-svg" aria-label="Recharge distribution">
+            <g transform="rotate(-90 60 60)">
+              <circle class="donut-track" cx="60" cy="60" r="44" fill="none" stroke="#111722" stroke-width="20"></circle>
+              <ng-container *ngFor="let slice of data.recharge.slices; let idx = index">
+                <circle
+                  class="donut-segment"
+                  cx="60"
+                  cy="60"
+                  r="44"
+                  fill="none"
+                  [attr.stroke]="slice.color"
+                  stroke-width="20"
+                  stroke-linecap="butt"
+                  [attr.stroke-dasharray]="getRechargeSegmentDashArray(slice.value)"
+                  [attr.stroke-dashoffset]="getRechargeSegmentOffset(idx)"
+                ></circle>
+              </ng-container>
+            </g>
+          </svg>
+          <div class="donut-core">
+            <strong>{{ data.recharge.totalAllocated }}</strong>
+            <span>Total Allocated</span>
+          </div>
+        </div>
+        <div class="recharge-legend">
+          <div *ngFor="let slice of data.recharge.slices">
+            <span class="legend-swatch" [style.background-color]="slice.color"></span>
+            <span>{{ slice.label }}</span>
+            <strong>{{ slice.value }}%</strong>
+          </div>
+        </div>
+      </div>
+    </article>
+    <article class="dashboard-card mini-panel category-panel">
+      <h2>Spend by Category</h2>
+      <p class="more-note" *ngIf="categoriesMoreNote">{{ categoriesMoreNote }}</p>
+      <div class="category-legend">
+        <div *ngFor="let category of data.categories">
+          <span class="legend-swatch" [style.background-color]="category.color"></span>
+          <span>{{ category.label }}</span>
+          <strong>{{ category.amount }}</strong>
+        </div>
+      </div>
+      <div class="category-grid">
+        <div
+          *ngFor="let category of data.categories"
+          class="category-tile"
+          [style.width.%]="category.percent"
+          [style.background-color]="category.color"
+          [title]="category.label + ': ' + category.percent + '% / ' + category.amount"
+        >
+          <strong>{{ category.percent }}%</strong>
+        </div>
+      </div>
+    </article>
+    <article class="dashboard-card mini-panel">
+      <h2>Invoice Activity</h2>
+      <div class="invoice-list">
+        <div *ngFor="let item of data.invoiceActivity">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </div>
+      </div>
+    </article>
+    </div>
+  </div>
+
+  <!-- ─── Data status strip ───────────────────────────────────────────────────
+       Everything below is real except the panels named in `dataGaps`. This strip is
+       what keeps that distinction visible instead of leaving sample figures looking
+       authoritative. -->
+  <div class="data-status" *ngIf="liveLoading || liveError || live">
+
+    <p class="data-note data-note--busy" *ngIf="liveLoading">Loading cost data…</p>
+
+    <p class="data-note data-note--error" *ngIf="liveError">
+      Could not load live cost data — the figures below are sample data.
+      <button type="button" class="data-note-action" (click)="reloadLive()">Try again</button>
+    </p>
+
+    <ng-container *ngIf="live && !liveLoading && !liveError">
+      <!-- No spend at all for this filter combination. Says which filters are responsible
+           rather than leaving the user staring at zeros. -->
+      <p class="data-note data-note--empty" *ngIf="hasNoActuals">
+        No invoices posted for {{ live.year }}{{ selectedFilters.department || selectedFilters.vendor ? ' with these filters' : '' }}.
+        Spend figures, vendor and category breakdowns are all zero until invoices are saved.
+      </p>
+
+      <p class="data-note" *ngIf="!hasNoActuals">{{ actualsThroughLabel }}.</p>
+
+      <!-- Same distinction the budget chart makes: a missing budget and a filtered-away one
+           call for completely different actions, so they must not share a message. -->
+      <p class="data-note data-note--warn" *ngIf="hasNoBudget && !isBudgetNarrowed">
+        <strong>No budget entered for {{ live.year }}.</strong>
+        Budget and variance figures read zero — set one on the <em>Budget Planner</em> screen
+        to populate them.
+      </p>
+
+      <p class="data-note" *ngIf="hasNoBudget && isBudgetNarrowed">
+        <strong>No budget for the selected Site / Currency.</strong>
+        A year's budget is entered against a single site, so budget and variance figures read
+        zero here. Clear those two filters to compare against the full-year budget.
+      </p>
+
+      <!-- The headline totals add different currencies together. Stated plainly; there is
+           no corporate rate in this database to normalise them with. -->
+      <p class="data-note data-note--warn" *ngIf="hasMixedCurrency">
+        <strong>Mixed currencies ({{ currencyMixLabel }}).</strong>
+        Amounts convert to each invoice's processing-site currency, so these totals combine
+        more than one. Treat them as indicative.
+      </p>
+
+      <!-- The three filters that cannot filter. Called out separately from the sample-data
+           list below because this one is actively misleading if unstated: the dropdowns look
+           and behave like the working ones. -->
+      <p class="data-note data-note--warn" *ngIf="hasGap('geography')">
+        <strong>Region, Country and Entity are placeholders.</strong>
+        Those dimensions do not exist in this database, so the options shown are examples and
+        changing them has <strong>no effect</strong> on the figures below. Department, Vendor,
+        Scenario, Site and Currency are real and do filter.
+        <br />
+        <strong>Site</strong> is the closest thing this database has to a location — it is a
+        plant, not a legal entity, which is why it cannot stand in for Entity above.
+      </p>
+
+      <!-- Names what is still sample data, so nothing invented reads as real. Each label
+           carries its own reason on hover — the server explains every gap, and that text is
+           more useful next to the item than buried in a doc. -->
+      <p class="data-note data-note--sample" *ngIf="dataGaps.length">
+        <strong>Sample data:</strong>
+        <span *ngFor="let gap of dataGaps; let last = last">
+          <span class="gap-label" [cmTooltip]="gap.reason" cmTooltipPosition="top">{{ gap.label }}</span>{{ last ? '' : ' · ' }}
+        </span>
+        — not held in this database.
+      </p>
+  
+  <!-- Source of Change (F5). Self-contained: it loads its own data when opened, so nothing
+       here changes while it is closed. -->
+  <cm-source-of-change
+    [isOpen]="sourceOfChangeOpen"
+    [year]="year"
+    (closed)="closeSourceOfChange()"
+  ></cm-source-of-change>
+
+  </ng-container>
+  </div>
+
+</ng-container>
+</div>

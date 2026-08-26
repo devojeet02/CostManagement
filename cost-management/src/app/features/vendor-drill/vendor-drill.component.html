@@ -1,0 +1,87 @@
+<!-- attachToBody: the shell's stacking context otherwise clips this modal and paints
+     over its header — see cm-modal. -->
+<cm-modal [title]="title" [isOpen]="isOpen" [attachToBody]="true" cardWidth="min(1120px, calc(100vw - 48px))" (closed)="closed.emit()">
+  <div class="vd-body">
+
+    <div class="vd-state" *ngIf="loading">
+      <cm-loader [show]="true" message="Loading invoice lines…"></cm-loader>
+    </div>
+
+    <p class="vd-state vd-state--error" *ngIf="!loading && loadError">
+      Could not load the invoice lines for this supplier.
+    </p>
+
+    <!-- Reachable when a filter excludes every line but the vendor is still listed — says which
+         rather than leaving an empty table to be interpreted. -->
+    <p class="vd-state" *ngIf="!loading && !loadError && rows.length === 0">
+      No invoice lines for {{ vendor }} in {{ year }} with the current filters.
+    </p>
+
+    <ng-container *ngIf="!loading && !loadError && rows.length > 0">
+      <div class="vd-scroll">
+        <table class="vd-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Invoice</th>
+              <th>Description</th>
+              <th>Internal Order</th>
+              <th>Category</th>
+              <th>Team</th>
+              <th>Site</th>
+              <th class="vd-num">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of rows; trackBy: trackByRow" [class.vd-credit]="r.isCredit">
+              <td class="vd-month">{{ monthLabel(r) }}</td>
+              <td>
+                <!-- Straight to the invoice, so the drill ends somewhere useful rather than
+                     leaving the user to search for the number by hand. -->
+                <a class="vd-link" [routerLink]="['/Cost-Management/Invoice-Edit', r.invoiceId]">
+                  {{ r.invoiceNumber || '—' }}
+                </a>
+                <span class="vd-meta">{{ fmtDate(r.invoiceDate) }}</span>
+              </td>
+              <td class="vd-desc" [attr.title]="r.description">{{ r.description || '—' }}</td>
+              <td class="vd-meta">{{ r.internalOrder || '—' }}</td>
+              <td class="vd-meta">{{ r.category || 'Uncategorised' }}</td>
+              <td class="vd-meta">{{ r.department || '—' }}</td>
+              <td class="vd-meta">{{ r.site || '—' }}</td>
+              <td class="vd-num vd-amount">
+                {{ signedAmount(r) | number:'1.2-2' }}
+                <span class="vd-ccy" *ngIf="r.currency">{{ r.currency }}</span>
+                <span class="vd-tag vd-tag--credit" *ngIf="r.isCredit">credit</span>
+                <span class="vd-tag vd-tag--unbudgeted" *ngIf="!r.isBudgeted">unbudgeted</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Does the drill add up to what the panel showed? If these ever disagree the two are
+           matching on different grains, and the drill would mislead — so it is stated, not left
+           to be spotted. Same check cm-recharge-drill makes. -->
+      <div class="vd-total" [class.vd-total--ok]="reconciles" [class.vd-total--off]="!reconciles">
+        <span class="vd-total-label">{{ rows.length }} line{{ rows.length === 1 ? '' : 's' }}</span>
+        <span class="vd-total-value">
+          {{ total | number:'1.2-2' }}
+          <span class="vd-ccy" *ngIf="currency">{{ currency }}</span>
+        </span>
+        <span class="vd-total-check" *ngIf="expected != null">
+          <ng-container *ngIf="reconciles">&#10003; matches the panel</ng-container>
+          <ng-container *ngIf="!reconciles">
+            &#9888; panel shows {{ expected | number:'1.2-2' }} — grain mismatch
+          </ng-container>
+        </span>
+      </div>
+
+      <p class="vd-note" *ngIf="isMixedCurrency">
+        <strong>Mixed currencies ({{ currencyMix.join(' + ') }}).</strong>
+        These lines are denominated in their processing site's currency, so the total adds
+        different currencies together. Select a single currency on the dashboard for a figure
+        that is meaningful on its own.
+      </p>
+    </ng-container>
+  </div>
+</cm-modal>

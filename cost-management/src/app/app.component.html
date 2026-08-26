@@ -1,6 +1,9 @@
-<div class="app-container">
-  <!-- <app-header></app-header> -->
-  <app-top-nav></app-top-nav>
-  <router-outlet></router-outlet>
+<!-- Sidenav + content. The old <app-top-nav> is retired: the screen list outgrew a single
+     row, and a rail matches the real Performance Hub shell these screens live in. -->
+<div class="app-shell">
+  <app-side-nav></app-side-nav>
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
 </div>
 <app-snackbar></app-snackbar>

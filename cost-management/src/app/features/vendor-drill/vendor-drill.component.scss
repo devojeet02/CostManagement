@@ -1,0 +1,195 @@
+/* Vendor drill-down. Sits inside cm-modal, which supplies the shell and backdrop.
+   Palette matches cost-dashboard.component.scss — this opens from the dark dashboard. */
+
+$panel-bg:    #111722;
+$head-bg:     #0d1420;
+$text:        #f7fbff;
+$text-muted:  #8fa2ba;
+$line:        rgba(70, 88, 115, 0.22);
+$accent:      #a78bfa;
+$credit:      #ff6477;
+$warn:        #ffcf3d;
+
+/* ⚠️ cm-modal styles its shell from CSS VARIABLES (--bg-secondary, --text-heading, …) and does
+   not define them itself — each host screen does. The dashboard never defined them, so the
+   modal fell back to unset values and rendered as a white box around dark content. Defining
+   them here is what makes the shell dark; do not delete these because "nothing uses them". */
+:host {
+  --bg-secondary: #{$panel-bg};
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --border-color: #{$line};
+  --text-heading: #{$text};
+  --text-primary: #{$text};
+  --text-muted: #{$text-muted};
+  --accent-color: #{$accent};
+  --transition-speed: 0.15s;
+}
+
+/* ⚠️ Width is passed via cm-modal's `cardWidth` input, NOT `::ng-deep .modal-card`.
+   With `attachToBody` the card lives in <body>, so a host-scoped descendant selector
+   cannot reach it. The theme variables above are copied across by cm-modal. */
+
+
+.vd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  color: $text;
+  /* Steady size while loading — see cm-source-of-change. */
+  min-height: 340px;
+}
+
+.vd-state {
+  margin: auto;
+  padding: 18px 4px;
+  text-align: center;
+  font-size: 13px;
+  color: $text-muted;
+
+  &--error { color: #ffb3bd; }
+}
+
+/* Eight columns will not fit a narrow modal — scroll the table, never the page. */
+.vd-scroll {
+  overflow-x: auto;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.vd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+
+  th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid $line;
+    text-align: left;
+    white-space: nowrap;
+    vertical-align: top;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: $head-bg;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $text-muted;
+  }
+
+  tbody tr:hover { background: rgba(255, 255, 255, 0.05); }
+}
+
+.vd-num { text-align: right; }
+
+.vd-amount {
+  font-weight: 600;
+  color: $text;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Credits reduce spend; colouring the whole row stops a negative reading as a data error. */
+.vd-credit .vd-amount { color: $credit; }
+
+.vd-month { font-weight: 600; color: $text; }
+
+.vd-desc {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: $text;
+}
+
+.vd-meta { color: $text-muted; }
+
+.vd-link {
+  color: $accent;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
+/* Date sits under the invoice number rather than taking its own column. */
+.vd-link + .vd-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.vd-ccy {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: $text-muted;
+}
+
+.vd-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &--credit { background: rgba(255, 100, 119, 0.16); color: #ffb3bd; }
+  &--unbudgeted { background: rgba(255, 207, 61, 0.16); color: #ffe6a1; }
+}
+
+/* ── Reconciliation footer ───────────────────────────────────────────────────────── */
+
+.vd-total {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: $head-bg;
+  border: 1px solid $line;
+
+  &--off {
+    background: rgba(255, 207, 61, 0.12);
+    border-color: rgba(255, 207, 61, 0.4);
+  }
+}
+
+.vd-total-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-muted;
+}
+
+.vd-total-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: $text;
+  font-variant-numeric: tabular-nums;
+}
+
+.vd-total-check {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #14d59a;
+
+  .vd-total--off & { color: #ffe6a1; }
+}
+
+.vd-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 207, 61, 0.12);
+  border: 1px solid rgba(255, 207, 61, 0.4);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #ffe6a1;
+}

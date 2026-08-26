@@ -4,3 +4,18 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Sidenav + content. The rail is sticky and full height; the content column owns its own
+   scrolling so the nav never scrolls away from a long screen. */
+.app-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,147 @@
+/* Left rail. Uses the app's existing CSS variables throughout, so it follows the light/dark
+   toggle exactly like every other screen — no hardcoded colours. */
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 232px;
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  padding: 16px 12px;
+  background: var(--bg-nav);
+  border-right: 1px solid var(--border-color);
+  box-shadow: 1px 0 4px var(--nav-shadow);
+  overflow-y: auto;
+  transition: width var(--transition-speed), background-color var(--transition-speed),
+              border-color var(--transition-speed);
+
+  &.collapsed { width: 64px; }
+}
+
+.sn-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.sn-brand {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-heading);
+  white-space: nowrap;
+}
+
+.sn-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-label);
+  cursor: pointer;
+
+  &:hover { color: var(--accent-color); border-color: var(--accent-color); }
+}
+
+.sn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sn-group-title {
+  padding: 0 10px 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+}
+
+.sn-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--text-label);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--accent-color);
+  }
+
+  /* The rail's own active state — a filled pill, not the top bar's underline, which does not
+     read as "current page" on a vertical list. */
+  &.active {
+    background: var(--accent-color);
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+.sn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+
+  svg { width: 18px; height: 18px; }
+}
+
+.sn-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+.sn-tag {
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--badge-paid-bg);
+  color: var(--badge-paid-color);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sn-item.active .sn-tag {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.sn-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Nothing in this build is real; saying so beats letting a viewer assume otherwise. */
+.sn-demo {
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--text-subtle);
+}
+
+.side-nav.collapsed {
+  .sn-item { justify-content: center; padding: 9px 0; }
+  .sn-group-title { display: none; }
+  .sn-foot { align-items: center; }
+}

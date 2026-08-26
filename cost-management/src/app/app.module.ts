@@ -16,6 +16,16 @@ import { HierarchySelectComponent } from './features/hierarchy-select/hierarchy-
 import { ModalComponent } from './features/modal/modal.component';
 import { SnackbarComponent } from './features/snackbar/snackbar.component';
 import { NumberFormatDirective } from './features/number-format/number-format.directive';
+import { SideNavComponent } from './features/side-nav/side-nav.component';
+import { CostDashboardComponent } from './components/dashboard/cost-dashboard.component';
+import { BudgetTrendComponent } from './features/budget-trend/budget-trend.component';
+import { VendorDrillComponent } from './features/vendor-drill/vendor-drill.component';
+import { PeriodRangeComponent } from './features/period-range/period-range.component';
+import { SourceOfChangeComponent } from './features/source-of-change/source-of-change.component';
+import { LoaderComponent } from './features/loader/loader.component';
+import { TooltipDirective } from './features/tooltip/tooltip.directive';
+import { CmModalComponent } from './features/cm-modal/cm-modal.component';
+
 
 @NgModule({
   declarations: [
@@ -31,7 +41,16 @@ import { NumberFormatDirective } from './features/number-format/number-format.di
     HierarchySelectComponent,
     ModalComponent,
     SnackbarComponent,
-    NumberFormatDirective
+    NumberFormatDirective,
+    SideNavComponent,
+    CostDashboardComponent,
+    BudgetTrendComponent,
+    VendorDrillComponent,
+    PeriodRangeComponent,
+    SourceOfChangeComponent,
+    LoaderComponent,
+    TooltipDirective,
+    CmModalComponent
   ],
   imports: [
     BrowserModule,

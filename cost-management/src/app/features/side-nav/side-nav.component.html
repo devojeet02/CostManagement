@@ -1,0 +1,60 @@
+<!-- Left rail. Collapses to icons so narrow screens keep the working area. -->
+<nav class="side-nav" [class.collapsed]="collapsed" aria-label="Cost Management">
+
+  <div class="sn-head">
+    <span class="sn-brand" *ngIf="!collapsed">Cost Management</span>
+    <button type="button" class="sn-toggle" (click)="toggle()"
+      [attr.aria-label]="collapsed ? 'Expand navigation' : 'Collapse navigation'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </svg>
+    </button>
+  </div>
+
+  <div class="sn-group" *ngFor="let group of groups">
+    <span class="sn-group-title" *ngIf="!collapsed">{{ group.title }}</span>
+
+    <a class="sn-item" *ngFor="let item of group.items"
+      [routerLink]="item.route" routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: item.route === '/' }"
+      [attr.title]="collapsed ? item.label : null">
+
+      <span class="sn-icon" [ngSwitch]="item.icon" aria-hidden="true">
+        <svg *ngSwitchCase="'grid'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+        <svg *ngSwitchCase="'upload'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <svg *ngSwitchCase="'chart'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 17 9 11 13 15 21 7" /><polyline points="14 7 21 7 21 14" />
+        </svg>
+        <svg *ngSwitchCase="'people'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        </svg>
+        <svg *ngSwitchCase="'wallet'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+        </svg>
+        <svg *ngSwitchCase="'layers'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" />
+        </svg>
+        <svg *ngSwitchCase="'shield'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      </span>
+
+      <span class="sn-label" *ngIf="!collapsed">{{ item.label }}</span>
+      <span class="sn-tag" *ngIf="!collapsed && item.tag">{{ item.tag }}</span>
+    </a>
+  </div>
+
+  <div class="sn-foot">
+    <app-theme-toggle></app-theme-toggle>
+    <!-- Says plainly that nothing here is real, so no one mistakes the demo for live figures. -->
+    <span class="sn-demo" *ngIf="!collapsed">Demo data — no backend</span>
+  </div>
+</nav>

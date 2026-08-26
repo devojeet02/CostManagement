@@ -1,0 +1,54 @@
+<!--
+  Dual-ended MONTH range picker. Months, not dates — see the component doc for why.
+-->
+<div class="pr-wrap">
+  <button type="button" class="pr-trigger" [class.on]="isOpen" (click)="toggle()"
+    cmTooltip="Narrow the dashboard to a period. Months, because the data has no finer grain."
+    cmTooltipPosition="bottom">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+    </svg>
+    <span>{{ label }}</span>
+    <svg class="pr-chevron" [class.open]="isOpen" width="12" height="12" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  </button>
+
+  <div class="pr-panel" *ngIf="isOpen">
+
+    <!-- The cases people actually ask for, one click instead of two. -->
+    <div class="pr-presets">
+      <button type="button" (click)="applyCurrentMonth()">Current month</button>
+      <button type="button" (click)="applyCurrentQuarter()">Current quarter</button>
+      <button type="button" (click)="applyYearToDate()">Year to date</button>
+      <button type="button" (click)="applyFullYear()">Full year</button>
+    </div>
+
+    <p class="pr-hint">Click a start month, then an end month.</p>
+
+    <div class="pr-grid" (mouseleave)="clearHover()">
+      <button
+        type="button"
+        *ngFor="let m of months; let i = index"
+        class="pr-month"
+        [class.in-range]="isInRange(i + 1)"
+        [class.edge]="isEdge(i + 1)"
+        [class.future]="isFuture(i + 1)"
+        (click)="selectMonth(i + 1)"
+        (mouseenter)="onHover(i + 1)"
+      >{{ m }}</button>
+    </div>
+
+    <!-- Months with no posted actuals are still selectable: forecast and budget exist there,
+         and saying so prevents the dimming reading as "disabled". -->
+    <p class="pr-note" *ngIf="actualsThroughMonth > 0 && actualsThroughMonth < 12">
+      Dimmed months have no posted invoices yet — forecast and budget still apply.
+    </p>
+  </div>
+</div>

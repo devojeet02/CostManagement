@@ -1,0 +1,406 @@
+/* Source of Change report. Opens from the dashboard, so it wears the dashboard's palette. */
+
+$panel-bg:   #111722;
+$row-bg:     #0d1420;
+$text:       #f7fbff;
+$text-muted: #8fa2ba;
+$line:       rgba(70, 88, 115, 0.22);
+$accent:     #6559ee;
+$over:       #ff6477;
+$under:      #14d59a;
+$warn:       #ffcf3d;
+
+/* ⚠️ cm-modal styles its shell from CSS variables and does not define them — each host screen
+   does, and the dashboard never did. Without these the modal renders as a white box around dark
+   content. Nothing in THIS stylesheet references them; they are for the child modal. */
+:host {
+  --bg-secondary: #{$panel-bg};
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --border-color: #{$line};
+  --text-heading: #{$text};
+  --text-primary: #{$text};
+  --text-muted: #{$text-muted};
+  --accent-color: #{$accent};
+  --transition-speed: 0.15s;
+}
+
+/* ⚠️ Width is passed via cm-modal's `cardWidth` input, NOT `::ng-deep .modal-card`.
+   With `attachToBody` the card lives in <body>, so a host-scoped descendant selector
+   cannot reach it. The theme variables above are copied across by cm-modal. */
+
+
+.soc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: $text;
+  min-width: 0;
+}
+
+/* Only the LOADING state reserves height, so the modal does not start small and jump when the
+   report lands. ⚠️ Deliberately not on .soc-body — a min-height there made the body taller than
+   the modal could show, so the modal body scrolled on top of the team list's own scroller. */
+div.soc-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+}
+
+.soc-state {
+  margin: auto;
+  padding: 20px 4px;
+  text-align: center;
+  font-size: 13px;
+  color: $text-muted;
+
+  &--error { color: #ffb3bd; }
+}
+
+.soc-empty {
+  padding: 16px 18px;
+  border-radius: 8px;
+  background: rgba(255, 207, 61, 0.12);
+  border: 1px solid rgba(255, 207, 61, 0.35);
+  color: #ffe6a1;
+  font-size: 13px;
+  line-height: 1.55;
+
+  em { font-style: normal; font-weight: 600; }
+}
+
+/* ── Controls ────────────────────────────────────────────────────────────────────────── */
+
+.soc-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.soc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-muted;
+
+  select {
+    height: 34px;
+    min-width: 130px;
+    padding: 0 10px;
+    border: 1px solid $line;
+    border-radius: 8px;
+    /* Opaque, never transparent: with appearance:none a transparent select is painted with the
+       system control background on Windows, i.e. white. */
+    background-color: $row-bg;
+    color: $text;
+    font-size: 13px;
+  }
+}
+
+.soc-vs {
+  padding-bottom: 8px;
+  font-size: 12px;
+  color: $text-muted;
+}
+
+.soc-baseline {
+  padding: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: $warn;
+}
+
+.soc-toggle {
+  margin-left: auto;
+  padding: 8px 14px;
+  border: 1px solid rgba(101, 89, 238, 0.5);
+  border-radius: 8px;
+  background: transparent;
+  color: #b7b0ff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: rgba(101, 89, 238, 0.16); }
+  &.on { background: $accent; border-color: $accent; color: #fff; }
+}
+
+/* ── Summary ─────────────────────────────────────────────────────────────────────────── */
+
+.soc-summary {
+  display: flex;
+  gap: 34px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: $row-bg;
+  border: 1px solid $line;
+
+  div { display: flex; flex-direction: column; gap: 3px; }
+
+  span {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $text-muted;
+  }
+
+  strong {
+    font-size: 17px;
+    color: $text;
+    font-variant-numeric: tabular-nums;
+
+    &.over { color: $over; }
+    &.under { color: $under; }
+  }
+}
+
+.soc-grain {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgba(101, 89, 238, 0.1);
+  border: 1px solid rgba(101, 89, 238, 0.28);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #cfc9ff;
+}
+
+/* ── Teams ───────────────────────────────────────────────────────────────────────────── */
+
+/* ⚠️ NO max-height / overflow here. This list used to be its own scroller inside the modal
+   body, which is also a scroller — so expanding a team pushed its lines into a ~285px window
+   that scrolled independently, slicing rows and hiding content that WAS rendered.
+   The modal body is the single scroller; this list simply grows. */
+.soc-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.soc-team {
+  border: 1px solid $line;
+  border-radius: 8px;
+  background: $row-bg;
+  overflow: hidden;
+
+  /* The rows F5-AC2 asks to highlight. A left bar rather than a fill, so the figures stay
+     readable and several overspending teams do not turn the panel into a wall of red. */
+  &.overspend { border-left: 3px solid $over; }
+}
+
+.soc-team-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: $text;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: rgba(255, 255, 255, 0.04); }
+}
+
+.soc-caret {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: $text-muted;
+  transition: transform 0.15s ease;
+
+  &.open { transform: rotate(90deg); }
+}
+
+.soc-team-name {
+  flex: 1;
+  min-width: 130px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.soc-flag {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(255, 207, 61, 0.16);
+  color: #ffe6a1;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.soc-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 96px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  em {
+    font-style: normal;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $text-muted;
+  }
+
+  small { font-size: 10.5px; font-weight: 500; opacity: 0.85; }
+}
+
+.soc-variance {
+  &.over { color: $over; }
+  &.under { color: $under; }
+  &.neutral { color: $text-muted; }
+}
+
+.soc-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 74px;
+  font-size: 11px;
+  color: $text-muted;
+}
+
+/* Count of justifications behind a team — the report's whole subject, so it gets a badge. */
+.soc-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: rgba(101, 89, 238, 0.3);
+  color: #cfc9ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ── Lines ───────────────────────────────────────────────────────────────────────────── */
+
+.soc-lines {
+  padding: 4px 14px 12px 34px;
+  border-top: 1px solid $line;
+}
+
+.soc-nolines,
+.soc-nocomment {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: rgba(143, 162, 186, 0.9);
+  font-style: italic;
+}
+
+.soc-line {
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(70, 88, 115, 0.14);
+
+  &:last-child { border-bottom: 0; }
+}
+
+.soc-line-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.soc-line-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $text;
+}
+
+.soc-line-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: $text-muted;
+
+  span::before { content: '· '; opacity: 0.6; }
+}
+
+.soc-line-value {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.soc-tag {
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &--add { background: rgba(255, 100, 119, 0.16); color: #ffb3bd; }
+  &--unbudgeted { background: rgba(255, 207, 61, 0.16); color: #ffe6a1; }
+}
+
+/* ── Justifications ──────────────────────────────────────────────────────────────────── */
+
+.soc-comments {
+  margin-top: 7px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(101, 89, 238, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.soc-comment {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.soc-edit {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: #b7b0ff;
+}
+
+.soc-month {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 10px;
+  font-weight: 600;
+  color: $text-muted;
+}
+
+.soc-text { color: $text; }
+
+.soc-by {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: rgba(143, 162, 186, 0.8);
+  white-space: nowrap;
+}
+
+.soc-footnote {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(143, 162, 186, 0.8);
+}

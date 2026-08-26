@@ -1,0 +1,1530 @@
+/* ─── Defensive reset against the host app's global stylesheet ──────────────
+   This dashboard was written as a standalone app; dropped into Performance Hub it
+   inherits `src/styles.css`, which is Bootstrap-derived and styles BARE ELEMENTS.
+   Three of its rules visibly break a dark dashboard:
+
+     h1..h6  { color: #344767; font-weight: 400 }   → headings near-invisible on #071b2f
+     h1..h4  { letter-spacing: -0.05rem }           → cramped display-type tracking
+     h2      { font-size: calc(1.325rem + .9vw) }   → viewport-scaled, ignores the design
+
+   Scoped to .insight-dashboard, so nothing outside this component is affected.
+   (The global `section { background: #f8f9fa !important }` is dodged differently —
+   the root element is a <div>; see the template.) */
+.insight-dashboard {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: inherit;
+    letter-spacing: normal;
+    font-weight: 600;
+  }
+
+  /* Bootstrap resets these to its own stack; the dashboard assumes the app font. */
+  button,
+  select,
+  input,
+  textarea {
+    font-family: inherit;
+  }
+}
+
+:host {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.insight-dashboard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 22px 28px;
+  background: #071b2f;
+  color: #f7fbff;
+}
+
+.dashboard-filter-row,
+.kpi-grid,
+.middle-grid,
+.bottom-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-filter-row {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: center;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+
+/* Second row: Site + Currency. Laid out with flex, not the auto-fit grid above — two controls
+   in a 6-column grid would stretch to a third of the screen each. The row above keeps its
+   own margin, so this one only needs the gap to it closed. */
+.dashboard-filter-row.secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: -6px;
+
+  .filter-chip {
+    flex: 0 0 auto;
+    min-width: 200px;
+  }
+}
+
+/* ── Currency multi-select ───────────────────────────────────────────────────────────
+   A native <select multiple> renders as an always-open scrolling list box, which cannot sit
+   in a chip row — hence a custom trigger + panel. */
+.currency-multiselect {
+  position: relative;
+  padding: 0;
+}
+
+.currency-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 14px 0 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #111827;
+  color: #f7fbff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.currency-multiselect.open .currency-trigger {
+  box-shadow: 0 0 0 1px #3486ff inset;
+}
+
+.currency-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  /* Above the KPI cards below it; they create their own stacking context via box-shadow. */
+  z-index: 40;
+  padding: 6px;
+  border-radius: 8px;
+  background: #111722;
+  border: 1px solid rgba(70, 88, 115, 0.35);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.4);
+}
+
+.currency-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: #f7fbff;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &.all {
+    border-bottom: 1px solid rgba(70, 88, 115, 0.3);
+    border-radius: 6px 6px 0 0;
+  }
+
+  .tick {
+    width: 14px;
+    flex-shrink: 0;
+    /* Reserve the tick's space always, so rows don't shift as selections change. */
+    opacity: 0;
+    color: #14d59a;
+    font-weight: 700;
+
+    &.on {
+      opacity: 1;
+    }
+  }
+}
+
+.currency-note {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #8fa2ba;
+}
+
+.currency-state {
+  font-size: 12px;
+  font-weight: 600;
+  color: #14d59a;
+  white-space: nowrap;
+}
+
+/* ── Actuals vs Budget ───────────────────────────────────────────────────────────────── */
+
+.budget-trend-toggle {
+  padding: 6px 12px;
+  border: 1px solid rgba(101, 89, 238, 0.55);
+  border-radius: 6px;
+  background: transparent;
+  color: #b7b0ff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba(101, 89, 238, 0.16);
+  }
+
+  /* Reads as pressed while the chart is open, so the button explains the panel below it. */
+  &.on {
+    background: #6559ee;
+    border-color: #6559ee;
+    color: #fff;
+  }
+}
+
+.budget-trend-slot {
+  margin-bottom: 18px;
+}
+
+/* ── Monthly / Cumulative switch ─────────────────────────────────────────────────────
+   Mirrors the one in cm-budget-trend so the two charts feel like the same control. */
+
+.mode-switch {
+  display: flex;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 8px;
+  background: rgba(11, 20, 32, 0.85);
+  border: 1px solid rgba(70, 88, 115, 0.35);
+
+  button {
+    padding: 5px 13px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #8fa2ba;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover:not(.on) {
+      color: #f7fbff;
+    }
+
+    &.on {
+      background: #6559ee;
+      color: #fff;
+    }
+  }
+}
+
+.mode-tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(101, 89, 238, 0.18);
+  color: #b7b0ff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.filter-chip,
+.mini-pill,
+.export-actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #111827;
+  color: #b8c3cf;
+  padding: 8px 18px;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.export-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.export-actions button {
+  background: linear-gradient(135deg, #2f8cff 0%, #8b5cf6 100%);
+  color: #ffffff;
+  padding: 10px 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 14px 30px rgba(47, 140, 255, 0.15);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+  cursor: pointer;
+}
+
+.export-actions button:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 18px 36px rgba(47, 140, 255, 0.18);
+}
+
+.export-actions button:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.export-actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  box-shadow: none;
+}
+
+.export-actions button:focus-visible {
+  outline: 2px solid rgba(90, 147, 255, 0.8);
+  outline-offset: 3px;
+}
+
+.filter-chip {
+  display: block;
+  padding: 0;
+  min-width: 0;
+}
+
+.filter-chip select {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: #111827;
+  color: #f7fbff;
+  padding: 0 34px 0 20px;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, #8fa2ba 50%), linear-gradient(135deg, #8fa2ba 50%, transparent 50%);
+  background-position: calc(100% - 16px) 17px, calc(100% - 11px) 17px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.filter-chip select:focus {
+  box-shadow: 0 0 0 1px #3486ff inset;
+}
+
+.kpi-grid {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+  margin-bottom: 18px;
+}
+
+.dashboard-card {
+  background: #111722;
+  border: 1px solid rgba(70, 88, 115, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+}
+
+.kpi-card {
+  min-height: 104px;
+  padding: 18px 20px;
+}
+
+.kpi-title-row,
+.section-header,
+.alert-row,
+.invoice-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kpi-label,
+.kpi-period,
+.section-header p,
+.section-header span,
+.vendor-row,
+.invoice-list span {
+  color: #aab5c3;
+  font-size: 12px;
+}
+
+.kpi-label,
+.kpi-period {
+  display: block;
+  line-height: 1.25;
+}
+
+.kpi-card strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.kpi-icon {
+  font-size: 20px;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.trend-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.trend-bad,
+.over-budget strong {
+  color: #ff5f70;
+}
+
+.kpi-footer {
+  margin-top: 12px;
+}
+
+.forecast-card {
+  padding: 18px 20px 14px;
+  margin-bottom: 18px;
+}
+
+.section-header {
+  margin-bottom: 18px;
+}
+
+.section-header.compact {
+  margin-bottom: 14px;
+}
+
+.section-header h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #9ba7b7;
+  font-size: 11px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 3px;
+  border-radius: 3px;
+  background: #3388ff;
+}
+
+.legend-dot.forecast {
+  background: #8c5cff;
+}
+
+.revision-note {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #1b2230;
+}
+
+.revision-meta {
+  display: flex;
+  gap: 22px;
+  text-align: right;
+  /* Now carries two controls as well as the two labels — centre them against the text and let
+     the row wrap on a narrow viewport rather than squashing the buttons. */
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.revision-meta strong {
+  display: block;
+  color: #ffffff;
+}
+
+.chart-frame {
+  position: relative;
+  height: 330px;
+  overflow: hidden;
+  border-top: 1px dashed rgba(126, 141, 163, 0.18);
+}
+
+.forecast-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.y-axis line {
+  stroke: rgba(130, 146, 170, 0.2);
+  stroke-dasharray: 4 4;
+}
+
+.y-axis text,
+.x-axis text {
+  fill: #7f8a99;
+  font-size: 12px;
+}
+
+.y-axis text {
+  text-anchor: end;
+}
+
+.x-axis text {
+  text-anchor: middle;
+  font-weight: 600;
+}
+
+.x-axis line,
+.axis-line {
+  stroke: rgba(130, 146, 170, 0.22);
+}
+
+.forecast-area {
+  fill: url(#forecastAreaGradient);
+}
+
+.series-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.forecast-series {
+  stroke: #8b5cf6;
+  stroke-width: 3;
+  stroke-dasharray: 8 5;
+  opacity: 0.85;
+}
+
+.actual-series {
+  stroke: #2f8cff;
+  stroke-width: 4;
+}
+
+.forecast-point,
+.actual-point {
+  cursor: pointer;
+  stroke: #111722;
+  stroke-width: 2;
+}
+
+.forecast-point {
+  fill: #8b5cf6;
+}
+
+.actual-point {
+  fill: #2f8cff;
+}
+
+.forecast-point:hover,
+.actual-point:hover {
+  r: 8;
+}
+
+/* ── Today marker ────────────────────────────────────────────────────────────────────
+   Draggable so it can be run across the chart, but its APPEARANCE never changes — same dotted
+   line, same "Today <date>" pill. It is a reading aid, not a mode. */
+
+/* Only the PILL is interactive. The dashed line takes no pointer events at all, so it cannot
+   swallow hovers meant for the data points behind it, and there is no wide invisible strip
+   sitting over the chart. */
+.today-marker {
+  pointer-events: none;
+}
+
+.marker-handle {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.marker-handle:active {
+  cursor: grabbing;
+}
+
+.today-marker line {
+  stroke: rgba(228, 238, 255, 0.55);
+  stroke-dasharray: 3 4;
+}
+
+.revision-marker line {
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+  opacity: 0.65;
+}
+
+.revision-marker circle {
+  stroke: #111722;
+  stroke-width: 2;
+}
+
+.revision-marker.rev1 line,
+.revision-marker.rev1 circle {
+  stroke: #22c79a;
+  fill: #22c79a;
+}
+
+.revision-marker.rev2 line,
+.revision-marker.rev2 circle {
+  stroke: #ffcf3d;
+  fill: #ffcf3d;
+}
+
+.revision-marker.rev3 line,
+.revision-marker.rev3 circle {
+  stroke: #378cff;
+  fill: #378cff;
+}
+
+.today-marker rect {
+  fill: #202938;
+  stroke: rgba(228, 238, 255, 0.18);
+}
+
+.today-marker text {
+  fill: #f7fbff;
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.chart-tooltip rect {
+  fill: #050913;
+  stroke: rgba(255, 255, 255, 0.08);
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45));
+}
+
+.chart-tooltip {
+  pointer-events: none;
+}
+
+.chart-tooltip text {
+  fill: #f7fbff;
+  font-size: 12px;
+}
+
+.chart-tooltip text:first-of-type {
+  fill: #aab5c3;
+  font-size: 11px;
+}
+
+.revision-month {
+  font-weight: 700;
+}
+
+.revision-month.rev1 {
+  fill: #22c79a !important;
+}
+
+.revision-month.rev2 {
+  fill: #ffcf3d !important;
+}
+
+.revision-month.rev3 {
+  fill: #378cff !important;
+}
+
+.middle-grid {
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 18px;
+}
+
+.dashboard-export-section {
+  display: block;
+}
+
+.middle-grid>.dashboard-card,
+.department-card,
+.mini-panel {
+  padding: 20px;
+}
+
+.vendor-list,
+.alert-list,
+.invoice-list {
+  display: grid;
+  gap: 14px;
+}
+
+.vendor-row {
+  display: grid;
+  /* Last column was 44px, sized for "12%". It now holds a money value ("GBP 12,345"), which
+     needs the room — at 44px it wrapped or clipped. */
+  grid-template-columns: 150px 1fr minmax(44px, auto);
+  align-items: center;
+  gap: 12px;
+}
+
+.vendor-amount {
+  text-align: left;
+  white-space: nowrap;
+  color: #f7fbff;
+  font-variant-numeric: tabular-nums;
+  /* digits line up down the column */
+}
+
+/* Drill control. A small button rather than a clickable row — the row already carries a
+   tooltip target and a link, and a full-row hover competed with both. */
+.vendor-drill-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Pushed to the right edge of .vendor-name-cell — it shares that cell rather than owning a
+     grid column, so it stays clear of the long vendor names on its left. */
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid rgba(101, 89, 238, 0.45);
+  border-radius: 6px;
+  background: transparent;
+  color: #b7b0ff;
+  cursor: pointer;
+  /* Understated until hovered: it is available on every row, so at full strength it would be
+     six competing buttons rather than an affordance. */
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(101, 89, 238, 0.18);
+    color: #fff;
+  }
+
+  &:focus-visible {
+    opacity: 1;
+    outline: 2px solid #6559ee;
+    outline-offset: 1px;
+  }
+}
+
+/* Reveal the row's own button on row hover, so the target is easy to find without the whole
+   row behaving like a control. */
+.vendor-row:hover .vendor-drill-btn {
+  opacity: 1;
+}
+
+.vendor-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #f7fbff;
+}
+
+.vendor-name-cell>span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vendor-info {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border-radius: 50%;
+  border: 1px solid rgba(170, 181, 195, 0.28);
+  color: #8fa2ba;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+}
+
+.vendor-tooltip {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  z-index: 20;
+  display: none;
+  width: 300px;
+  transform: translateX(-18%);
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #111722;
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #aab5c3;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.vendor-info:hover .vendor-tooltip,
+.vendor-info:focus .vendor-tooltip {
+  display: grid;
+  gap: 7px;
+}
+
+.vendor-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vendor-tooltip-header strong {
+  color: #f7fbff;
+}
+
+.vendor-tooltip-header em {
+  color: #ff5f70;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.vendor-tooltip span strong {
+  color: #ffffff;
+}
+
+.vendor-track {
+  height: 9px;
+  border-radius: 999px;
+  background: #1d2533;
+  overflow: hidden;
+}
+
+.vendor-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3486ff;
+}
+
+.over-budget .vendor-track span {
+  background: #ff6272;
+}
+
+.alert-row {
+  min-height: 38px;
+  padding: 0 12px;
+  background: #151b27;
+  border-radius: 6px;
+}
+
+.alert-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 6px;
+  background: #151b27;
+  color: #aab5c3;
+  font-size: 12px;
+}
+
+.alert-legend>span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 8px;
+}
+
+.invoice-list div:nth-child(2) strong {
+  color: #14d59a;
+}
+
+.department-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.24fr) 1fr;
+  gap: 22px;
+  align-items: stretch;
+}
+
+.department-summary {
+  display: flex;
+  flex-direction: column;
+  min-height: 330px;
+  box-sizing: border-box;
+  padding: 20px;
+  border-radius: 8px;
+  background: #151c29;
+}
+
+.department-summary span,
+.department-summary p,
+.tower-column small {
+  color: #94a0b1;
+  font-size: 11px;
+}
+
+.department-summary strong {
+  display: block;
+  margin: 8px 0;
+  font-size: 20px;
+}
+
+.department-summary p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.department-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-bottom: 14px;
+  color: #aab5c3;
+  font-size: 11px;
+}
+
+.department-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.department-legend-item i {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 4px;
+}
+
+.department-legend-item.bar i {
+  width: 10px;
+  height: 10px;
+}
+
+.department-legend-item.pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 700;
+}
+
+.department-card-list {
+  display: grid;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  flex: 1;
+  margin-top: 16px;
+}
+
+.department-mini-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  border: 1px solid rgba(20, 213, 154, 0.08);
+  border-radius: 7px;
+  background: #111722;
+  color: #f7fbff;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: default;
+}
+
+.department-mini-card.overspend {
+  border-color: rgba(255, 100, 119, 0.24);
+  background: rgba(255, 100, 119, 0.08);
+}
+
+.department-mini-card strong {
+  font-size: 11px;
+}
+
+.department-chart-shell {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.department-svg {
+  width: 100%;
+  min-width: 720px;
+  height: 330px;
+  display: block;
+}
+
+.department-y-axis line {
+  stroke: rgba(130, 146, 170, 0.2);
+  stroke-dasharray: 4 4;
+}
+
+.department-y-axis text,
+.department-x-label,
+.department-x-subtitle,
+.department-x-fy {
+  fill: #7f8a99;
+  font-size: 11px;
+}
+
+.department-y-axis text {
+  text-anchor: end;
+}
+
+.department-axis-line {
+  stroke: rgba(130, 146, 170, 0.24);
+}
+
+.department-baseline {
+  stroke-dasharray: 4 4;
+  stroke-width: 2;
+}
+
+.department-stack-separator {
+  stroke: #9fb0c4;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.department-remainder,
+.department-actual {
+  transition: opacity 0.15s ease;
+}
+
+.department-bar-group:hover .department-remainder,
+.department-bar-group:hover .department-actual {
+  opacity: 0.84;
+}
+
+.department-variance-label,
+.department-x-label {
+  text-anchor: middle;
+  font-weight: 700;
+}
+
+.department-x-label {
+  fill: #f7fbff;
+}
+
+.department-x-subtitle,
+.department-x-fy {
+  text-anchor: middle;
+}
+
+.department-tooltip {
+  pointer-events: none;
+}
+
+.department-tooltip rect {
+  fill: #050913;
+  stroke: rgba(255, 255, 255, 0.08);
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45));
+}
+
+.department-tooltip text {
+  fill: #f7fbff;
+  font-size: 12px;
+}
+
+.department-tooltip text:first-of-type {
+  font-weight: 700;
+}
+
+.department-tooltip-link {
+  fill: #6f78ff !important;
+  font-weight: 700;
+}
+
+.bottom-grid {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(420px, 1.6fr) minmax(220px, 0.9fr);
+  margin-top: 22px;
+}
+
+.mini-panel {
+  min-height: 176px;
+}
+
+.mini-panel h2 {
+  margin: 0 0 18px;
+  font-size: 16px;
+}
+
+.recharge-layout {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  align-items: center;
+  gap: 18px;
+}
+
+.donut {
+  position: relative;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.donut-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.donut-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #111722;
+  display: grid;
+  place-content: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.donut-core strong {
+  font-weight: 800;
+  line-height: 1;
+}
+
+.donut-core span {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: #c8d1dc;
+  font-weight: 500;
+}
+
+.recharge-legend {
+  display: grid;
+  gap: 9px;
+}
+
+.recharge-legend div {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  color: #aab5c3;
+  font-size: 11px;
+}
+
+.recharge-legend strong {
+  color: #ffffff;
+}
+
+.legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.category-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  min-height: 86px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #222a38;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.category-tile {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  border-radius: 0;
+  padding: 8px 2px;
+  color: #ffffff;
+  text-align: center;
+  overflow: hidden;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+.category-tile strong {
+  font-size: clamp(11px, 1.55vw, 19px);
+  line-height: 1;
+}
+
+.category-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.category-legend div {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  color: #aab5c3;
+  font-size: 11px;
+}
+
+.category-legend span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-legend strong {
+  color: #ffffff;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-filter-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .middle-grid,
+  .bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-legend {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .insight-dashboard {
+    padding: 12px;
+  }
+
+  .dashboard-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .department-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .department-summary {
+    min-height: 0;
+  }
+
+  .department-card-list {
+    grid-template-rows: none;
+  }
+
+  .recharge-layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .vendor-row {
+    grid-template-columns: 1fr;
+  }
+
+  .revision-meta,
+  .section-header {
+    align-items: flex-start;
+    flex-direction: column;
+    text-align: left;
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-filter-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  :host {
+    display: block;
+    overflow: visible;
+  }
+
+  .insight-dashboard {
+    overflow: visible;
+    padding: 12px;
+    background: #071b2f !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .dashboard-filter-row {
+    display: none;
+  }
+
+  .dashboard-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none;
+  }
+
+  .middle-grid,
+  .bottom-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .forecast-svg,
+  .department-svg {
+    min-width: 0;
+  }
+
+  .export-actions {
+    display: none;
+  }
+}
+
+body.dashboard-pdf-exporting .export-actions {
+  display: none;
+}
+
+/* ─── Data status strip ────────────────────────────────────────────────────
+   Sits BELOW the panels it qualifies. It was under the filters, where it pushed the KPI
+   cards down the page and led with caveats before any figure had been seen; as a footnote
+   it reads as what it is. States what is real, what is empty, and what is still
+   sample data. Deliberately plain text rather than a dismissible banner: the caveats
+   apply for as long as the data does, so they should not be closeable. */
+.insight-dashboard .data-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.insight-dashboard .data-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #b8c3cf;
+
+  strong {
+    color: #f7fbff;
+  }
+}
+
+.insight-dashboard .data-note--busy {
+  border-color: rgba(52, 124, 255, 0.35);
+  color: #9dc0ff;
+}
+
+.insight-dashboard .data-note--error {
+  border-color: rgba(255, 79, 94, 0.4);
+  background: rgba(255, 79, 94, 0.07);
+  color: #ff9aa4;
+}
+
+/* Empty is not an error — the year simply has no invoices yet. Neutral, not alarming. */
+.insight-dashboard .data-note--empty {
+  border-color: rgba(143, 162, 186, 0.35);
+  color: #cbd6e2;
+}
+
+.insight-dashboard .data-note--warn {
+  border-color: rgba(255, 207, 61, 0.4);
+  background: rgba(255, 207, 61, 0.06);
+  color: #ffd86b;
+}
+
+.insight-dashboard .data-note--sample {
+  border-style: dashed;
+  border-color: rgba(143, 162, 186, 0.35);
+  color: #8fa2ba;
+}
+
+.insight-dashboard .data-note-action {
+  margin-left: 8px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* A gap label carries its reason on hover — dotted underline is the conventional
+   "there is more here" cue, so the tooltip is discoverable rather than accidental. */
+.insight-dashboard .gap-label {
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
+
+/* Alert rows are hoverable for their derivation; hint at it without restyling the row. */
+.insight-dashboard .alert-row {
+  cursor: help;
+}
+
+/* First-load state: the loader owns the whole panel. Centred and tall enough that the
+   dashboard does not visibly collapse and re-expand when the real content arrives. */
+.insight-dashboard .dashboard-first-load {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 320px;
+}
+
+/* ─── Year control ─────────────────────────────────────────────────────────
+   Matches the filter chips so the row reads as one control group, and echoes the
+   Forecast screen's ‹ year › toolbar. */
+.insight-dashboard .year-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.insight-dashboard .year-value {
+  min-width: 46px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f7fbff;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-dashboard .year-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #b8c3cf;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f7fbff;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+/* "+3 more vendors (1,240.00 not shown)". The breakdown panels are capped at the largest
+   few rows, so their figures deliberately do not sum to the headline total — stated plainly
+   rather than left to look like an arithmetic error. */
+.insight-dashboard .more-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  font-style: italic;
+  color: #8fa2ba;
+}
+
+/* Year + Clear share a row above the filter chips. */
+.insight-dashboard .dashboard-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+/* Matches Invoice View's clear-filters button exactly, so the module has one visual
+   language for "reset what you have narrowed to". Pushed to the far right by margin-left:auto,
+   the same way Invoice View places it. */
+.insight-dashboard .btn-clear-filters {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  color: #a78bfa;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(167, 139, 250, 0.16);
+    border-color: #a78bfa;
+    color: #c4b5fd;
+  }
+}
+
+/* Now a footnote below the panels rather than a header — needs air above it so it reads as
+   separate from the last card instead of attached to it. */
+.insight-dashboard .data-status {
+  margin-top: 24px;
+}
+/* ── Source of Change launcher ───────────────────────────────────────────────────────
+   Sits in the toolbar beside Clear filters. Understated: it opens a report rather than
+   changing what is on screen, so it should not compete with the filters. */
+.soc-open-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  padding: 7px 13px;
+  border: 1px solid rgba(101, 89, 238, 0.5);
+  border-radius: 6px;
+  background: transparent;
+  color: #b7b0ff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  svg { flex-shrink: 0; }
+
+  &:hover { background: rgba(101, 89, 238, 0.18); color: #fff; }
+
+  &:focus-visible { outline: 2px solid #6559ee; outline-offset: 2px; }
+}
