@@ -2,9 +2,26 @@
 
 ## Stack
 - Angular 14, NgModule (not standalone)
-- Node 16.20.2 (pinned via Volta)
+- Node 16.20.2 (pinned via Volta) locally; Vercel builds on Node 22
 - Dev server: `npx ng serve`
+- Production build: `npx ng build` — **run this before every push**
 - SCSS with nested syntax
+
+---
+
+## Read First
+
+Three things that have each broken this project once, all of which built cleanly at the time:
+
+1. **`ng serve` passing does not mean the deploy will pass.** Budgets and other
+   production-only checks run on the production configuration, which only `ng build` uses.
+   Run `npx ng build` before pushing → see "Vercel Deployment".
+2. **A green build proves nothing about what renders.** Mock rows are cast, so a wrong field
+   name compiles perfectly and paints a blank screen. Open the page → see "Showcase Build".
+3. **A wrong route silently lands on the Dashboard** rather than 404-ing, so broken links look
+   like working buttons. Click them → see "Routes".
+
+The pattern is the same in all three: *the compiler is not the thing that validates this.*
 
 ---
 
@@ -476,6 +493,83 @@ control. A link that lands on the dashboard is a broken link until proven otherw
   stay at 16.20.2** for local development — only the cloud build runtime was bumped.
 - Project Settings in the Vercel dashboard should be left empty — `vercel.json`
   overrides them when present.
+
+### ⚠️ ALWAYS run `npx ng build` before pushing
+
+**`ng serve` cannot tell you whether the deploy will succeed.** The dev server uses the
+**development** configuration; budgets, and every other production-only check, are enforced
+only on the **production** configuration that Vercel runs. A screen can serve perfectly for
+weeks and still fail the deploy the moment it is pushed.
+
+```bash
+cd cost-management && npx ng build      # exactly what Vercel runs
+```
+
+Treat a clean local `ng build` as the gate for pushing. It takes ~25s and costs a great deal
+less than a failed deploy round-trip.
+
+### ⚠️ Budget failures stack — fixing the reported one is not enough
+
+Angular reports the **first** budget error and stops. There can be more behind it.
+
+This bit exactly once: Vercel reported `invoice-upload.component.scss` at 27.67 kB over a
+25 kB limit. Raising that limit surfaced a *second*, previously invisible failure — the
+initial bundle at 1.03 MB over a 1 MB limit — which would have been the next failed deploy.
+
+**Rule:** after fixing a budget error, run the full build again and keep going until it exits
+0. Never fix the named error and push.
+
+### Current budgets and the headroom behind them
+
+Set in `angular.json` → `projects.cost-management.architect.build.configurations.production.budgets`:
+
+| Budget | Warning | Error |
+|---|---|---|
+| `anyComponentStyle` | 25 kB | 40 kB |
+| `initial` | 1 MB | 2 MB |
+
+Raised from `10 kB / 25 kB` and `500 kB / 1 MB`. **Budgets are a lint guard, not a runtime
+limit** — nothing about a 27 kB component stylesheet breaks the app, and the initial bundle
+transfers at ~194 kB gzipped. Trimming CSS out of signed-off screens to satisfy an arbitrary
+ceiling risks visual regressions for no real benefit.
+
+Compiled sizes at the time of the raise — note how little headroom the old ceiling left:
+
+| Component style | Compiled | vs the old 25 kB error |
+|---|---|---|
+| invoice-upload | 27.67 kB | over — the reported failure |
+| **forecast** | **24.29 kB** | **under by only 0.71 kB** |
+| dashboard | 19.00 kB | ok |
+| headcount | 16.52 kB | ok |
+| invoice-view | 12.48 kB | ok |
+
+Forecast was 0.71 kB from the same failure. Restoring the old ceiling would break the build on
+the next CSS tweak to that screen — so **do not lower these budgets back**. Warnings still
+fire at the old-ish thresholds, so the signal is kept without failing the build.
+
+### If the bundle keeps growing
+
+The 1.03 MB initial bundle is real, not just a threshold problem — it grew as screens were
+ported, and every route is currently eagerly loaded from a single `AppModule`.
+
+**Raising the budget again is not the answer a second time.** The lever is **lazy-loading**
+the admin and invoice routes via `loadChildren`, which takes them out of the initial chunk
+entirely. Budgets exist to prompt exactly that conversation; treat a second `initial` failure
+as the signal to do it.
+
+### Deploy checklist
+
+1. `cd cost-management && npx ng build` — must exit 0, warnings are fine
+2. Click through the screens on `ng serve` (a green build proves nothing about rendering —
+   see "Field names are the whole game")
+3. Confirm no new hardcoded `/Cost-Management/...` links (see "Routes")
+4. Push
+
+### Editing `angular.json`
+
+Changes are read **once at dev-server startup**. After editing it — adding a global
+stylesheet, changing budgets — **restart `ng serve`**; a rebuild will not pick it up, and the
+change silently appears to do nothing.
 
 ---
 
