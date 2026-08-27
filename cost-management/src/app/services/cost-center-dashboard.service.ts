@@ -26,11 +26,6 @@ export interface ScenarioYearColumn {
   year: number;
 }
 
-/**
- * Talks to the Cost Center Dashboard backend (the Scenario Management screen's
- * Actual/RFC comparison grid). Base URL comes from environment.masterDataApiBaseUrl
- * (same API host as MasterDataService, different route).
- */
 @Injectable({ providedIn: 'root' })
 export class CostCenterDashboardService {
 

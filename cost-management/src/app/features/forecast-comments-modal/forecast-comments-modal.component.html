@@ -1,0 +1,81 @@
+<cm-modal [title]="title" [isOpen]="isOpen" (closed)="onClose()">
+  <div class="fcm-body">
+
+    <!-- Names the two kinds up front. Without this the read-only trail under an editable box
+         looks like a bug rather than a different kind of record. Kept to two lines: it sits
+         above a 52vh scroll area and every line it takes is a line of months lost. -->
+    <p class="fcm-hint">
+      <strong>GC</strong> — one general note per month, edited here.
+      <strong>CC</strong> — the mandatory justifications for changing that month's value, written
+      on the grid cell and kept as a history, so read-only here.
+    </p>
+
+    <!-- What is still blocking the grid save, named rather than just counted. -->
+    <p class="fcm-missing" *ngIf="missing.length > 0">
+      Cell comment mandatory for {{ missing.length }} edited
+      month{{ missing.length > 1 ? 's' : '' }}: <strong>{{ missingLabels }}</strong>.
+      Add them on the grid cells.
+    </p>
+
+    <div class="fcm-grid">
+      <!-- A <div>, NOT a <section>: the host app's global styles.css carries
+           `section { background-color: #f8f9fa !important }`, which painted every month card
+           near-white and could not be overridden from here. See the module CLAUDE.md. -->
+      <div class="fcm-month" *ngFor="let slot of slots; let i = index; trackBy: trackSlot"
+        [class.fcm-month--required]="slot.required">
+
+        <label class="fcm-month-label" [attr.for]="'gc-' + i">
+          {{ slot.label }}
+          <span class="fcm-tag fcm-tag--gc">GC</span>
+        </label>
+
+        <textarea
+          class="fcm-general-input"
+          [id]="'gc-' + i"
+          rows="2"
+          [value]="generalDrafts[i] || ''"
+          [disabled]="slot.disabled"
+          placeholder="Add a general comment…"
+          (input)="onGeneralChange(i, $any($event.target).value)"></textarea>
+
+        <!-- The month's cell trail, collapsed. A long-lived line accumulates these and they
+             would otherwise bury the twelve boxes this modal exists for. -->
+        <button type="button" class="fcm-cc-toggle"
+          *ngIf="slot.cellComments.length > 0"
+          [class.fcm-cc-toggle--open]="isExpanded(i)"
+          (click)="toggleCellComments(i)"
+          [attr.aria-expanded]="isExpanded(i)">
+          <span class="fcm-tag fcm-tag--cc">CC</span>
+          {{ slot.cellComments.length }} cell
+          comment{{ slot.cellComments.length > 1 ? 's' : '' }}
+          <span class="fcm-cc-chevron" aria-hidden="true">{{ isExpanded(i) ? '▴' : '▾' }}</span>
+        </button>
+
+        <!-- Nothing to show, but say so rather than leaving the month looking unfinished. -->
+        <p class="fcm-cc-none" *ngIf="slot.cellComments.length === 0">
+          No cell comments for this month.
+        </p>
+
+        <div class="fcm-cc-list" *ngIf="isExpanded(i) && slot.cellComments.length > 0">
+          <div class="fcm-entry" *ngFor="let c of slot.cellComments; let ci = index; trackBy: trackComment">
+            <span class="fcm-entry-label">{{ editLabel(ci) }} :-</span>
+            <span class="fcm-entry-text">{{ c.comment }}</span>
+            <span class="fcm-entry-meta">
+              {{ c.createdBy || 'Unknown' }} · {{ c.createdDate | date:'dd/MM/yyyy HH:mm' }}
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="fcm-actions">
+      <button type="button" class="btn-cancel" (click)="onClose()">Cancel</button>
+      <!-- Deliberately NOT disabled while cell comments are outstanding: closing the modal must
+           never trap the user, and those are added on the grid anyway. The save guard on the
+           grid is what actually blocks the write. -->
+      <button type="button" class="btn-save" (click)="onSave()">Save Comments</button>
+    </div>
+
+  </div>
+</cm-modal>

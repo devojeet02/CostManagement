@@ -5,7 +5,10 @@
 
     <!-- Page Header -->
     <div class="page-header">
-      <h2 class="page-title">Invoice Upload</h2>
+      <h2 class="page-title">
+        Edit Invoice
+        <span class="edit-inv-ref" *ngIf="invNumber">— {{ invNumber }}</span>
+      </h2>
       <div class="header-right">
         <button class="btn-toggle-preview" (click)="toggleSidebar()" [class.collapsed]="isPreviewCollapsed"
           id="btn-toggle-sidebar" title="Toggle Preview Panel">
@@ -17,8 +20,12 @@
           <span>{{ isPreviewCollapsed ? 'Show Preview Panel' : 'Hide Preview Panel' }}</span>
         </button>
         <div class="header-divider"></div>
-        <button class="btn-cancel" id="btn-invoice-cancel" title="Cancel">Cancel</button>
-        <button class="btn-save" id="btn-invoice-save" title="Save" (click)="onSave()">Save</button>
+        <button class="btn-cancel" id="btn-invoice-edit-cancel" title="Discard changes and go back"
+          (click)="onCancel()" [disabled]="isSaving">Cancel</button>
+        <button class="btn-save" id="btn-invoice-edit-save" title="Save changes"
+          (click)="onSave()" [disabled]="isSaving || isLoading">
+          {{ isSaving ? 'Saving…' : 'Save Changes' }}
+        </button>
         <button class="btn-back" routerLink="/invoice-view" title="Back to Invoice View">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -29,15 +36,37 @@
       </div>
     </div>
 
-    <!-- Duplicate Invoice Number + Supplier detected. Advisory only — saving is never blocked. -->
+    <!-- Fetching the invoice being edited -->
+    <div class="edit-state-block" *ngIf="isLoading">
+      <cm-loader message="Loading invoice…"></cm-loader>
+    </div>
+
+    <!-- Could not fetch it -->
+    <div class="edit-state-block" *ngIf="!isLoading && loadError">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+        class="edit-state-icon">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <span class="edit-state-title">{{ loadError }}</span>
+      <div class="edit-state-actions">
+        <button class="btn-retry-edit" (click)="reload()">Try again</button>
+        <button class="btn-back-to-list" routerLink="/invoice-view">Back to list</button>
+      </div>
+    </div>
+
+    <!-- Another invoice shares this Number + Supplier. Advisory only here — this screen is
+         already updating a specific record, so no overwrite action is offered. -->
     <cm-duplicate-invoice-alert
+      *ngIf="!isLoading && !loadError"
       [duplicate]="visibleDuplicate"
-      [overwriteSelected]="overwriteExisting"
-      (useExisting)="onUseExistingInvoice()"
+      [allowOverwrite]="false"
       (dismissed)="onDismissDuplicate()"></cm-duplicate-invoice-alert>
 
     <!-- Main Layout -->
-    <div class="content-layout">
+    <div class="content-layout" *ngIf="!isLoading && !loadError">
 
       <!-- ─── Left: Form Sections ─────────────────────────────── -->
       <div class="form-column" [class.expanded]="isPreviewCollapsed">
@@ -103,8 +132,9 @@
             </div>
             <div class="field-group">
               <label>Inv Amount <span class="required-star">*</span></label>
-              <!-- The total on the invoice document. Line items are shares of THIS, so it has
-                   to be filled before any line amount can be entered. -->
+              <!-- Same handler as Upload. On Edit it is effectively a no-op: the loaded lines
+                   already carry typed amounts, and the mirror only ever fills a blank or
+                   previously auto-filled one. -->
               <input type="text" inputmode="decimal" cmNumberFormat placeholder="0.00"
                 [(ngModel)]="invAmount" (ngModelChange)="onInvAmountChange()" />
             </div>
@@ -166,17 +196,13 @@
         <div class="form-section itemisation-section">
           <h3 class="section-title">Itemisation and Accounting</h3>
 
-          <!-- Allocation tracker — the line items' share of the General section's Inv Amount.
-               Same shape as the Recharge panel's "Total Allocation … Delta … must equal 0",
-               because it answers the same question one level up. Full width under the title
-               rather than tucked beside it, where it was easy to miss. -->
+          <!-- Allocation tracker — see invoice-upload.component.html. -->
           <div class="alloc-row" *ngIf="showReconcileIndicator"
             [class.balanced]="isInvoiceReconciled" [class.unbalanced]="!isInvoiceReconciled">
             <span class="alloc-label">Total Allocation</span>
             <span class="alloc-value">
               {{ lineAllocationPct | number:'1.0-2' }}% · {{ lineItemsTotal | number:'1.2-2' }}
               <span class="alloc-of">of {{ invAmount | number:'1.2-2' }}</span>
-              <!-- Invoice currency, not the site's — these are the amounts as billed. -->
               <span class="alloc-currency" *ngIf="selectedCurrency">{{ selectedCurrency }}</span>
             </span>
             <span class="alloc-flag" *ngIf="!isInvoiceReconciled"
@@ -187,13 +213,10 @@
             </span>
           </div>
 
-          <!-- Nothing to allocate against yet. Says so once, instead of leaving a row of
-               disabled inputs with no explanation. -->
           <p class="alloc-hint" *ngIf="lineAmountsLocked">
             Fill <strong>Inv Amount</strong> in the General section to start itemising — line
             amounts are shares of that total.
           </p>
-
 
           <div class="line-items-container">
             <div class="form-grid cols-3 line-item-grid" *ngFor="let item of lineItems; let i = index">
@@ -279,8 +302,7 @@
                 <input type="text" placeholder="Budget Line Description" />
               </div>
 
-              <!-- Tooltip sits on the WRAPPER, not the input: a disabled input fires no mouse
-                   events in Chrome, so a tooltip bound to it would never appear. -->
+              <!-- Tooltip on the WRAPPER — a disabled input fires no mouse events in Chrome. -->
               <div class="field-group" [class.field-group--locked]="lineAmountsLocked"
                 [cmTooltip]="lineAmountLockReason" cmTooltipPosition="top">
                 <label>Amount Inv Currency <span class="required-star">*</span></label>
@@ -291,12 +313,8 @@
               </div>
               <div class="field-group">
                 <label>Direct Recharge To</label>
-                <!-- rechargeSiteGroups (ALL sites), NOT siteGroups. siteGroups is filtered to
-                     sites that have a currency assigned, because only those can PROCESS an
-                     invoice (it drives the header's Site Currency AUTO). A recharge TARGET has
-                     no such constraint — the Recharge % picker below already uses the full list,
-                     and binding this one to the filtered list made a site reachable by one
-                     recharge method but not the other. -->
+                <!-- ALL sites, not the currency-filtered siteGroups — see the note on the same
+                     field in invoice-upload.component.html. -->
                 <cm-hierarchy-select
                   [(ngModel)]="item.rechargeTo"
                   [groups]="rechargeSiteGroups"
@@ -331,18 +349,11 @@
             </div>
           </div>
           <div class="add-line-row">
-            <!-- Deliberately NOT disabled while the header total is empty: lines can be laid
-                 out first and the total typed afterwards. With two or more lines present the
-                 total is never mirrored into a line, so the delta applies from the start.
-                 Confirms first only when there is an amount at stake — see askAddLineItem. -->
+            <!-- Not disabled — see invoice-upload.component.html. -->
             <button class="btn-add-line" (click)="askAddLineItem()">+ Add new line Item</button>
           </div>
 
-          <!-- Recurring invoice. Invoice-level, not per line: a licence or support contract
-               renews as a whole, and the cadence describes the invoice arriving again rather
-               than any one line of it. Sits AFTER the lines because it is a question about the
-               invoice as a whole, asked once the itemisation is done. Saving projects the
-               remaining periods of the year onto the forecast — see recurrencePreview. -->
+          <!-- Recurring invoice — see invoice-upload.component.html. -->
           <div class="recurring-block" [class.recurring-block--on]="isRecurring">
             <div class="recurring-question">
               <span class="recurring-label">
@@ -364,7 +375,6 @@
               </div>
             </div>
 
-            <!-- Only once Yes is chosen — a cadence with no recurrence is meaningless. -->
             <div class="recurring-periodicity" *ngIf="isRecurring">
               <span class="recurring-label">
                 How often?
@@ -380,8 +390,6 @@
               </div>
             </div>
 
-            <!-- Names the exact months that will be written, so the effect on the forecast is
-                 visible before saving rather than discovered afterwards. -->
             <p class="recurring-preview" *ngIf="recurrencePreview">{{ recurrencePreview }}</p>
           </div>
         </div>
@@ -450,9 +458,7 @@
                     <thead *ngIf="rline.rechargeSites.length > 0">
                       <tr>
                         <th class="col-chk"></th>
-                        <!-- Every recharge is denominated in the PROCESSING site's currency,
-                             never the invoice's or the receiving site's, so the code is stated
-                             on the column rather than per row. -->
+                        <!-- Processing site's currency — see invoice-upload.component.html. -->
                         <th class="col-amount">
                           Monthly Amount
                           <span class="recharge-currency-code" *ngIf="siteCurrency">({{ siteCurrency }})</span>
@@ -549,8 +555,9 @@
           </div>
         </div>
 
-        <!-- Related Forecast and Actual Data — always visible, self-loading, read-only.
-             Was a static placeholder of em-dashes; now backed by GET /invoices/related-data. -->
+        <!-- Related Forecast and Actual Data — same shared panel as Upload. This invoice is
+             excluded from the Actuals row (relatedDataExcludeId), so the panel reports what
+             was already posted rather than reflecting the form above it back. -->
         <div class="form-section">
           <cm-related-data-panel
             [year]="relatedDataYear"
@@ -749,11 +756,8 @@
   </ng-template>
 
 </cm-modal>
-
 <!-- ─── Add another line item? ────────────────────────────────────────
-     Adding a line changes what the existing amounts mean — one line carries the whole
-     invoice, several must be split between them — so any amount mirrored from the header
-     is cleared when this is confirmed. -->
+     See invoice-upload.component.html. -->
 <cm-confirm-dialog [isOpen]="addLineDialogOpen" title="Add another line item?"
   [message]="addLineDialogMessage"
   detail="Any amount that was filled in from the invoice total will be cleared so you can split it across the lines yourself. The tracker above the line items shows how much is still unallocated."

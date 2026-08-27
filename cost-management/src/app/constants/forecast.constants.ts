@@ -26,6 +26,37 @@ export interface SubRow {
   readOnly?: boolean;
 }
 
+/**
+ * Which of the two kinds of comment a row is.
+ *
+ * - `CC` — **cell comment.** The mandatory justification for changing a month's value
+ *   (RFC criterion 5). Append-only, so the box shows the full "Edit 1 / Edit 2 …" trail.
+ * - `GC` — **general comment.** One free-form note per line+month, edited in place. Never
+ *   mandatory and not tied to any particular value change.
+ *
+ * They share `tblCMForecastComment` and arrive in one list; the client splits them on this.
+ */
+export type ForecastCommentKind = 'CC' | 'GC';
+
+/** One comment recorded against a month of a forecast line. */
+export interface ForecastComment {
+  id: number;
+  /** 1-12. */
+  month: number;
+  /** Defaults to `CC` — every row written before general comments existed is a cell comment. */
+  kind: ForecastCommentKind;
+  comment: string;
+  createdBy?: string | null;
+  createdDate: string;
+}
+
+/** A comment typed in this session, sent with the next save. */
+export interface ForecastCommentInput {
+  /** 1-12. */
+  month: number;
+  comment: string;
+}
+
 export interface ForecastRow {
   id: number;
   internalOrder: string;
@@ -42,10 +73,51 @@ export interface ForecastRow {
   contractCurrency: string; // currency of the underlying contract
   differentCurrency: boolean;
   rechargeRequired: boolean;
+  /**
+   * Set by the backend on a line auto-created from an invoice saved with Budgeted OFF —
+   * spend that had no forecast line of its own. Read-only from the grid's point of view.
+   */
+  isUnbudgeted?: boolean;
+  /**
+   * Annual totals this line was FIRST saved with — the baseline for the Changes column.
+   * Server-owned and never updated after creation, so the delta survives a save + reload.
+   * Undefined on a brand-new unsaved row, or from a backend without the columns.
+   */
+  originalLocalTotal?: number | null;
+  originalContractTotal?: number | null;
+
+  /**
+   * Every comment already recorded against this line, oldest first, BOTH kinds — split on
+   * `kind`. Server-owned and read-only. Absent on a brand-new row and from a backend without
+   * the comment endpoint.
+   */
+  comments?: ForecastComment[];
+
+  /**
+   * CELL comments typed this session, **appended** by the next save and then cleared.
+   * Kept separate from `comments` because bulk save re-posts the whole grid — echoing the
+   * existing trail back would append a duplicate of every comment on every save.
+   */
+  newComments?: ForecastCommentInput[];
+
+  /**
+   * GENERAL comments for this line, **upserted** by the next save — one per month, replacing
+   * whatever was there. Blank text deletes that month's note.
+   *
+   * Only months present in the list are touched, so a row whose comments modal was never
+   * opened sends an empty list and changes nothing.
+   */
+  generalComments?: ForecastCommentInput[];
+
   subRows: SubRow[];
   site?: string;
   account?: string;
+  /** Backend persists this; drives the Scenario filter chip. */
+  scenario?: string;
   isHovered?: boolean;
+  /** CCM-011: manually added mid-cycle for genuine overspend beyond the original PAR —
+   * distinguishes it from the originally-budgeted lines. */
+  isOverspendAddition?: boolean;
 }
 
 export interface ForecastFilters {
@@ -63,6 +135,15 @@ export interface ForecastToggles {
   showActual:         boolean;
   showOtherScenario:  boolean;
   showSourceCurrency: boolean;
+  /**
+   * Recharge sub-rows and the TOTAL RECHARGE block in the RFC Forecast grid.
+   *
+   * **Off by default.** Confirmed by Jennifer: a cost centre manager "wouldn't want to see
+   * those recharges in his RFC because they are to the business" — recharge instructions
+   * belong on the dedicated Recharge View screen. The rows are hidden, not removed, so anyone
+   * who does forecast recharge can still turn them back on.
+   */
+  showRecharge:       boolean;
 }
 
 // ─── API Configuration ────────────────────────────────────────────────────────
@@ -99,9 +180,13 @@ export const API_ENDPOINTS = {
 };
 
 // ─── Master / Reference Data ──────────────────────────────────────────────────
-// TODO: Load each from its API_ENDPOINTS.master.* endpoint when ready.
 
 export const MONTHS       = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// MONTHS and TYPES are still used by the screen. Everything below is DEPRECATED and
+// unreferenced: the Forecast component now loads those dropdowns from /api/v1/master/*
+// (see ForecastComponent.loadDropdownData) so the Admin screen is the single source of
+// truth. They are kept only because MOCK_FORECAST_ROWS uses the same demo values.
 export const SITES        = ['EMEA Operations','APAC Operations','US Operations','Global'];
 export const TEAMS        = ['Digital','Operations','Finance','Projects','Logistics Hub A','Procurement'];
 export const TYPES        = ['OPEX','CAPEX'];
@@ -133,6 +218,15 @@ export const DEFAULT_TOGGLES: ForecastToggles = {
   showActual:         true,
   showOtherScenario:  false,
   showSourceCurrency: false,
+  /**
+   * TRUE for now, so the grid behaves exactly as it did before this flag existed.
+   *
+   * The RFC-exclusion behaviour it was added for (see the field doc on ForecastToggles) is
+   * PARKED along with its toolbar toggle, which is commented out in forecast.component.html.
+   * Set this to `false` and uncomment that block to turn the exclusion back on — with the
+   * toggle hidden, `false` here would hide recharge rows with no way to show them.
+   */
+  showRecharge:       true,
 };
 
 // ─── Helper: build blank sub-rows for a new row ───────────────────────────────
@@ -142,7 +236,7 @@ export function buildDefaultSubRows(currency: string, contractCurrency = 'USD'):
     { type: 'local',                   label: 'Forecast',                       currency,                   values: Array(12).fill(null) },
     { type: 'contract',                label: 'Forecasted in Contract Currency',  currency: contractCurrency, values: Array(12).fill(null) },
     { type: 'actual',                  label: 'Actual',                         currency,                   values: Array(12).fill(null), readOnly: true },
-    { type: 'contract-actual',         label: 'Actual in Contract Currency',    currency: contractCurrency, values: Array(12).fill(null), readOnly: true },
+    { type: 'contract-actual',         label: 'Actual in Contract Currency',   currency: contractCurrency, values: Array(12).fill(null), readOnly: true },
     { type: 'other-scenario',          label: 'Other Scenario',             currency,              values: Array(12).fill(null) },
     { type: 'recharge',                label: 'Recharge',                  currency,              values: Array(12).fill(null) },
     { type: 'recharge-actual',         label: 'Actual',                    currency,              values: Array(12).fill(null), readOnly: true },

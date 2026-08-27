@@ -13,15 +13,25 @@
 ```
 src/app/
 ├── features/          ← global/shared components (persist across all routes)
-│   ├── app-header/    ← constant top bar — DO NOT MODIFY
-│   ├── top-nav/       ← navigation bar, always visible on all pages
-│   └── theme-toggle/  ← light/dark toggle button (lives inside TopNav)
+│   ├── side-nav/      ← the app rail — always visible, owns the theme toggle
+│   ├── theme-toggle/  ← light/dark toggle button (lives inside SideNav)
+│   ├── tooltip/       ← [cmTooltip] directive + GLOBAL tooltip.css (see below)
+│   ├── cm-*/          ← components ported from the production repo (see "Showcase Build")
+│   ├── app-header/    ← RETIRED from the shell, kept in the tree
+│   └── top-nav/       ← RETIRED, replaced by side-nav; kept in the tree
 ├── components/        ← page-level components (one per route)
-│   ├── home/
-│   └── invoice-upload/
-└── services/
-    └── theme.service.ts
+│   ├── dashboard/     ← the landing route
+│   ├── invoice-view/ invoice-upload/ invoice-edit/
+│   ├── forecast/ headcount/ budget-planner/ scenario-management/
+│   ├── admin-cost-management/ period-management/ audit-log/
+│   └── home/          ← RETIRED, unrouted, kept in the tree
+└── services/          ← ALL MOCK — no HttpClient anywhere (see "Showcase Build")
 ```
+
+**Retired ≠ deleted.** `home/`, `top-nav/` and `app-header/` are still declared in
+`app.module.ts` and still compile. They were left in place so that nothing referencing them
+breaks, and so the pre-showcase shell can be diffed against. Do not wire them back into
+`app.component.html`.
 
 **Rule:** `features/` = shared UI that appears on every page. `components/` = full pages tied to a route.
 
@@ -29,27 +39,26 @@ src/app/
 
 ## App Shell Layout
 
-`app.component.html` owns the persistent shell — always in this order:
+`app.component.html` owns the persistent shell:
 
 ```html
-<div class="app-container">
-  <app-header></app-header>      <!-- never changes -->
-  <app-top-nav></app-top-nav>    <!-- always visible, owns theme toggle -->
-  <router-outlet></router-outlet>
+<div class="app-shell">
+  <app-side-nav></app-side-nav>
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
 </div>
+<app-snackbar></app-snackbar>
 ```
 
-`app.component.scss`:
-```scss
-.app-container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-```
+The shell is now a **horizontal** flex (rail + content), not the old vertical
+header/top-nav/outlet stack. `<app-header>` is no longer rendered — the blue gradient bar
+duplicated the rail's branding and cost vertical space the dashboard needed.
 
-**Rule:** Never put `<app-top-nav>` inside a page component. It belongs in the app shell.
+`<app-snackbar>` sits OUTSIDE `.app-shell` on purpose: it is fixed-positioned, and nesting
+it inside a flex/overflow container would clip it.
+
+**Rule:** Never put `<app-side-nav>` inside a page component. It belongs in the app shell.
 
 ---
 
@@ -58,7 +67,12 @@ src/app/
 1. Create component in `components/<name>/`
 2. Add route in `app-routing.module.ts`
 3. Declare in `app.module.ts`
-4. Add `<a class="nav-item" routerLink="/<path>" routerLinkActive="active">` in `top-nav.component.html`
+4. Add an entry to the `groups` array in `side-nav.component.ts` (not to the template —
+   the rail renders itself from that array):
+   `{ label: 'My Screen', route: '/my-screen', icon: 'chart' }`
+   `icon` must be a key the rail's icon `<svg>` switch already knows; add a new `<ng-container
+   *ngSwitchCase>` in `side-nav.component.html` if you need a new mark. Optional `tag: 'new'`
+   renders the small badge.
 
 ---
 
@@ -193,6 +207,60 @@ greppable and prevent confusion when copying markup between them.
 
 ---
 
+## Ported Screens
+
+All copied from production unmodified; only their services differ (see "Showcase Build").
+
+### Dashboard (`components/dashboard/`) — the landing route
+Replaces the old `HomeComponent`, which was a grid of buttons whose only job was linking
+onward — work the side-nav now does. Carries the Power BI requirements from the domain rules:
+spend by cost type, by vendor, across teams, and the Actuals-vs-Budget trend.
+
+Notable pieces:
+- **Filter grid** — period, site (all 19 master-data sites), team, account, category, and a
+  **currency multi-select** (not a GBP/USD toggle — the toggle needed an FX rate table that
+  does not exist).
+- **Draggable "today" marker** — a dotted line whose date pill is the drag handle. Dragging
+  it moves the date and reveals the hover snapshot at each data point. Any date other than
+  today shows *"Go back to Today"*.
+  ⚠️ A `mousemove` fires between mousedown and mouseup on virtually **every** click, so the
+  drag threshold (`DRAG_THRESHOLD_PX = 3`) must be greater than zero or the click handler
+  never fires.
+- **Vendor drill-down** — opened by a small magnifier button inside the vendor-name cell
+  (not a whole-row hover, and not its own column).
+- **Source of Change report** — opened by a button on the dashboard toolbar, deliberately
+  *not* a side-nav entry.
+
+### Budget Trend (`features/budget-trend/`)
+Actuals vs Budget with a variance strip and a cumulative view, plus its own copy of the
+today-marker picker.
+
+⚠️ **The x-axis maths is deliberately NOT shared with the dashboard chart.** The dashboard
+places a month at the centre of a 1/12 slot; this chart spaces 12 points across 11 intervals.
+They look interchangeable and are not — unifying them shifts every point on one of the two.
+
+### Budget Planner (`components/budget-planner/`)
+Enter an annual total, spread it evenly across the 12 months, then adjust any month by hand.
+Repeatable until approved; approval hard-locks the year. Attempting to edit a locked year
+prompts *"this is fully approved — do you still want to edit it?"* and reopening restores
+editing. Reopening **keeps** `approvedBy` / `approvedDate` — the record of who signed the
+budget off must survive.
+
+The remainder from an uneven division lands on **December**, in both the screen and the mock
+seed, so the two agree on open.
+
+### Scenario Management (`components/scenario-management/`)
+The Actual/RFC comparison grid. Budget rows are labelled with their team name and each team's
+budget is booked to its own busiest account — otherwise identical line descriptions collapse
+into one row and totals silently under-report.
+
+### Invoice View / Upload / Edit (`components/invoice-*/`)
+List, entry and edit, with duplicate detection (invoice number + supplier), the related-data
+panel, and the recharge drill. PDF viewing is the one unavailable feature — see "Showcase
+Build".
+
+---
+
 ## Global Form Components
 
 ### `<app-hierarchy-select>`
@@ -217,19 +285,181 @@ usages aren't affected.
 
 ---
 
-## Top Navigation (`features/top-nav/`)
+## Side Navigation (`features/side-nav/`)
 
-Always visible above each route. Holds:
-- Internal `<a routerLink>` items: Home, Invoice Upload, Forecast, Headcount.
-- Two **external `<a href>` items** to sister deployments:
-  - "Scenario Management" → `https://cost-center-theta.vercel.app/`
-  - "Admin Screens" → `https://cost-management-admin.vercel.app/`
-- Both use `target="_blank" rel="noopener noreferrer"`. No `routerLinkActive` on external
-  links (inert there). The same two links also appear as buttons in the home page's
-  `.dashboard-actions` row.
+Replaces the old top-nav. Always visible, left of the router outlet, and it owns
+`<app-theme-toggle>`.
 
-The shared `.nav-item` rule has `text-decoration: none`, so `<a>`-flavored entries look
-identical to internal nav links.
+Renders from a **data array**, not hardcoded markup — `groups: { title, items }[]` in
+`side-nav.component.ts`, in three sections:
+
+| Group | Items |
+|---|---|
+| Overview | Dashboard (`/`) |
+| Cost Management | Invoice View, Invoice Upload, Forecast, Headcount, Budget Planner *(new)* |
+| Administration | Scenario Management, Master Data, Period Management, Audit Log |
+
+- **Collapsible** via `collapsed` — collapsed shows icons only, labels hidden.
+- Icons are **inline SVG** selected by an `*ngSwitch` on `item.icon`, so there are no asset
+  requests and they inherit `currentColor` for theming. Invoice View uses `receipt` (not
+  `list`, which Audit Log already uses — two identical marks in one rail is unreadable).
+- Colours come from the app's own CSS variables, so it themes with everything else.
+
+**All links are real `routerLink`s.** The previous nav pointed Scenario Management and Admin
+at two *external* Vercel deployments (`cost-center-theta`, `cost-management-admin`) via
+`<a href target="_blank">`. Those screens now live in this app, so the external links and the
+matching buttons on the old home page are gone.
+
+---
+
+## Showcase Build — the Mock Data Layer
+
+**This app has no backend.** It is the public-facing demo of the Cost Management module that
+lives in the production repo (`CrownFrontendCostCenter/ControlTowerAngular`). Non-team
+viewers see this deployment only.
+
+### The porting rule: mock the SERVICE, never the component
+
+Every screen was copied from production **unmodified**. Only the services were rewritten:
+the interfaces, method names and return types are byte-for-byte production's — just `of(...)`
++ `delay(...)` instead of `HttpClient`.
+
+```
+production:  Component ── unchanged ──> Service ──> HttpClient ──> API
+showcase:    Component ── unchanged ──> Service ──> in-memory array
+```
+
+This is what keeps the demo honest and the port cheap: when a screen changes upstream, the
+component file can be copied straight across again with no re-editing.
+
+**There is no `HttpClient` in `services/` — verify with a grep before adding one.** The
+`GET /api/v1/...` lines in those files are *documentation* of the real endpoint each mock
+stands in for; they are not live calls.
+
+### State is real, in memory
+
+Mocks mutate their own arrays, so the demo behaves like the product for the length of a
+session: saving an invoice really adds it to the list, editing a forecast really persists,
+approving a budget really locks it. It resets on reload — the right amount of permanence for
+a demo.
+
+The **business rules are enforced in the mocks too**, not skipped:
+- `BudgetService.save()` refuses an approved year with the API's own message — the lock is
+  the feature, and "why can't I edit this?" is the first thing a viewer tries.
+- `InvoiceService.findDuplicate()` is genuinely implemented (invoice number + supplier), so
+  the duplicate alert really fires.
+- `RechargeService` keeps the allocation shape, so the 100% rule stays demonstrable.
+
+### The one thing that cannot be faked
+
+`InvoiceService.getPdf()` **deliberately throws**. There is no storage, so a fabricated blob
+would render as a broken viewer; an explicit failure at least reads as "not available in the
+demo". `uploadPdf()` accepts the file and discards it.
+
+### ⚠️ Field names are the whole game
+
+Mock rows are cast (`as unknown as SomeDto`), so **a wrong field name compiles perfectly and
+renders blank**. This bit three times during the port:
+
+| Screen | Invented name | Real name | Symptom |
+|---|---|---|---|
+| Invoice View | `invoiceNumber` / `invoiceAmount` | `invNumber` / `invAmount` | a column of dashes |
+| Invoice Edit | `lines` | `lineItems` | blank form, 0.00 amount |
+| Audit Log | `entityName` / `changedBy` / … | `timestamp` / `user` / `actionType` / `module` / `recordAffected` / `oldValue` / `newValue` | 8 rows of empty cells |
+
+**Rule:** a green build proves nothing here. After touching a mock, *open the page*. If a
+field shows as `-`, `0.00`, or blank, check the name against the interface before anything
+else.
+
+### Services and what they stand in for
+
+| Service | Feeds |
+|---|---|
+| `cost-dashboard` | the dashboard — spend by cost type / vendor / team, budget trend |
+| `source-of-change` | the Source of Change report |
+| `cost-center-dashboard` | Scenario Management's Actual/RFC comparison grid |
+| `budget` | Budget Planner (spread / save / approve / reopen) |
+| `forecast` | Forecast grid + change history |
+| `invoice` | Invoice View / Upload / Edit, duplicates, related data |
+| `recharge` | recharge instructions drill |
+| `internal-order` | the IO type-ahead |
+| `master-data` | sites, teams, accounts, suppliers, currencies |
+| `period` | Period Management |
+| `audit-log` | Audit Log |
+| `theme` | the only service that is NOT a mock — real behaviour |
+
+---
+
+## Ported Components (`features/cm-*`)
+
+Several shared components exist **twice**, and that is intentional:
+
+| Existing (pre-showcase) | Ported from production |
+|---|---|
+| `features/modal/` | `features/cm-modal/` |
+| `features/hierarchy-select/` | `features/cm-hierarchy-select/` |
+| `features/date-picker/` | `features/cm-date-picker/` |
+
+The originals are used by Invoice Upload, Forecast filter chips and Headcount, and their
+markup and styling had already diverged from production. Overwriting them would have silently
+restyled screens that were already signed off. The ported copies are prefixed `cm-` and used
+**only** by the newly ported screens.
+
+**Rule:** building on a pre-existing screen → use the unprefixed component. Porting a new
+screen from production → use the `cm-` one. Do not attempt to merge the pairs without
+checking every existing usage first.
+
+---
+
+## ⚠️ Global Tooltip (`features/tooltip/`)
+
+`[cmTooltip]` appends its bubble to `document.body` so it escapes every `overflow: hidden`
+and stacking context on the page.
+
+**That means `tooltip.css` MUST be a global stylesheet, registered in `angular.json` →
+`styles`.** It cannot be a component stylesheet: Angular's `_ngcontent` scoping never reaches
+a node that has been moved to `<body>`.
+
+This is easy to get wrong — during the port the directive was copied with a `*.ts` glob and
+`tooltip.css` was left behind. The result was tooltips with *no bubble at all*: transparent
+background, no border, no shadow, no padding, 16px inherited text floating on the page. It
+compiled and ran fine.
+
+Two consequences worth remembering:
+- **Editing `angular.json` requires a dev-server restart**, not a rebuild. `ng serve` reads
+  it once at startup, so the stylesheet silently stays missing until you restart.
+- Visuals live on **`.ttp-content`**, not `.ttp-bubble`. `.ttp-bubble` is only the positioner
+  (`position: fixed`, `z-index: 99999`, `pointer-events: none`) and is *correctly*
+  transparent. If you inspect the wrong node it will look unstyled even when it is fine.
+- The bubble is **light on Crown's dark UI** by design; a dark bubble on a dark screen reads
+  poorly. A `ttp-dark` variant is kept for light contexts.
+
+---
+
+## Routes
+
+Defined in `app-routing.module.ts`:
+
+| Path | Screen |
+|---|---|
+| `''` | **Dashboard** (the landing route) |
+| `invoice-view` · `invoice-upload` · `invoice-edit/:id` | Invoice screens |
+| `forecast` · `headcount` · `budget-planner` · `scenario-management` | Cost Management |
+| `admin` | redirects → `admin/master-data` |
+| `admin/master-data` · `admin/periods` · `admin/audit-log` | Administration |
+| `**` | redirects → `''` |
+
+### ⚠️ The wildcard hides broken links
+
+`**` → `''` means **any wrong route silently lands on the Dashboard** instead of 404-ing.
+
+Ten links carried over from production still pointed at its route prefix
+(`/Cost-Management/...`, which does not exist here) across 7 files. Every one of them looked
+like a working button that "just went to the dashboard" — including *Upload Invoice* on the
+Invoice View screen. They were only found by clicking through.
+
+**Rule:** after porting a screen, grep it for `/Cost-Management` and click every navigation
+control. A link that lands on the dashboard is a broken link until proven otherwise.
 
 ---
 
@@ -313,7 +543,11 @@ Required SCSS on every page component:
 ## Theming System
 
 ### How it works
-- `ThemeService` (providedIn: root) reads `localStorage` key `'theme'` on startup, falls back to system preference
+- `ThemeService` (providedIn: root) reads `localStorage` key `'theme'` on startup and
+  **defaults to DARK** when nothing is saved — `saved ? saved === 'dark' : true`.
+  It no longer falls back to system preference: the dashboard is designed dark, and a
+  light-mode shell around a dark dashboard read as a half-finished theme in demos.
+  A saved choice still wins, so the toggle sticks.
 - On init / toggle it sets `data-theme="light"` or `data-theme="dark"` on `<html>`
 - `AppComponent.ngOnInit()` calls `themeService.init()`
 
@@ -345,7 +579,7 @@ transition: background-color var(--transition-speed), color var(--transition-spe
 ```
 
 ### Toggle button
-- Lives in `top-nav.component.html` as `<app-theme-toggle>`
+- Lives in `side-nav.component.html` as `<app-theme-toggle>`
 - Light mode shows moon icon: `assets/icons/DarkThemeMoonIcon.svg`
 - Dark mode shows inline SVG sun (stroke="currentColor" — inherits `var(--text-heading)`)
 
@@ -356,9 +590,12 @@ Defined globally in `styles.scss`. Width 5px, track transparent, thumb uses `var
 
 ---
 
-## App Header
-`features/app-header/` — blue gradient, hardcoded, intentionally exempt from dark mode.  
-**Do not modify this component.**
+## App Header (retired)
+`features/app-header/` — blue gradient, hardcoded, intentionally exempt from dark mode.
+
+**No longer rendered.** The side-nav carries the branding, and the gradient bar cost vertical
+space the dashboard needed. The component is still declared and still compiles — left in the
+tree deliberately. **Do not modify it, and do not re-add it to the shell.**
 
 ---
 
@@ -391,6 +628,22 @@ background: var(--bg-primary);
 border: 1px solid var(--border-color);
 color: var(--text-primary);
 ```
+
+---
+
+## Known Gaps in the Showcase
+
+Deliberate, and worth knowing before demoing:
+
+- **User Access & Roles is not ported.** It depends on `ag-grid-community`, which is not a
+  dependency of this project. Adding it for one screen is a real cost; the alternative is
+  rebuilding that grid as a plain table. Undecided — do not assume the screen is simply
+  missing by accident.
+- **PDF view/download is unavailable** — no storage. `getPdf()` throws on purpose.
+- **State resets on reload.** Everything is in memory.
+- **No authentication.** Production sits behind the Performance Hub shell; there is no
+  sign-in here and `lastUpdatedBy` values are seeded names.
+- **Figures are illustrative.** Plausible, internally consistent, and not Crown's real spend.
 
 ---
 

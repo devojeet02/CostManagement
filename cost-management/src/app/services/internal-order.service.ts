@@ -1,74 +1,40 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { delay, map } from 'rxjs/operators';
-import { SelectGroup } from '../features/hierarchy-select/hierarchy-select.component';
+import { delay } from 'rxjs/operators';
+import { SelectGroup } from '../features/cm-hierarchy-select/cm-hierarchy-select.component';
 
 /**
- * Simulates the live SAP Internal Order lookup.
+ * Internal-order type-ahead - SHOWCASE BUILD.
  *
- * In production this calls the SAP API in real time as the user types and
- * returns Internal Order Groups, each containing its Internal Orders. For now
- * the catalogue is hardcoded here; swap `of(...).pipe(delay())` for an
- * `HttpClient.get(...)` call and the rest of the UI keeps working unchanged.
- *
- * Only the Internal Order *code* (e.g. `IO1`) is ever stored against the line —
- * the label is display-only.
+ * WARNING: no backend. Matches on the same fields the real search does (code and
+ * description) so the type-ahead behaves the same way, just over a fixed list.
  */
 @Injectable({ providedIn: 'root' })
 export class InternalOrderService {
-  /** Hardcoded stand-in for the SAP Internal Order catalogue. */
-  private readonly catalogue: SelectGroup[] = [
-    {
-      group: 'Digital Transformation Programme',
-      items: [
-        { value: 'IO1', label: 'IO1 – CRM Migration' },
-        { value: 'IO2', label: 'IO2 – Cloud Platform Build' },
-        { value: 'IO3', label: 'IO3 – Data Lake Foundation' }
-      ]
-    },
-    {
-      group: 'Infrastructure Renewal',
-      items: [
-        { value: 'IO4', label: 'IO4 – Network Refresh' },
-        { value: 'IO5', label: 'IO5 – Datacentre Relocation' },
-        { value: 'IO6', label: 'IO6 – End-User Device Rollout' }
-      ]
-    },
-    {
-      group: 'Finance Systems',
-      items: [
-        { value: 'IO7', label: 'IO7 – SAP S/4HANA Rollout' },
-        { value: 'IO8', label: 'IO8 – Reporting Automation' },
-        { value: 'IO9', label: 'IO9 – Treasury Integration' }
-      ]
-    }
+
+  private readonly orders = [
+    { value: 'IO1', label: 'IO1 - Core Platform', group: 'Infrastructure' },
+    { value: 'IO2', label: 'IO2 - Data Services', group: 'Infrastructure' },
+    { value: 'IO3', label: 'IO3 - Integrations', group: 'Applications' },
+    { value: 'IO4', label: 'IO4 - Vendor Management', group: 'Governance & Vendor' },
+    { value: 'IO5', label: 'IO5 - Reporting', group: 'Model & Processes' },
+    { value: 'IO6', label: 'IO6 - Security Tooling', group: 'Infrastructure' },
   ];
 
-  /**
-   * Real-time lookup. Returns the Internal Order Groups (with their orders)
-   * matching `query`, filtered on both the group name and the order code/label.
-   * A short delay mimics the SAP network round-trip.
-   */
   search(query: string): Observable<SelectGroup[]> {
-    const q = query.trim().toLowerCase();
+    const q = (query || '').toLowerCase();
+    const hits = this.orders.filter(o => o.label.toLowerCase().indexOf(q) >= 0);
 
-    return of(this.catalogue).pipe(
-      delay(350),
-      map(groups => {
-        if (!q) return groups;
-        return groups
-          .map(g => {
-            // If the group name matches, keep all its orders; otherwise filter.
-            if (g.group.toLowerCase().includes(q)) return g;
-            return {
-              ...g,
-              items: g.items.filter(
-                i => i.label.toLowerCase().includes(q) || i.value.toLowerCase().includes(q)
-              )
-            };
-          })
-          .filter(g => g.items.length > 0);
-      })
-    );
+    const groups: SelectGroup[] = [];
+    hits.forEach(o => {
+      let g = groups.filter(x => (x as any).label === o.group)[0];
+      if (!g) {
+        g = { label: o.group, options: [] } as unknown as SelectGroup;
+        groups.push(g);
+      }
+      (g as any).options.push({ value: o.value, label: o.label });
+    });
+
+    return of(groups).pipe(delay(140));
   }
 }

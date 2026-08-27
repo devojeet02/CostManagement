@@ -1,0 +1,141 @@
+/* ─── TEST SCAFFOLD — recharge drill-down list ─────────────────────────────
+   Shared by Test1 and Test2 so the comparison is about the interaction, not the table. */
+
+.rd-body { display: block; }
+
+.rd-state {
+  margin: 0;
+  padding: 28px 4px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.rd-state--error { color: #f87171; }
+
+.rd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  thead th {
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+}
+
+.rd-num { text-align: right; }
+
+.rd-site {
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.rd-month { white-space: nowrap; color: var(--text-secondary); }
+
+.rd-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.rd-ccy {
+  font-weight: 600;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+.rd-chip {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* Amber for a whole-line assignment — a different thing from a percentage split. */
+.rd-chip--direct {
+  background: rgba(224, 166, 78, 0.15);
+  color: #e0a64e;
+}
+
+.rd-link {
+  font-weight: 700;
+  color: var(--accent-color);
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
+.rd-meta {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ─── Reconciliation strip ────────────────────────────────────────────────── */
+.rd-total {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.rd-total-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.rd-total-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-total-check {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.rd-total--ok {
+  border-color: rgba(47, 158, 68, 0.35);
+  .rd-total-value, .rd-total-check { color: #2f9e44; }
+}
+
+/* Loud on purpose — a mismatch means the drill is matching a different grain than the
+   grid's own derivation, which is exactly what these prototypes exist to find out. */
+.rd-total--off {
+  border-color: rgba(224, 166, 78, 0.45);
+  background: rgba(224, 166, 78, 0.05);
+  .rd-total-value, .rd-total-check { color: #e0a64e; }
+}

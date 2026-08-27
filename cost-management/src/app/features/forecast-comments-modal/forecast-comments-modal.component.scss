@@ -1,0 +1,281 @@
+/* ─── Monthly Comments modal ───────────────────────────────────────────────
+   Twelve months, each with an editable General Comment (GC) box and a collapsed
+   list of read-only Cell Comments (CC). The two-column grid and the button styling
+   are carried over from the block that used to live in forecast.component.scss.
+   The buttons are redeclared here rather than inherited: this is its own component
+   with its own encapsulation, so the screen's .btn-save / .btn-cancel no longer
+   reach into it. */
+
+.fcm-body {
+  display: block;
+}
+
+.fcm-hint {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  transition: color var(--transition-speed);
+
+  strong { color: var(--accent-color); }
+}
+
+/* Outstanding justifications — the reason the grid will refuse to save. */
+.fcm-missing {
+  margin: 0 0 14px;
+  padding: 8px 11px;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: 7px;
+  background: rgba(220, 38, 38, 0.07);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #f87171;
+
+  strong { color: #fca5a5; }
+}
+
+.fcm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  /* Twelve months of boxes, each of which can expand a trail, easily outgrows the
+     modal. Scroll inside the body so the actions below stay reachable. */
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 6px;
+  /* An expanded month must not stretch the one beside it. */
+  align-items: start;
+
+  /* Match the Forecast grid's scrollbar — the UA default renders a bright track that
+     reads as a white stripe down a dark modal. */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
+/* One month. Given a card of its own so the label, its GC box and its CC toggle read as
+   one unit — at twelve up, ungrouped controls run together. */
+.fcm-month {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color var(--transition-speed);
+}
+
+.fcm-month--required {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.04);
+
+  .fcm-month-label { color: #f87171; }
+}
+
+.fcm-month-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  /* --text-secondary, not --text-muted: this is each card's heading, and muted at 11px
+     uppercase on a near-black card is barely there. */
+  color: var(--text-secondary);
+  transition: color var(--transition-speed);
+}
+
+/* ─── GC / CC tags ────────────────────────────────────────────────────────
+   The two kinds are easy to conflate, so each is labelled wherever it appears. */
+.fcm-tag {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+}
+
+.fcm-tag--gc {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+.fcm-tag--cc {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+/* ─── General comment box ─────────────────────────────────────────────────── */
+.fcm-general-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  resize: vertical;
+  transition: border-color var(--transition-speed), background-color var(--transition-speed),
+              color var(--transition-speed);
+
+  &::placeholder { color: var(--text-muted); }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+/* ─── Cell comment toggle ─────────────────────────────────────────────────── */
+.fcm-cc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.06);
+  color: #d97706;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.5);
+  }
+}
+
+.fcm-cc-toggle--open {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.fcm-cc-chevron {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.fcm-cc-none {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+/* ─── One recorded cell comment ───────────────────────────────────────────── */
+.fcm-cc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 2px;
+  padding: 8px 9px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  /* Cap the trail rather than letting one month push the other eleven off-screen. */
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.fcm-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11px;
+  line-height: 1.4;
+  padding-left: 8px;
+  border-left: 2px solid rgba(245, 158, 11, 0.35);
+}
+
+.fcm-entry-label {
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.fcm-entry-text {
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.fcm-entry-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ─── Actions ─────────────────────────────────────────────────────────────── */
+.fcm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.btn-save {
+  background: #38bdf8;
+  color: #0b0f19;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 18px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #0ea5e9;
+    transform: translateY(-1px);
+  }
+}
+
+.btn-cancel {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: #94a3b8;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+}
+
+@media (max-width: 768px) {
+  .fcm-grid {
+    grid-template-columns: 1fr;
+  }
+}

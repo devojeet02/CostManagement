@@ -1,0 +1,166 @@
+<div class="rdp">
+
+  <!-- ─── Header: year / scenario / currency + the line selector ─────────── -->
+  <div class="rdp-header">
+    <div class="rdp-heading">
+      <h3 class="rdp-title">Related Forecast and Actual Data</h3>
+      <div class="rdp-meta">
+        <span class="rdp-chip rdp-chip--year">{{ year }}</span>
+        <span class="rdp-chip" *ngIf="panel?.scenario">{{ panel?.scenario }}</span>
+        <span class="rdp-chip" *ngIf="panel?.currency">{{ panel?.currency }}</span>
+      </div>
+    </div>
+
+    <div class="rdp-controls">
+      <!-- Only worth showing once there is more than one combination to switch between. -->
+      <label class="rdp-select-wrap" *ngIf="contexts.length > 1">
+        <span class="rdp-select-label">Showing</span>
+        <select class="rdp-select" [ngModel]="selectedKey" (ngModelChange)="selectContext($event)">
+          <option *ngFor="let c of contexts; trackBy: trackContext" [value]="c.key">{{ c.label }}</option>
+        </select>
+      </label>
+      <span class="rdp-single-context" *ngIf="contexts.length === 1">{{ selectedLabel }}</span>
+
+      <button type="button" class="rdp-refresh" title="Refresh" (click)="refresh()" [disabled]="isLoading">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10" />
+          <polyline points="1 20 1 14 7 14" />
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── Prompt: header dimensions not chosen yet ──────────────────────── -->
+  <div class="rdp-state" *ngIf="!hasParameters">
+    Choose a <strong>Site</strong> and <strong>Team</strong> to see the actuals and forecast
+    related to this invoice.
+  </div>
+
+  <!-- ─── Load failure ──────────────────────────────────────────────────── -->
+  <div class="rdp-state rdp-state--error" *ngIf="hasParameters && loadError">
+    Could not load the related data.
+    <button type="button" class="rdp-link" (click)="refresh()">Try again</button>
+  </div>
+
+  <!-- ─── Loading ───────────────────────────────────────────────────────── -->
+  <div class="rdp-state rdp-state--loading" *ngIf="hasParameters && isLoading && !loadError">
+    <span class="rdp-spinner"></span> Loading related data…
+  </div>
+
+  <!-- ─── The grid ──────────────────────────────────────────────────────── -->
+  <div class="rdp-table-wrap" *ngIf="hasParameters && !isLoading && !loadError && panel">
+    <table class="rdp-table">
+      <thead>
+        <tr>
+          <th class="rdp-row-label">Category</th>
+          <th *ngFor="let m of months; trackBy: trackMonth">{{ m }}</th>
+          <th class="rdp-total-col">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Actuals — hover a cell for the invoice lines behind it -->
+        <tr class="rdp-row-actual">
+          <td class="rdp-row-label">Actuals</td>
+          <td *ngFor="let m of months; let i = index; trackBy: trackMonth"
+            [class.rdp-has-detail]="hasDetail(i)"
+            (mouseenter)="showDetail(i, $event)"
+            (mouseleave)="hideDetail()">
+            {{ panel.actuals[i] != null ? (panel.actuals[i] | number:'1.2-2') : '—' }}
+          </td>
+          <td class="rdp-total-col">{{ panel.actualTotal | number:'1.2-2' }}</td>
+        </tr>
+
+        <!-- Forecast / Budget for the same parameters -->
+        <tr>
+          <td class="rdp-row-label">Forecast</td>
+          <td *ngFor="let m of months; let i = index; trackBy: trackMonth">
+            {{ panel.forecast[i] != null ? (panel.forecast[i] | number:'1.2-2') : '—' }}
+          </td>
+          <td class="rdp-total-col">{{ panel.forecastTotal | number:'1.2-2' }}</td>
+        </tr>
+
+        <!-- Cumulative variance — restarts at zero every January -->
+        <tr class="rdp-row-variance">
+          <td class="rdp-row-label">
+            Cumulative Variance
+            <span class="rdp-hint" cmTooltip="Forecast minus Actuals, carried forward month by month. Restarts at zero each January.">?</span>
+          </td>
+          <td *ngFor="let m of months; let i = index; trackBy: trackMonth"
+            [ngClass]="varianceClass(panel.cumulativeVariance[i])">
+            {{ panel.cumulativeVariance[i] | number:'1.2-2' }}
+          </td>
+          <td class="rdp-total-col" [ngClass]="varianceClass(panel.varianceTotal)">
+            {{ panel.varianceTotal | number:'1.2-2' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!--
+    AC #7 — the panel's totals, at the bottom. Deliberately a summary strip rather than a
+    <tfoot> row: the columns are months and the rows are different measures, so summing a
+    month column down (Actual + Forecast + Variance) would produce a meaningless number. The
+    totals that mean something are each row's year total, which is what these are (and what
+    the Total column repeats alongside each row).
+  -->
+  <div class="rdp-summary" *ngIf="hasParameters && !isLoading && !loadError && panel">
+    <span class="rdp-summary-item">
+      Total Actuals <strong>{{ panel.actualTotal | number:'1.2-2' }}</strong>
+    </span>
+    <span class="rdp-summary-item">
+      Total Forecast <strong>{{ panel.forecastTotal | number:'1.2-2' }}</strong>
+    </span>
+    <span class="rdp-summary-item">
+      Year-end Variance
+      <strong [ngClass]="varianceClass(panel.varianceTotal)">{{ panel.varianceTotal | number:'1.2-2' }}</strong>
+    </span>
+    <span class="rdp-summary-currency" *ngIf="panel.currency">{{ panel.currency }}</span>
+  </div>
+
+  <!-- ─── Nothing related found ─────────────────────────────────────────── -->
+  <div class="rdp-state" *ngIf="hasParameters && !isLoading && !loadError && !panel">
+    No related actuals or forecast for these parameters.
+  </div>
+
+</div>
+
+<!--
+  Hover detail (AC #3). `position: fixed` with coordinates worked out from the cell's rect —
+  the panel sits inside the page's scrolling body, so an absolutely-positioned card would be
+  clipped by it. pointer-events are off so the card can never steal the mouse from the cell
+  underneath and flicker; that is why a long list is capped rather than made scrollable.
+-->
+<div class="rdp-popover" *ngIf="popover" [style.top.px]="popover.top" [style.left.px]="popover.left">
+  <div class="rdp-pop-head">
+    {{ months[popover.month] }} {{ year }} · {{ popover.totalRows }} invoice line{{ popover.totalRows > 1 ? 's' : '' }}
+  </div>
+
+  <div class="rdp-pop-row" *ngFor="let d of popover.rows; trackBy: trackDetail">
+    <div class="rdp-pop-line1">
+      <span class="rdp-pop-inv">{{ d.invNumber || '—' }}</span>
+      <span class="rdp-pop-lineno" *ngIf="d.line != null">Line {{ d.line }}</span>
+      <span class="rdp-pop-credit" *ngIf="d.isCredit">Credit</span>
+      <span class="rdp-pop-amount" [class.rdp-over]="d.amountSiteCurrency < 0">
+        {{ d.amountSiteCurrency | number:'1.2-2' }}
+      </span>
+    </div>
+    <div class="rdp-pop-desc" *ngIf="d.description">{{ d.description }}</div>
+    <div class="rdp-pop-meta">
+      <span>{{ d.amount | number:'1.2-2' }} {{ d.currency }}</span>
+      <span>FX {{ d.exchangeRate | number:'1.0-6' }}</span>
+      <span>{{ d.invoiceDate | date:'dd/MM/yyyy' }}</span>
+    </div>
+    <div class="rdp-pop-meta rdp-pop-audit">
+      <span>{{ d.user || 'Unknown user' }}</span>
+      <span *ngIf="d.lastModified">{{ d.lastModified | date:'dd/MM/yyyy HH:mm' }}</span>
+    </div>
+  </div>
+
+  <div class="rdp-pop-more" *ngIf="popover.totalRows > popover.rows.length">
+    + {{ popover.totalRows - popover.rows.length }} more
+  </div>
+</div>

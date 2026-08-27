@@ -1,0 +1,56 @@
+<ng-container *ngIf="isOpen">
+
+  <!-- No backdrop. The popover opens as soon as a cell is clicked, so a click-catching sheet
+       over the grid would eat the first click on every other cell. Click-away is detected on
+       the document instead — see onDocumentPointerDown. -->
+  <div #panel class="fcc" [class.fcc--required]="showWarning" [class.fcc--placed]="placed"
+    [style.top.px]="top" [style.left.px]="left"
+    role="dialog" aria-label="Comment for this month">
+
+    <div class="fcc-head">
+      <div class="fcc-titles">
+        <span class="fcc-label">
+          {{ label }}
+          <!-- Only marked mandatory when it actually is: an untouched month needs no justification. -->
+          <span class="fcc-required-mark" *ngIf="required"
+            cmTooltip="A justification is required for this edit" cmTooltipPosition="top">*</span>
+        </span>
+        <span class="fcc-context" *ngIf="context">{{ context }}</span>
+      </div>
+      <button type="button" class="fcc-close" (click)="closed.emit()" aria-label="Close">&times;</button>
+    </div>
+
+    <textarea
+      #input
+      class="fcc-input"
+      rows="3"
+      [value]="comment"
+      [disabled]="disabled"
+      [attr.aria-invalid]="showWarning ? 'true' : null"
+      [placeholder]="required ? 'Why did this change?' : 'Add a comment…'"
+      (input)="onInput($any($event.target).value)"></textarea>
+
+    <!-- Mandatory-comment warning. -->
+    <p class="fcc-warning" *ngIf="showWarning">Warning :- Comment Mandatory</p>
+
+    <!-- Everything already recorded for this month, oldest first. -->
+    <div class="fcc-history" *ngIf="history.length > 0">
+      <span class="fcc-history-head">Previous comments</span>
+      <div class="fcc-history-item" *ngFor="let c of history; let i = index; trackBy: trackComment">
+        <span class="fcc-history-label">{{ editLabel(i) }} :-</span>
+        <span class="fcc-history-text">{{ c.comment }}</span>
+        <span class="fcc-history-meta">
+          {{ c.createdBy || 'Unknown' }} · {{ c.createdDate | date:'dd/MM/yyyy HH:mm' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="fcc-actions">
+      <button type="button" class="fcc-btn-cancel" (click)="closed.emit()">Cancel</button>
+      <!-- Deliberately NOT disabled while empty: closing must never trap the user. The grid's
+           save guard is what actually blocks the write. -->
+      <button type="button" class="fcc-btn-save" (click)="saved.emit()">Save Comment</button>
+    </div>
+
+  </div>
+</ng-container>

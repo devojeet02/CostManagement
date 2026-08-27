@@ -1,0 +1,87 @@
+<div class="hs-wrapper">
+
+  <!-- Input trigger -->
+  <div class="hs-input-wrap" [class.open]="isOpen" [class.disabled]="disabled">
+    <input
+      class="hs-input"
+      [placeholder]="placeholder"
+      [(ngModel)]="searchText"
+      [disabled]="disabled"
+      (focus)="onFocus()"
+      (input)="onInput()"
+      autocomplete="off"
+    />
+    <!-- Inline clear (×) — same effect as the dropdown's "Clear selection" -->
+    <button type="button" class="hs-clear" *ngIf="hasSelection && !disabled"
+      title="Clear selection" aria-label="Clear selection"
+      (mousedown)="$event.preventDefault()"
+      (click)="clearSelection(); $event.stopPropagation()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11"
+        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <svg class="hs-chevron" [class.rotated]="isOpen"
+      xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+      viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </div>
+
+  <!-- Dropdown -->
+  <div #dropdownEl class="hs-dropdown" *ngIf="isOpen" [ngStyle]="dropdownStyle" (click)="$event.stopPropagation()">
+
+    <!-- Async: prompt before enough characters typed -->
+    <div class="hs-hint" *ngIf="showTypeHint">Type to search SAP…</div>
+
+    <!-- Async: in-flight SAP lookup -->
+    <div class="hs-loading" *ngIf="loading">
+      <span class="hs-spinner"></span>
+      Searching SAP…
+    </div>
+
+    <ng-container *ngIf="!loading">
+
+    <!-- Clear current selection -->
+    <div class="hs-option hs-option--clear" *ngIf="hasSelection"
+      (mousedown)="$event.preventDefault()" (click)="clearSelection()">
+      <span class="hs-option-dot">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"
+          viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </span>
+      Clear selection
+    </div>
+
+    <ng-container *ngFor="let group of filteredGroups; trackBy: trackGroup">
+      <div class="hs-group-header">{{ group.group }}</div>
+      <div
+        class="hs-option"
+        *ngFor="let item of group.items; trackBy: trackItem"
+        [class.hs-option--selected]="isSelected(item)"
+        (mousedown)="$event.preventDefault()"
+        (click)="select(item)"
+      >
+        <span class="hs-option-dot" *ngIf="isSelected(item)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </span>
+        <span class="hs-option-dot hs-option-dot--empty" *ngIf="!isSelected(item)"></span>
+        {{ item.label }}
+      </div>
+    </ng-container>
+    </ng-container>
+
+    <div class="hs-empty" *ngIf="hasNoResults">No results for "{{ searchText }}"</div>
+
+  </div>
+</div>

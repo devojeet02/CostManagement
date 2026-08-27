@@ -1,0 +1,801 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Invoice View — list of saved invoices.
+ *
+ * The page chrome (header, button family, card) is deliberately identical to the
+ * Invoice Upload screen so the two read as one flow; the theme custom-properties
+ * come from `.cm-root` in cost-management-shell.component.scss.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* Shared height for every filter-chip control (the plain Invoice # input and the
+   cm-hierarchy-select inputs), so all four chips line up exactly. */
+$chip-control-height: 22px;
+
+/* Violet used only by the in-row "Clear filters" chip button. */
+$clear-filters-color: #a78bfa;
+
+/* Widths of the four frozen columns. The sticky `left`/`right` offsets are derived
+   from these, so a width change here keeps the pinning correct automatically. */
+$col-inv-w: 130px;
+$col-supplier-w: 150px;
+$col-pdf-w: 130px;
+$col-actions-w: 90px;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Header (mirrors invoice-upload.component.scss .page-header) ─── */
+.page-header {
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: border-color var(--transition-speed);
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-heading);
+    transition: color var(--transition-speed);
+  }
+
+  .btn-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-color);
+    border: none;
+    color: #fff;
+    padding: 7px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.15s ease;
+
+    &:hover {
+      opacity: 0.88;
+      transform: translateY(-1px);
+    }
+  }
+
+  /* Refresh — keeps the Invoice Upload screen's Cancel styling, hence the class name. */
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--accent-color);
+    }
+  }
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ─── Filter bar (chip shape mirrors the Forecast screen) ───────────
+   Colours come from the module theme vars rather than Forecast's hardcoded
+   slate values, so the bar matches the rest of the invoice pages. */
+.filter-bar {
+  padding: 16px 32px 0;
+  background: transparent;
+  border: none;
+}
+
+.filter-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  .filter-bar-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+  }
+
+  .filter-active-count {
+    font-size: 10px;
+    font-weight: 700;
+    color: $clear-filters-color;
+    background: rgba(167, 139, 250, 0.12);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    border-radius: 20px;
+    padding: 2px 8px;
+  }
+
+  /* Push Clear to the right edge of the bar. */
+  .btn-clear-filters { margin-left: auto; }
+}
+
+/* Chips WRAP into an auto-fitting grid rather than scrolling horizontally.
+   Filters are a discovery surface — anything parked off-screen behind a scrollbar tends
+   not to be found, and horizontal scrolling is awkward with a mouse. A grid also keeps
+   the chips aligned in columns as they wrap, where plain flex-wrap leaves ragged rows of
+   differing widths. `auto-fit` + minmax means the count per row falls from 4 to 3 to 2 to
+   1 as the viewport narrows, with no breakpoints to maintain. */
+.filter-chips-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  align-items: stretch;
+  gap: 10px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  position: relative;
+  /* The grid track owns the width now; min-width: 0 lets a chip shrink inside its cell
+     instead of forcing the track wider and breaking the column alignment. */
+  min-width: 0;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--accent-color) 40%, transparent);
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--accent-color) 6%, var(--bg-secondary));
+    border-color: color-mix(in srgb, var(--accent-color) 35%, transparent);
+  }
+
+  .chip-icon {
+    display: flex;
+    align-items: center;
+    color: var(--accent-color);
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+
+  .chip-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chip-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  /* Free-text chip input (Invoice #) — the chip supplies the frame.
+     Height and line-height are pinned to $chip-control-height and the same values are
+     forced onto cm-hierarchy-select's inner input below. Without that the two differ:
+     .hs-input inherits line-height `normal` (~1.33 for Segoe UI) while a plain input
+     here would take 1.2, leaving the Invoice # chip a couple of px shorter than its
+     neighbours. */
+  .chip-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: content-box;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    height: $chip-control-height;
+    line-height: $chip-control-height;
+
+    &:focus { outline: none; }
+
+    &::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.85;
+      font-weight: 600;
+    }
+  }
+
+  /* Strip cm-hierarchy-select's own chrome so it sits flush in the chip, the same
+     way the Forecast filter chips do. Scoped here so other usages are untouched. */
+  ::ng-deep cm-hierarchy-select {
+    display: block;
+    width: 100%;
+
+    .hs-input-wrap {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+
+      &:hover,
+      &.open { border: none; }
+    }
+
+    /* Same explicit box as .chip-input above, so every chip is the same height.
+       MUST stay nested under .hs-input-wrap. hierarchy-select's own stylesheet emits
+       `.hs-input-wrap[_ngcontent] .hs-input[_ngcontent]` — specificity (0,4,0) — which
+       sets `padding: 7px 0`. A flatter selector here resolves to (0,3,1) and loses, so
+       the padding survives and these chips render 14px taller than the plain-input one.
+       Nesting takes this rule to (0,4,1) and it wins. */
+    .hs-input-wrap .hs-input {
+      padding: 0;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: text;
+      height: $chip-control-height;
+      line-height: $chip-control-height;
+      box-sizing: content-box;
+
+      &::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.85;
+      }
+    }
+
+    .hs-chevron { color: var(--text-subtle); }
+  }
+}
+
+/* Sits in the filter-chips row only. Deliberately violet rather than the sky-blue
+   accent, so "clear" reads as a different kind of action from the chips it sits
+   beside. The empty-state "Clear filters" is a .btn-retry and is left untouched. */
+.btn-clear-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  color: $clear-filters-color;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(167, 139, 250, 0.16);
+    border-color: $clear-filters-color;
+    color: #c4b5fd;
+  }
+}
+
+.content-layout {
+  padding: 20px 32px 32px;
+}
+
+/* ─── Card ──────────────────────────────────────────────────────── */
+.list-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px var(--card-shadow);
+  overflow: hidden;
+  transition: background-color var(--transition-speed), border-color var(--transition-speed);
+}
+
+.list-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+
+  .row-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 3px 10px;
+  }
+}
+
+/* ─── Table ─────────────────────────────────────────────────────── */
+/* Horizontal scrolling only. Row count is capped by the pager (10 a page), so the grid
+   is never tall enough to need a vertical scrollbar — `overflow-y: hidden` keeps one from
+   appearing. It must be `hidden` rather than `visible`: per spec, `visible` computes to
+   `auto` when the other axis scrolls, which would put the scrollbar right back.
+
+   The pinned columns below are plain `position: sticky` cells rather than the split
+   left/right tables Forecast and Headcount use — one table keeps row heights inherently
+   in sync, so there is nothing to drift. */
+.table-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  &::-webkit-scrollbar { height: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover { background: var(--text-subtle); }
+}
+
+.invoice-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+
+  thead th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: var(--bg-primary);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    height: 42px;
+
+    &:hover td {
+      background: var(--bg-hover);
+    }
+  }
+
+  tbody td {
+    padding: 8px 14px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+    white-space: nowrap;
+    transition: background-color var(--transition-speed);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .col-inv {
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+
+  .col-amount,
+  .col-fx,
+  .col-lines {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .col-budgeted,
+  .col-credit { text-align: center; }
+}
+
+/* Credit note badge — red, because it subtracts from actuals. */
+.credit-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--badge-overdue-bg);
+  color: var(--badge-overdue-color);
+}
+
+/* ─── Column widths ─────────────────────────────────────────────────
+   Pinned columns need a fixed width so their sticky offsets can be exact. */
+.invoice-table {
+  .col-inv      { width: $col-inv-w;      min-width: $col-inv-w; }
+  .col-supplier { width: $col-supplier-w; min-width: $col-supplier-w; }
+  .col-par      { width: 120px; min-width: 120px; }
+  .col-po       { width: 110px; min-width: 110px; }
+  .col-site     { width: 110px; min-width: 110px; }
+  .col-team     { width: 110px; min-width: 110px; }
+  .col-io       { width: 140px; min-width: 140px; }
+  .col-acct     { width: 140px; min-width: 140px; }
+  .col-curr     { width: 90px;  min-width: 90px; }
+  .col-fx       { width: 90px;  min-width: 90px; }
+  .col-amount   { width: 130px; min-width: 130px; }
+  .col-lines    { width: 70px;  min-width: 70px; }
+  .col-budgeted { width: 90px;  min-width: 90px; }
+  .col-credit   { width: 90px;  min-width: 90px; }
+  .col-date     { width: 120px; min-width: 120px; }
+  .col-pdf      { width: $col-pdf-w;     min-width: $col-pdf-w;     text-align: right; }
+  .col-actions  { width: $col-actions-w; min-width: $col-actions-w; text-align: right; }
+}
+
+/* ─── Frozen columns ────────────────────────────────────────────────
+   Invoice # + Supplier pinned left, PDF + Actions pinned right. Every pinned cell
+   carries an opaque background so the scrolling middle passes cleanly underneath. */
+.invoice-table {
+
+  th.col-inv, td.col-inv,
+  th.col-supplier, td.col-supplier,
+  th.col-pdf, td.col-pdf,
+  th.col-actions, td.col-actions {
+    position: sticky;
+    z-index: 2;
+  }
+
+  th.col-inv      { left: 0; }
+  td.col-inv      { left: 0; }
+  th.col-supplier { left: $col-inv-w; }
+  td.col-supplier { left: $col-inv-w; }
+
+  th.col-actions  { right: 0; }
+  td.col-actions  { right: 0; }
+  th.col-pdf      { right: $col-actions-w; }
+  td.col-pdf      { right: $col-actions-w; }
+
+  /* Header cells must outrank the pinned body cells that scroll under them horizontally.
+     `position: sticky` is what makes z-index apply at all here; `top: 0` is inert while the
+     grid has no vertical scroll, and is kept so the header still behaves if one is ever
+     reintroduced. */
+  thead th { position: sticky; top: 0; z-index: 3; }
+  thead th.col-inv,
+  thead th.col-supplier,
+  thead th.col-pdf,
+  thead th.col-actions { z-index: 4; }
+
+  /* Opaque fills. Body cells inherit the card background; the header keeps its own. */
+  tbody td.col-inv,
+  tbody td.col-supplier,
+  tbody td.col-pdf,
+  tbody td.col-actions {
+    background: var(--bg-secondary);
+  }
+
+  tbody tr:hover td.col-inv,
+  tbody tr:hover td.col-supplier,
+  tbody tr:hover td.col-pdf,
+  tbody tr:hover td.col-actions {
+    background: var(--bg-hover);
+  }
+
+  /* Cyan accent divider between the frozen identity block and the scrolling columns —
+     the same bifurcation the Forecast and Headcount grids use. */
+  th.col-supplier,
+  td.col-supplier {
+    border-right: 2px solid #22d3ee;
+  }
+
+  /* Right-hand block gets a subtle divider + shadow rather than a second teal line,
+     matching how Headcount frames its pinned Comments/Actions block. */
+  th.col-pdf,
+  td.col-pdf {
+    border-left: 1px solid var(--border-color);
+    box-shadow: -4px 0 8px -4px rgba(0, 0, 0, 0.25);
+  }
+
+  th.col-inv,
+  td.col-inv {
+    box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* Budgeted yes/no pill */
+.budget-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--badge-paid-bg);
+  color: var(--badge-paid-color);
+
+  &--no {
+    background: var(--badge-pending-bg);
+    color: var(--badge-pending-color);
+  }
+}
+
+.btn-edit-invoice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--accent-color);
+  }
+}
+
+/* ─── Show PDF / no-PDF ─────────────────────────────────────────── */
+.btn-show-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
+  color: var(--accent-color);
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+    border-color: var(--accent-color);
+  }
+}
+
+/* Rows with no linked PDF: stated plainly rather than a dead-looking button. */
+.no-pdf {
+  display: inline-block;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-subtle);
+  cursor: default;
+}
+
+/* ─── Loading / empty / error states ────────────────────────────── */
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 32px;
+  text-align: center;
+
+  .state-icon {
+    color: var(--text-subtle);
+  }
+
+  .state-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .state-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 380px;
+  }
+
+  .btn-retry {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-color);
+    border: none;
+    color: #fff;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+
+    &:hover { opacity: 0.88; }
+  }
+}
+
+/* The loading spinner that used to live here is now <cm-loader> (features/loader).
+   `.state-block` still supplies this screen's padding and centring around it. */
+
+/* ─── Pager ─────────────────────────────────────────────────────── */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+
+  .pager-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .pager-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .pager-size-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* Keeps the native dropdown arrow on purpose. Drawing one with background-image would
+     mean a hover rule, and the `background` shorthand there resets background-image /
+     -position — the bug that made the Forecast and Headcount select arrows slide about.
+     Only background-COLOR is animated here. */
+  .pager-size-select {
+    height: 26px;
+    padding: 0 4px 0 8px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background-color: var(--bg-hover);
+      border-color: var(--accent-color);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .pager-summary {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .pager-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .pager-btn,
+  .pager-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 7px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--accent-color);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  .pager-num.active {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+  }
+
+  .pager-gap {
+    padding: 0 4px;
+    font-size: 12px;
+    color: var(--text-subtle);
+  }
+}
+
+/* ─── Small screens ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page-header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    .header-right { flex-wrap: wrap; }
+  }
+
+  .filter-bar {
+    padding: 12px 16px 0;
+  }
+
+  /* One chip per row — the 210px minimum would otherwise overflow a phone width. */
+  .filter-chips-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .filter-chip {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .content-layout {
+    padding: 14px 16px 24px;
+  }
+
+  .pager {
+    justify-content: center;
+  }
+}

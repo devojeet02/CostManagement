@@ -1,0 +1,67 @@
+<cm-modal [title]="title" [isOpen]="isOpen" (closed)="closed.emit()">
+  <div class="rd-body">
+
+    <div class="rd-state" *ngIf="loading">
+      <cm-loader [show]="true" message="Loading recharges…"></cm-loader>
+    </div>
+
+    <p class="rd-state rd-state--error" *ngIf="!loading && loadError">
+      Could not load the recharges for this row.
+    </p>
+
+    <p class="rd-state" *ngIf="!loading && !loadError && rows.length === 0">
+      No recharges were raised against this internal order for this period.
+    </p>
+
+    <ng-container *ngIf="!loading && !loadError && rows.length > 0">
+      <table class="rd-table">
+        <thead>
+          <tr>
+            <th>Recharged To</th>
+            <th>Month</th>
+            <th class="rd-num">Amount</th>
+            <th>Alloc</th>
+            <th>Source Invoice</th>
+            <th>Line</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of rows; trackBy: trackByRow">
+            <td class="rd-site">{{ r.site }}</td>
+            <td class="rd-month">{{ monthLabel(r) }}</td>
+            <td class="rd-num rd-amount">
+              {{ r.amount | number:'1.2-2' }}
+              <span class="rd-ccy" *ngIf="r.currency">{{ r.currency }}</span>
+            </td>
+            <td>
+              <span class="rd-chip" [class.rd-chip--direct]="isDirect(r)">{{ allocationLabel(r) }}</span>
+            </td>
+            <td>
+              <a class="rd-link" [routerLink]="['/invoice-edit', r.invoiceId]">{{ r.invoiceNumber }}</a>
+              <span class="rd-meta">{{ fmtDate(r.invoiceDate) }}</span>
+            </td>
+            <td class="rd-meta">{{ r.lineNumber != null ? 'Line ' + r.lineNumber : '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- The point of the prototype: does the drill-down add up to what the grid showed?
+           If these disagree, the two are matching on different grains and the drill would
+           mislead — so it is stated outright rather than left to be spotted. -->
+      <div class="rd-total" [class.rd-total--ok]="reconciles" [class.rd-total--off]="!reconciles">
+        <span class="rd-total-label">Listed total</span>
+        <span class="rd-total-value">
+          {{ total | number:'1.2-2' }}
+          <span class="rd-ccy" *ngIf="currency">{{ currency }}</span>
+        </span>
+        <span class="rd-total-check" *ngIf="expected != null">
+          <ng-container *ngIf="reconciles">✓ matches the grid ({{ expected | number:'1.2-2' }})</ng-container>
+          <ng-container *ngIf="!reconciles">
+            ⚠ grid shows {{ expected | number:'1.2-2' }} — grain mismatch
+          </ng-container>
+        </span>
+      </div>
+    </ng-container>
+
+  </div>
+</cm-modal>

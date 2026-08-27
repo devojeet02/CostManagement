@@ -47,6 +47,29 @@ select option {
     margin: 0;
   }
 
+  /* Audit Log — same shape as Back so the header reads as one control group, but
+     tinted with the accent so it is clearly a destination rather than a way out. */
+  .btn-audit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #38bdf8;
+    padding: 6px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: #38bdf8;
+    }
+  }
+
   .btn-back {
     display: inline-flex;
     align-items: center;
@@ -120,7 +143,7 @@ select option {
     border-color: rgba(56, 189, 248, 0.2);
   }
 
-  /* Make the embedded <app-hierarchy-select> sit flush inside the chip:
+  /* Make the embedded <cm-hierarchy-select> sit flush inside the chip:
      drop its own background / border / padding so the chip provides the frame.
      Scoped to .filter-chip so other hierarchy-select usages stay untouched. */
   .chip-body {
@@ -128,7 +151,7 @@ select option {
     min-width: 0;
   }
 
-  ::ng-deep app-hierarchy-select {
+  ::ng-deep cm-hierarchy-select {
     display: block;
     width: 100%;
 
@@ -352,6 +375,89 @@ select option {
   &:hover {
     background: #0a6347;
     transform: translateY(-1px);
+  }
+}
+
+.btn-add-overspend {
+  background: transparent;
+  color: #e0a64e;
+  border: 1.5px solid #e0a64e;
+  margin-left: 6px;
+
+  &:hover {
+    background: #e0a64e;
+    color: #1a2035;
+  }
+}
+
+// CCM-011: an overspend-addition line, distinguished from originally-budgeted lines.
+.row-overspend {
+  background: rgba(224, 166, 78, 0.06);
+
+  &.row-hovered { background: rgba(224, 166, 78, 0.12); }
+}
+
+/* Deliberately small: it has to sit in the 3px of padding under a 24px input inside a
+   34px cell without touching the row's height. 8.5px still reads because the word is
+   short, uppercase and high-contrast against the amber. */
+.overspend-badge {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: rgba(224, 166, 78, 0.15);
+  color: #e0a64e;
+  white-space: nowrap;
+}
+
+/* The badge sits INSIDE the description cell, after the <input>. Left in normal flow it
+   wrapped onto a second line (the input is width:100%), so that one cell resolved to about
+   43px against the 34px every other cell is pinned to — the left table then stood taller
+   than the right one on overspend rows only, with the excess showing as a gap under the row.
+
+   `position: absolute` is what guarantees that can't come back: an out-of-flow box
+   contributes nothing to its parent's height, so the cell cannot grow whatever the badge
+   ever contains. The cell is 34px with 3px padding and the input takes 24px of the
+   remaining 28px, so there is no room to stack them in flow — the badge is placed just
+   below the input and hangs into the empty spacer cell of the row's next sub-row.
+
+   Scoped to tr.row-overspend so no other row's description cell is touched, and
+   `position: relative` on a <td> is safe — it is `display: flex` that breaks the cell box
+   (see the module CLAUDE.md). */
+tr.row-overspend .lc-desc.id-cell {
+  position: relative;
+
+  /* Full width again: nothing shares the line, so a long description stops truncating. */
+  input[type="text"] {
+    width: 100%;
+  }
+
+  .overspend-badge {
+    position: absolute;
+    left: 6px;          /* flush with the input's left edge (td padding is 3px 6px) */
+    top: 30px;          /* clears the 24px input, which ends at 29px */
+  }
+}
+
+/* Actuals toggled off leaves the row with ONE visible sub-row, so the spacer cell the badge
+   hangs into no longer exists and it would dangle over the next row instead. `row-first` and
+   `row-last-sub` together mean exactly that case — the description cell only ever renders on
+   the first sub-row, so this can only match a row that is first AND last. Put the badge back
+   beside the input there, which is how it looked before this change. */
+tr.row-overspend.row-last-sub .lc-desc.id-cell {
+  input[type="text"] {
+    width: calc(100% - 60px);
+  }
+
+  .overspend-badge {
+    left: auto;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
   }
 }
 
@@ -740,16 +846,22 @@ tr.row-last-sub td {
     font-size: 11px;
     font-weight: 500;
     font-family: inherit;
-    transition: all 0.15s ease;
+    /* Explicit property list, NOT `all`. `all` also transitions background-position, so
+       any rule that touches the background makes the <select> chevron slide across the
+       field instead of staying put. */
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
+    /* `background-color`, never the `background` shorthand: the shorthand resets
+       background-image to `none` and background-position to `0% 0%`, which wipes the
+       chevron drawn below and drags it to the left edge on hover/focus. */
     &:hover {
-      background: rgba(255, 255, 255, 0.03);
+      background-color: rgba(255, 255, 255, 0.03);
       border-color: rgba(255, 255, 255, 0.08);
     }
 
     &:focus {
       outline: none;
-      background: rgba(56, 189, 248, 0.05) !important;
+      background-color: rgba(56, 189, 248, 0.05) !important;
       border-color: rgba(56, 189, 248, 0.45) !important;
       color: #ffffff;
     }
@@ -867,6 +979,9 @@ tr.row-last-sub td {
 /* ─── Sub-row Value Inputs (Right Table) ─────────────────────── */
 .value-cell {
   max-width: 74px;
+  /* Anchors the comment flag to the cell's top-right corner. `position` is safe on a
+     <td>; `display: flex` is NOT — see the note in the module CLAUDE.md. */
+  position: relative;
 
   input[type="text"] {
     display: block;
@@ -903,6 +1018,73 @@ tr.row-last-sub td {
       opacity: 0.6;
     }
   }
+}
+
+/* ─── Per-cell comment flag (RFC criterion 5) ─────────────────
+   A month changed on an already-saved line must carry a justification, and the grid
+   refuses to save until every one of them does. The marker therefore sits on EACH
+   affected cell across the whole grid, not only on the row in focus — several rows
+   are commonly edited in one pass and all of them block the save together.
+
+   Top-right corner, half outside the input, so it never covers the figure. The cell
+   is 74px wide and the number is right-aligned, so anything inline would. */
+.cell-flag {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 2;
+  transition: all 0.15s ease;
+}
+
+/* Missing: the red exclamation. Deliberately loud — it is the reason Save is blocked. */
+.cell-flag--alert {
+  width: 13px;
+  height: 13px;
+  background: #dc2626;
+  border: 1px solid #0b0f19;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+
+  &:hover {
+    background: #ef4444;
+    transform: scale(1.15);
+  }
+}
+
+/* Supplied: a quiet dot. Not a tick — this is a "there is a comment here, click to read
+   it" affordance, and at 8px a tick is unreadable anyway. */
+.cell-flag--done {
+  width: 8px;
+  height: 8px;
+  background: #38bdf8;
+  border: 1px solid #0b0f19;
+  opacity: 0.75;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+/* Tint the cell itself as well as flagging it: at 74px wide a 13px dot is easy to skim
+   past when a dozen of them are scattered across the grid. */
+td.value-cell.cell-needs-comment {
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.45);
+}
+
+/* Rooted at `tr` purely for specificity: the per-series colours below
+   (`tr.sub-local .value-cell input[type="text"]`, and the contract one) are (0,3,2) and
+   appear later in this file, so an unrooted rule here would tie and lose. */
+tr td.value-cell.cell-needs-comment input[type="text"] {
+  color: #fca5a5;
 }
 
 /* ─── Sub-row Colour Overrides (minimal) ─────────────────────── */
@@ -1046,8 +1228,8 @@ tr.sub-recharge .value-cell input[type="text"] {
   border: 1px solid rgba(56, 189, 248, 0.18);
   color: rgba(56, 189, 248, 0.55);
   border-radius: 50%;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1075,74 +1257,359 @@ tr.sub-recharge .value-cell input[type="text"] {
     line-height: 14px;
     text-align: center;
   }
+
+  /* This row has edited months with no justification, so Save is blocked (RFC criterion 5).
+     Red rather than a subtle cue: it is the reason the whole grid will refuse to save. */
+  &.btn-comment--required {
+    border-color: rgba(220, 38, 38, 0.55);
+    color: #f87171;
+
+    &:hover {
+      background: rgba(220, 38, 38, 0.12);
+      color: #ef4444;
+      border-color: rgba(220, 38, 38, 0.75);
+    }
+  }
+
+  .comment-badge--alert {
+    background: #dc2626;
+    color: #fff;
+  }
 }
 
-/* ─── Monthly Comments Modal content ─────────────────────────────── */
-.comment-modal-body {
-  .comment-modal-hint {
-    margin: 0 0 16px;
-    font-size: 12.5px;
-    color: var(--text-secondary);
+/* The Monthly Comments modal moved to features/forecast-comments-modal, which renders
+   one features/forecast-cell-comment per month. Its styles went with it — a separate
+   component has its own encapsulation, so these rules could no longer reach it. */
+
+/* ─── Load / empty / error states ────────────────────────────────
+   The grid used to fall back to MOCK_FORECAST_ROWS whenever the API returned nothing
+   or failed, so sample rows looked like saved forecast and could be edited and saved
+   as though real. It now shows real data only, and these blocks cover the cases the
+   mock was papering over. Styled to match the Invoice View states. */
+.fc-state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 32px;
+  padding: 64px 32px;
+  text-align: center;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+
+  .fc-state-icon {
+    color: #475569;
+  }
+
+  .fc-state-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  .fc-state-hint {
+    font-size: 12px;
+    color: #64748b;
+    max-width: 420px;
+    line-height: 1.55;
 
     strong {
-      color: var(--accent-color);
+      color: #cbd5e1;
+      font-weight: 600;
     }
   }
 
-  .comment-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px 16px;
-  }
-
-  .comment-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .comment-month {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-label);
-  }
-
-  .comment-input {
-    width: 100%;
-    box-sizing: border-box;
-    resize: vertical;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+  .fc-state-btn {
+    margin-top: 6px;
+    background: #38bdf8;
+    border: none;
+    color: #0b0f19;
+    padding: 7px 16px;
     border-radius: 6px;
-    color: var(--text-primary);
-    font-size: 12.5px;
+    font-size: 12px;
+    font-weight: 700;
     font-family: inherit;
-    padding: 6px 8px;
-    transition: border-color var(--transition-speed);
+    cursor: pointer;
+    transition: opacity 0.2s ease;
 
-    &:focus {
-      outline: none;
-      border-color: var(--accent-color);
+    &:hover {
+      opacity: 0.88;
     }
-
-    &::placeholder {
-      color: var(--text-muted);
-    }
-  }
-
-  .comment-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 18px;
   }
 }
 
-@media (max-width: 768px) {
-  .comment-modal-body .comment-grid {
-    grid-template-columns: 1fr;
+/* The loading spinner that used to live here is now <cm-loader> (features/loader).
+   `.fc-state-block` still supplies this screen's card chrome around it. Its ring reads its
+   colours from the theme variables rather than the hardcoded dark values this copy used, so
+   it also works if the light theme is ever switched on here. */
+
+/* ─── Changes / variance column ──────────────────────────────────
+   Live difference between the current edit and the last saved value. Colours are
+   lifted from the Scenario Management variance badge so the two screens read the
+   same; that screen scopes them as CSS custom properties on its own :host, which
+   does not reach here, so the values are repeated as SCSS variables.
+
+   Red = more spend than was saved. Green = unchanged or reduced. */
+$variance-favorable-bg: rgba(74, 222, 128, 0.12);
+$variance-favorable-text: #4ade80;
+$variance-unfavorable-bg: rgba(248, 113, 113, 0.14);
+$variance-unfavorable-text: #f87171;
+/* Unchanged is its own neutral state, NOT green: green means the edit saved money, and an
+   untouched row has not saved anything. Slate, so it recedes and the eye finds real movement. */
+$variance-neutral-bg: rgba(148, 163, 184, 0.10);
+$variance-neutral-text: #94a3b8;
+
+.rc-changes {
+  width: 92px;
+  min-width: 92px;
+  text-align: center;
+}
+
+.variance-cell {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.variance-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 46px;
+  text-align: center;
+
+  &.favorable {
+    background: $variance-favorable-bg;
+    color: $variance-favorable-text;
+  }
+
+  &.unfavorable {
+    background: $variance-unfavorable-bg;
+    color: $variance-unfavorable-text;
+  }
+
+  &.neutral {
+    background: $variance-neutral-bg;
+    color: $variance-neutral-text;
+  }
+}
+
+/* Unedited rows and read-only Actuals: a quiet dash, so the eye goes to what moved. */
+.variance-none {
+  color: #475569;
+  font-size: 11px;
+}
+
+/* ─── Read-only Actual rows ──────────────────────────────────────
+   Actual / Actual in Contract Currency / Recharge Actual are derived from posted
+   invoices on every read; anything sent for them is discarded on save. They were
+   editable-looking inputs, which invited edits that silently vanished.
+
+   Colour is left to the existing tr.sub-actual / tr.sub-contract rules.
+
+   Cursor stays the ordinary arrow — deliberately NOT `not-allowed`. An Actual is
+   simply a derived figure, permanently displayed rather than something the user is
+   being blocked from; the "denied" cursor overstated it. `not-allowed` is reserved
+   for locked months below, where the user IS being refused and can do something
+   about it (reopen the period). */
+td.value-cell.value-readonly {
+  cursor: default;
+
+  input[type="text"]:disabled {
+    cursor: default;
+    /* tr.sub-actual already dims these to 0.85; keep the contract-actual row, which
+       carries .sub-contract instead, from washing out to the UA default. */
+    opacity: 0.85;
+  }
+}
+
+/* ─── Locked month columns (RFP §8.2 period locking) ─────────────
+   A month closed on the Period Management screen is read-only here: amber tint down
+   the whole column, a padlock in the header, and the inputs disabled. The backend
+   already refuses to save a change to a closed month — this makes that visible
+   BEFORE anything is typed, instead of only as an error at Save.
+
+   To turn the tinting off, set $flag-locked-months to false. The inputs stay
+   disabled either way; that part is behaviour, not decoration. */
+$flag-locked-months: true;
+$locked-month-colour: #f59e0b;
+
+@if $flag-locked-months {
+
+  /* Header cell */
+  th.rc-month.month-locked {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+    color: $locked-month-colour !important;
+    cursor: help;
+  }
+
+  /* Body + totals cells down the column. Deliberately a background-COLOR only —
+     the shorthand would wipe the chevron background-image on any select in the cell. */
+  td.rc-month.month-locked {
+    background-color: rgba(245, 158, 11, 0.07) !important;
+  }
+
+  /* Keep the locked tint readable on the alternating row shading and on hover. */
+  tr.row-even td.rc-month.month-locked,
+  tr.row-odd td.rc-month.month-locked,
+  tr.row-hovered td.rc-month.month-locked {
+    background-color: rgba(245, 158, 11, 0.10) !important;
+  }
+}
+
+.month-lock-icon {
+  margin-left: 3px;
+  vertical-align: -1px;
+  opacity: 0.9;
+}
+
+/* Disabled inputs in a locked column: readable, obviously not editable.
+   Outside the @if — this is behaviour/affordance, not decoration, so it applies even
+   with the tinting switched off. */
+td.rc-month.month-locked {
+  /* On the CELL, not just the input. `tbody tr td` has `padding: 3px 6px`, so the input
+     does not reach the cell edges — without this the ring of padding around it kept the
+     default cursor and the column felt only half-locked. */
+  cursor: not-allowed;
+
+  input[type="text"]:disabled {
+    color: #b45309;
+    opacity: 1;
+    /* override the UA's washed-out default */
+    cursor: not-allowed;
+    background: transparent;
+  }
+}
+
+/* ─── Unbudgeted lines ───────────────────────────────────────────
+   Amber "UB" chip on the Internal Order cell, plus a left edge marker on the cell,
+   so an unbudgeted line is identifiable without reading the tooltip.
+
+   To turn the flagging off, set $flag-unbudgeted-lines to false. */
+$flag-unbudgeted-lines: true;
+$unbudgeted-colour: #f59e0b;
+
+/* The flex row lives on an INNER wrapper, never on the <td>. Setting `display: flex`
+   on a table cell destroys its table-cell box, which pushed the Internal Order input
+   out of its column. Kept outside the @if so the markup lays out identically whether
+   or not the flagging is switched on. Mirrors Headcount's .hc-comment-cell-inner. */
+.lc-io.id-cell .lc-io-inner {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+
+  input {
+    min-width: 0;
+    /* let the input shrink beside the badge instead of overflowing */
+  }
+
+  /* The Internal Order lookup sits in a 104px grid cell, so strip cm-hierarchy-select's own
+     frame and let the cell provide it — same treatment the filter chips use. */
+  cm-hierarchy-select {
+    display: block;
+    flex: 1;
+    min-width: 0;
+  }
+
+  ::ng-deep cm-hierarchy-select {
+    .hs-input-wrap {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 0 4px 0 6px;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.08);
+      }
+
+      &.open {
+        background: rgba(56, 189, 248, 0.05);
+        border-color: rgba(56, 189, 248, 0.45);
+      }
+    }
+
+    /* MUST stay nested under .hs-input-wrap. hierarchy-select emits
+       `.hs-input-wrap[_ngcontent] .hs-input[_ngcontent]` at (0,4,0); a flatter override loses
+       and its 7px padding survives, which would make this row TALLER than the right table's
+       and drift the two grids apart — the row-height pinning depends on 24px here. */
+    .hs-input-wrap .hs-input {
+      height: 24px;
+      box-sizing: border-box;
+      padding: 0;
+      font-size: 11px;
+      font-weight: 500;
+      color: #cbd5e1;
+      cursor: text;
+
+      &::placeholder {
+        color: #64748b;
+      }
+    }
+
+    .hs-chevron {
+      color: #475569;
+    }
+
+    /* The dropdown's width is set INLINE by the component from the input's rect, which in a
+       104px grid cell leaves a sliver too narrow to read "IO1 – CRM Migration". `min-width`
+       beats an inline `width`, so this widens it without touching the shared component.
+       The dropdown is re-parented to <body> at open time, so it is neither trapped in
+       .left-table-wrap's stacking context nor reachable by a selector rooted here — its
+       width now comes from [dropdownMinWidth] on the component. */
+
+  }
+}
+
+@if $flag-unbudgeted-lines {
+  .lc-io.id-cell.is-unbudgeted-cell {
+    box-shadow: inset 3px 0 0 $unbudgeted-colour;
+  }
+
+  .unbudgeted-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 15px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    color: $unbudgeted-colour;
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    cursor: help;
+  }
+}
+
+/* ─── Negative amounts (credit notes) ────────────────────────────
+   An Actual goes negative when credits outweigh invoices on a cost line. Red so it
+   reads as a subtraction at a glance rather than being missed as a small "-".
+
+   ┌─ TO TURN THE COLOURING OFF ─────────────────────────────────────────────┐
+   │ Set $highlight-negative-actuals to false. That is the whole change —    │
+   │ the figures still show their minus sign, they just stop being red.      │
+   │ To change the shade instead, edit $negative-actual-colour.              │
+   └────────────────────────────────────────────────────────────────────────┘
+
+   `!important` because the value inputs and total cells each set their own colour. */
+$highlight-negative-actuals: true;
+$negative-actual-colour: #f87171;
+
+@if $highlight-negative-actuals {
+
+  .is-negative,
+  input.is-negative {
+    color: $negative-actual-colour !important;
   }
 }
 
@@ -1280,6 +1747,7 @@ tfoot tr.total-recharge-group.total-block-first td {
    the whole left table frozen. Everything here is layout-only; no data or
    behaviour changes. */
 @media (max-width: 1600px) {
+
   /* Hide the detached drag-reorder rail — it eats horizontal space and
      HTML5 drag isn't usable on touch anyway. Reorder stays on wide desktop. */
   .fc-drag-rail-outer {
@@ -1540,5 +2008,29 @@ tfoot tr.total-recharge-group.total-block-first td {
   .total-sub-label {
     font-size: 10px !important;
     display: block !important;
+  }
+}
+/* ─── Recharge drill-down button ──────────────────────────────────
+   Sits in the existing .lc-act-stack beside the comment button, so it inherits that
+   column's sizing and adds no row-height risk. Amber, matching how recharge is coloured
+   elsewhere (the Recharge View's "Full line" chip, the Addition badge). */
+.btn-recharge-drill {
+  position: relative;
+  background: transparent;
+  border: 1px solid rgba(224, 166, 78, 0.28);
+  color: rgba(224, 166, 78, 0.75);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(224, 166, 78, 0.14);
+    color: #e0a64e;
+    border-color: rgba(224, 166, 78, 0.5);
   }
 }

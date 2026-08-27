@@ -5,7 +5,19 @@
     <div class="page-header">
       <h2 class="page-title">Forecast Input</h2>
       <div class="header-right">
-        <button class="btn-back" routerLink="/" title="Back to Home">
+        <!-- Audit log lives here rather than in the sidenav: it is only ever read in the
+             context of the forecast you are editing. -->
+        <button class="btn-audit" routerLink="/forecast"
+          cmTooltip="See every change made to the forecast — who changed what, and when."
+          cmTooltipPosition="bottom-right">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          Audit Log
+        </button>
+        <button class="btn-back" routerLink="/" cmTooltip="Back to Home" cmTooltipPosition="bottom">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"></polyline>
@@ -31,8 +43,8 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Site/Cost Stream</span>
-            <app-hierarchy-select [(ngModel)]="filters.site" [groups]="siteFilterGroups" placeholder="All Sites"
-              name="filter-site"></app-hierarchy-select>
+            <cm-hierarchy-select [(ngModel)]="filters.site" [groups]="siteFilterGroups" placeholder="All Sites"
+              name="filter-site"></cm-hierarchy-select>
           </div>
         </div>
 
@@ -48,8 +60,8 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Team</span>
-            <app-hierarchy-select [(ngModel)]="filters.team" [groups]="teamFilterGroups" placeholder="All Teams"
-              name="filter-team"></app-hierarchy-select>
+            <cm-hierarchy-select [(ngModel)]="filters.team" [groups]="teamFilterGroups" placeholder="All Teams"
+              name="filter-team"></cm-hierarchy-select>
           </div>
         </div>
 
@@ -63,8 +75,8 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Account</span>
-            <app-hierarchy-select [(ngModel)]="filters.account" [groups]="accountFilterGroups"
-              placeholder="All Accounts" name="filter-account"></app-hierarchy-select>
+            <cm-hierarchy-select [(ngModel)]="filters.account" [groups]="accountFilterGroups" placeholder="All Accounts"
+              name="filter-account"></cm-hierarchy-select>
           </div>
         </div>
 
@@ -78,8 +90,8 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Scenario</span>
-            <app-hierarchy-select [(ngModel)]="filters.scenario" [groups]="scenarioFilterGroups"
-              placeholder="All Scenarios" name="filter-scenario"></app-hierarchy-select>
+            <cm-hierarchy-select [(ngModel)]="filters.scenario" [groups]="scenarioFilterGroups"
+              placeholder="All Scenarios" name="filter-scenario"></cm-hierarchy-select>
           </div>
         </div>
 
@@ -105,6 +117,24 @@
             <span class="toggle-thumb"></span>
           </span>
         </label>
+        <!-- ── HIDDEN 2026-08-18: "Show Recharge Rows" toggle is not wanted for now. ──
+             It was added for the Recharge Management epic (recharge lines excluded from the
+             RFC grid, since they are billed out to the business and read on the Recharge View
+             screen instead). Only this control is hidden — `toggles.showRecharge` and the
+             gating in `visibleSubRows` / `rechargeBlockTypes` are untouched, and the default
+             is currently TRUE, so the grid behaves exactly as it did before the toggle existed.
+
+             TO RESTORE: uncomment the block below AND set `showRecharge: false` in
+             DEFAULT_TOGGLES (forecast.constants.ts). Nothing else needs changing.
+        <label class="toggle-item" (click)="toggles.showRecharge = !toggles.showRecharge"
+          cmTooltip="Recharge lines are billed out to the business, so they are hidden from the RFC by default. Read them on the Recharge View screen."
+          cmTooltipPosition="bottom">
+          <span class="toggle-label">Show Recharge Rows</span>
+          <span class="toggle-track" [class.toggle-track--on]="toggles.showRecharge">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+        ── end hidden toggle ── -->
       </div>
 
     </div>
@@ -118,6 +148,11 @@
           <button class="year-btn" (click)="nextYear()">&#8250;</button>
         </div>
         <button class="btn-add-row" id="btn-add-row" (click)="addRow()">+ Add Row</button>
+        <button class="btn-add-row btn-add-overspend" id="btn-add-overspend-row" (click)="addOverspendRow()"
+          cmTooltip="Add a line for spend that genuinely exceeds an existing PAR — requires a new PAR, name, category and value"
+          cmTooltipPosition="bottom">
+          + Add Overspend Line
+        </button>
       </div>
       <div class="toolbar-right">
         <button class="btn-cancel" id="btn-cancel" (click)="cancelChanges()">Cancel</button>
@@ -134,8 +169,60 @@
       </div>
     </div>
 
+    <!-- ── Fetching ─────────────────────────────────────────────── -->
+    <div class="fc-state-block" *ngIf="isLoading">
+      <cm-loader message="Loading forecast…"></cm-loader>
+    </div>
+
+    <!-- ── Fetch failed ─────────────────────────────────────────── -->
+    <div class="fc-state-block" *ngIf="!isLoading && loadError">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="fc-state-icon">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <span class="fc-state-title">Could not load the forecast</span>
+      <span class="fc-state-hint">The Cost Center service did not respond.</span>
+      <button class="fc-state-btn" (click)="loadForecast()">Try again</button>
+    </div>
+
+    <!-- ── Nothing saved for this year ──────────────────────────── -->
+    <div class="fc-state-block" *ngIf="!isLoading && !loadError && forecastRows.length === 0">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="fc-state-icon">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+      <span class="fc-state-title">No forecast saved for {{ currentYear }}</span>
+      <span class="fc-state-hint">
+        Use <strong>+ Add Row</strong> above to start one, or switch year with the arrows.
+        Unbudgeted invoices also create rows here automatically.
+      </span>
+      <button class="fc-state-btn" (click)="addRow()">+ Add Row</button>
+    </div>
+
+    <!-- ── Rows exist, but the filter chips hide them all ───────── -->
+    <div class="fc-state-block"
+      *ngIf="!isLoading && !loadError && forecastRows.length > 0 && filteredForecastRows.length === 0">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="fc-state-icon">
+        <circle cx="11" cy="11" r="7" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+      <span class="fc-state-title">No rows match these filters</span>
+      <span class="fc-state-hint">
+        {{ currentYear }} has {{ forecastRows.length }} forecast
+        row{{ forecastRows.length === 1 ? '' : 's' }}, but none match the filters above.
+      </span>
+      <button class="fc-state-btn" (click)="clearFilters()">Clear filters</button>
+    </div>
+
     <!-- Two-table layout -->
-    <div class="tables-outer">
+    <div class="tables-outer"
+      *ngIf="!isLoading && !loadError && forecastRows.length > 0 && filteredForecastRows.length > 0">
 
       <!-- Drag rail (outside the data tables) + tables container, side by side.
            The rail mirrors the row structure so heights auto-align via the
@@ -161,7 +248,8 @@
                   (drop)="onRowDrop($event, row)">
                   <td class="fc-drag-col">
                     <button *ngIf="si === 0" class="fc-drag-handle" [draggable]="true"
-                      (dragstart)="onRowDragStart($event, row)" (dragend)="onRowDragEnd()" title="Drag to reorder">
+                      (dragstart)="onRowDragStart($event, row)" (dragend)="onRowDragEnd()"
+                      cmTooltip="Drag to reorder" cmTooltipPosition="right">
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="14" viewBox="0 0 10 14"
                         fill="currentColor" aria-hidden="true">
                         <circle cx="2.5" cy="2" r="1.1" />
@@ -180,7 +268,8 @@
               <!-- TOTAL [Account] block — one placeholder row per visible type. -->
               <tr *ngFor="let type of totalBlockTypes; let ti = index; trackBy: trackByIndex" class="total-row"
                 [class.total-block-first]="ti === 0" [class.total-actual]="type === 'actual'"
-                [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract' || type === 'contract-actual'">
+                [class.total-scenario]="type === 'other-scenario'"
+                [class.total-contract]="type === 'contract' || type === 'contract-actual'">
                 <td class="fc-drag-col">&nbsp;</td>
               </tr>
               <!-- TOTAL RECHARGE [Account] block. -->
@@ -223,13 +312,25 @@
                     (mouseenter)="row.isHovered = true" (mouseleave)="row.isHovered = false"
                     [class.row-hovered]="row.isHovered" [class.row-first]="si === 0" [class.row-last-sub]="last"
                     [class.row-even]="ri % 2 === 0" [class.row-odd]="ri % 2 !== 0"
+                    [class.row-overspend]="row.isOverspendAddition"
                     [class.sub-recharge-group]="sub.type === 'recharge' || sub.type === 'recharge-actual' || sub.type === 'recharge-other-scenario'">
 
                     <!-- First visible sub-row: show editable fields -->
                     <ng-container *ngIf="si === 0">
-                      <td class="lc-io id-cell">
-                        <input type="text" [(ngModel)]="row.internalOrder" name="io-{{row.id}}" id="io-{{row.id}}"
-                          autocomplete="new-password" placeholder="IO-" />
+                      <td class="lc-io id-cell" [class.is-unbudgeted-cell]="row.isUnbudgeted">
+                        <!-- Inner wrapper carries the flex row; the <td> must stay a table cell. -->
+                        <div class="lc-io-inner">
+                          <!-- Auto-created from an invoice saved as NOT budgeted. -->
+                          <span class="unbudgeted-badge" *ngIf="row.isUnbudgeted" cmTooltip="Unbudgeted — created automatically from an invoice saved with the Budgeted toggle off.
+It had no forecast line of its own." cmTooltipPosition="right">UB</span>
+                          <!-- Same SAP-backed lookup as the Invoice Upload screen, so a forecast
+                             row can only hold a real internal order. Was a free-text box, which
+                             let a typo silently break the Actuals match (InternalOrder is part
+                             of the match key). bindValue="value" stores the CODE. -->
+                          <cm-hierarchy-select [(ngModel)]="row.internalOrder" [searchFn]="searchInternalOrders"
+                            [groups]="ioCatalogue" [dropdownMinWidth]="280" [bindValue]="'value'" name="io-{{row.id}}"
+                            placeholder="Search IO…"></cm-hierarchy-select>
+                        </div>
                       </td>
                       <td class="lc-par id-cell">
                         <input type="text" [(ngModel)]="row.par" name="par-{{row.id}}" id="par-{{row.id}}"
@@ -239,35 +340,40 @@
                         <select [(ngModel)]="row.spendType" name="spendtype-{{row.id}}" id="spendtype-{{row.id}}"
                           autocomplete="new-password">
                           <option value="">—</option>
-                          <option *ngFor="let st of spendTypes; trackBy: trackByIndex" [value]="st">{{ st }}</option>
+                          <option *ngFor="let st of spendTypes; trackBy: trackByIndex" [value]="st.value">{{ st.label }}
+                          </option>
                         </select>
                       </td>
                       <td class="lc-spendlayer id-cell">
                         <select [(ngModel)]="row.spendLayer" name="spendlayer-{{row.id}}" id="spendlayer-{{row.id}}"
                           autocomplete="new-password">
                           <option value="">—</option>
-                          <option *ngFor="let sl of spendLayers; trackBy: trackByIndex" [value]="sl">{{ sl }}</option>
+                          <option *ngFor="let sl of spendLayers; trackBy: trackByIndex" [value]="sl.value">{{ sl.label
+                            }}</option>
                         </select>
                       </td>
                       <td class="lc-cat id-cell">
                         <select [(ngModel)]="row.category" name="cat-{{row.id}}" id="cat-{{row.id}}"
                           autocomplete="new-password">
                           <option value="">—</option>
-                          <option *ngFor="let c of categories; trackBy: trackByIndex" [value]="c">{{ c }}</option>
+                          <option *ngFor="let c of categories; trackBy: trackByIndex" [value]="c.value">{{ c.label }}
+                          </option>
                         </select>
                       </td>
                       <td class="lc-system id-cell">
                         <select [(ngModel)]="row.system" name="system-{{row.id}}" id="system-{{row.id}}"
                           autocomplete="new-password">
                           <option value="">—</option>
-                          <option *ngFor="let sy of systems; trackBy: trackByIndex" [value]="sy">{{ sy }}</option>
+                          <option *ngFor="let sy of systems; trackBy: trackByIndex" [value]="sy.value">{{ sy.label }}
+                          </option>
                         </select>
                       </td>
                       <td class="lc-team id-cell">
                         <select [(ngModel)]="row.team" name="team-{{row.id}}" id="team-{{row.id}}"
                           autocomplete="new-password">
                           <option value="">—</option>
-                          <option *ngFor="let t of teams; trackBy: trackByIndex" [value]="t">{{ t }}</option>
+                          <option *ngFor="let t of teams; trackBy: trackByIndex" [value]="t.value">{{ t.label }}
+                          </option>
                         </select>
                       </td>
                       <td class="lc-type id-cell">
@@ -281,12 +387,16 @@
                         <select [(ngModel)]="row.supplier" name="sup-{{row.id}}" id="sup-{{row.id}}"
                           autocomplete="new-password">
                           <option value="">—</option>
-                          <option *ngFor="let s of suppliers; trackBy: trackByIndex" [value]="s">{{ s }}</option>
+                          <option *ngFor="let s of suppliers; trackBy: trackByIndex" [value]="s.value">{{ s.label }}
+                          </option>
                         </select>
                       </td>
                       <td class="lc-desc id-cell">
                         <input type="text" [(ngModel)]="row.description" name="desc-{{row.id}}" id="desc-{{row.id}}"
                           autocomplete="new-password" placeholder="Item description" />
+                        <span class="overspend-badge" *ngIf="row.isOverspendAddition"
+                          cmTooltip="Added mid-cycle for genuine overspend beyond the original PAR"
+                          cmTooltipPosition="right">Addition</span>
                       </td>
                       <td class="lc-diff id-cell cell-checkbox">
                         <input type="checkbox" [(ngModel)]="row.differentCurrency" name="diff-{{row.id}}"
@@ -299,18 +409,44 @@
                       <td class="lc-curr id-cell">
                         <select [(ngModel)]="row.currency" name="curr-{{row.id}}" id="curr-{{row.id}}"
                           autocomplete="new-password">
-                          <option *ngFor="let cur of currencies; trackBy: trackByIndex" [value]="cur">{{ cur }}</option>
+                          <option *ngFor="let cur of currencies; trackBy: trackByIndex" [value]="cur.value">{{ cur.label
+                            }}</option>
                         </select>
                       </td>
                       <td class="lc-act">
                         <div class="lc-act-stack">
-                          <button class="btn-comment" (click)="openComments(row)" title="Monthly comments">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                          <!-- Drill into the invoice recharges behind this row's Recharge Actual
+                               figure. Hidden when the row has none, so most rows carry no dead
+                               button. Keyed on the DERIVED actual, not the Recharge checkbox —
+                               that is only an intent flag and does not gate the actuals, so
+                               keying off it would hide the button on unplanned recharges. -->
+                          <button class="btn-recharge-drill" *ngIf="hasRecharges(row)"
+                            (click)="openRechargeDrill(row)"
+                            cmTooltip="Show the invoice recharges behind this row's Recharge Actual"
+                            cmTooltipPosition="left">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                              stroke-linejoin="round">
+                              <polyline points="17 1 21 5 17 9" />
+                              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                              <polyline points="7 23 3 19 7 15" />
+                              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                            </svg>
+                          </button>
+
+                          <!-- Turns red when this row has edited months with no justification —
+                               the save is blocked until they're filled, so it has to be findable. -->
+                          <button class="btn-comment" [class.btn-comment--required]="rowNeedsComment(row)"
+                            (click)="openComments(row)"
+                            [cmTooltip]="rowNeedsComment(row) ? 'A comment is required for the months you changed' : 'Monthly comments'"
+                            cmTooltipPosition="left">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
                               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                               stroke-linejoin="round">
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                             </svg>
-                            <span class="comment-badge" *ngIf="commentCount(row) > 0">{{ commentCount(row) }}</span>
+                            <span class="comment-badge comment-badge--alert" *ngIf="rowNeedsComment(row)">!</span>
+                            <span class="comment-badge" *ngIf="!rowNeedsComment(row) && commentCount(row) > 0">{{ commentCount(row) }}</span>
                           </button>
                         </div>
                       </td>
@@ -341,7 +477,8 @@
                 <!-- ── TOTAL [Account] block ── -->
                 <tr *ngFor="let type of totalBlockTypes; let ti = index; trackBy: trackByIndex" class="total-row"
                   [class.total-block-first]="ti === 0" [class.total-actual]="type === 'actual'"
-                  [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract' || type === 'contract-actual'">
+                  [class.total-scenario]="type === 'other-scenario'"
+                  [class.total-contract]="type === 'contract' || type === 'contract-actual'">
                   <td [attr.colspan]="isMobileView ? 1 : 13" class="total-label lc-io">
                     <ng-container *ngIf="ti === 0">
                       <span class="total-block-tag hide-mobile">TOTAL [Account]</span>
@@ -380,8 +517,23 @@
               <thead>
                 <tr class="thead-cols">
                   <th class="rc-label">Description</th>
-                  <th *ngFor="let m of months; trackBy: trackByIndex" class="rc-month">{{ m }}</th>
+                  <th *ngFor="let m of months; let mi = index; trackBy: trackByIndex" class="rc-month"
+                    [class.month-locked]="isMonthLocked(mi)" [cmTooltip]="monthLockTitle(mi)"
+                    cmTooltipPosition="bottom">
+                    {{ m }}
+                    <!-- Same padlock as the Scenario Management screen. -->
+                    <svg *ngIf="isMonthLocked(mi)" class="month-lock-icon" viewBox="0 0 24 24" width="10" height="10"
+                      fill="currentColor" aria-hidden="true">
+                      <path
+                        d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 1 1 6 0v3z" />
+                    </svg>
+                  </th>
                   <th class="rc-total">Total</th>
+                  <th class="rc-changes" cmTooltip="Difference between the current values and the originally loaded ones.
+Red = more spend, green = same or less.
+Saving does not reset it — reload the screen to re-baseline." cmTooltipPosition="bottom-right">
+                    Changes
+                  </th>
                   <th class="rc-act"></th>
                 </tr>
               </thead>
@@ -391,7 +543,8 @@
                     (mouseenter)="row.isHovered = true" (mouseleave)="row.isHovered = false"
                     [class.row-hovered]="row.isHovered" [class.row-first]="si === 0" [class.row-last-sub]="last"
                     [class.row-even]="ri % 2 === 0" [class.row-odd]="ri % 2 !== 0"
-                    [class.sub-local]="sub.type === 'local'" [class.sub-contract]="sub.type === 'contract' || sub.type === 'contract-actual'"
+                    [class.sub-local]="sub.type === 'local'"
+                    [class.sub-contract]="sub.type === 'contract' || sub.type === 'contract-actual'"
                     [class.sub-actual]="sub.type === 'actual'"
                     [class.sub-other-scenario]="sub.type === 'other-scenario'"
                     [class.sub-recharge]="sub.type === 'recharge'"
@@ -404,17 +557,60 @@
                       <span class="sub-label-curr">({{ sub.currency }})</span>
                     </td>
 
-                    <td *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex"
-                      class="rc-month value-cell">
-                      <input type="text" inputmode="decimal" appNumberFormat [(ngModel)]="sub.values[mi]"
+                    <td *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex" #valueCell
+                      class="rc-month value-cell" [class.month-locked]="isMonthLocked(mi)"
+                      [class.value-readonly]="isReadOnlySub(sub)"
+                      [class.cell-needs-comment]="cellNeedsComment(row, sub, mi)"
+                      [cmTooltip]="cellLockTitle(sub, mi)"
+                      cmTooltipPosition="top">
+                      <input type="text" inputmode="decimal" cmNumberFormat
+                        [class.is-negative]="isNegative(sub.values[mi])"
+                        [disabled]="isMonthLocked(mi) || isReadOnlySub(sub)" [(ngModel)]="sub.values[mi]"
                         name="val-{{row.id}}-{{sub.type}}-{{mi}}" id="val-{{row.id}}-{{sub.type}}-{{mi}}"
-                        autocomplete="new-password" placeholder="" />
+                        autocomplete="new-password" placeholder=""
+                        (focus)="onCellValueFocus(row, sub, mi, valueCell)" />
+
+                      <!-- RFC criterion 5. This cell was edited and its comment is still missing,
+                           so the whole grid refuses to save. Marked on EVERY such cell rather than
+                           only the row in focus — all of them block the save together. -->
+                      <button type="button" class="cell-flag cell-flag--alert"
+                        *ngIf="cellNeedsComment(row, sub, mi)"
+                        (click)="openCellComment(row, sub, mi, valueCell)"
+                        cmTooltip="Comment mandatory — you changed this month. Click to add it."
+                        cmTooltipPosition="top">!</button>
+
+                      <!-- Edited and justified. Without this a written comment leaves no trace on
+                           the grid and there is no way back in to amend it. -->
+                      <button type="button" class="cell-flag cell-flag--done"
+                        *ngIf="cellHasComment(row, sub, mi)"
+                        (click)="openCellComment(row, sub, mi, valueCell)"
+                        cmTooltip="Comment added for this month. Click to view or edit it."
+                        cmTooltipPosition="top"></button>
                     </td>
 
-                    <td class="rc-total sub-total">{{ fmt(getSubTotal(sub.values)) || '—' }}</td>
+                    <td class="rc-total sub-total" [class.is-negative]="isNegative(getSubTotal(sub.values))">{{
+                      fmt(getSubTotal(sub.values)) || '—' }}</td>
+
+                    <!-- Changes: live difference against the originally loaded total. Always a
+                       badge on editable rows — zero shows green, matching the Scenario
+                       Management variance column. Only derived Actuals get a dash. -->
+                    <td class="rc-changes variance-cell">
+                      <span *ngIf="hasVariance(row, sub); else noVariance" class="variance-badge"
+                        [class.unfavorable]="varianceState(row, sub) === 'up'"
+                        [class.favorable]="varianceState(row, sub) === 'down'"
+                        [class.neutral]="varianceState(row, sub) === 'flat'" [cmTooltip]="varianceState(row, sub) === 'up'
+                                     ? 'Increased by ' + fmtVariance(row, sub) + ' since this forecast was first made'
+                                     : varianceState(row, sub) === 'down'
+                                       ? 'Reduced by ' + fmtVariance(row, sub) + ' since this forecast was first made'
+                                       : 'Unchanged since this forecast was first made'" cmTooltipPosition="left">
+                        {{ varianceSign(row, sub) }}{{ fmtVariance(row, sub) }}
+                      </span>
+                      <ng-template #noVariance><span class="variance-none">—</span></ng-template>
+                    </td>
 
                     <td class="rc-act">
-                      <button *ngIf="si === 0" class="btn-del" (click)="removeRow(row.id)" title="Remove">
+                      <button *ngIf="si === 0" class="btn-del" (click)="askRemoveRow(row)"
+                        cmTooltip="Remove this row" cmTooltipPosition="left">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="none"
                           stroke="currentColor" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round">
                           <path
@@ -429,12 +625,25 @@
                 <!-- ── TOTAL [Account] block ── -->
                 <tr *ngFor="let type of totalBlockTypes; let ti = index; trackBy: trackByIndex" class="total-row"
                   [class.total-block-first]="ti === 0" [class.total-actual]="type === 'actual'"
-                  [class.total-scenario]="type === 'other-scenario'" [class.total-contract]="type === 'contract' || type === 'contract-actual'">
+                  [class.total-scenario]="type === 'other-scenario'"
+                  [class.total-contract]="type === 'contract' || type === 'contract-actual'">
                   <td class="rc-label total-label">{{ getTypeLabel(type) }}</td>
-                  <td *ngFor="let m of months; let mi = index; trackBy: trackByIndex" class="rc-month total-val">
+                  <td *ngFor="let m of months; let mi = index; trackBy: trackByIndex" class="rc-month total-val"
+                    [class.month-locked]="isMonthLocked(mi)"
+                    [class.is-negative]="isNegative(getTypeColTotal(type, mi))">
                     {{ fmtTotal(getTypeColTotal(type, mi)) }}
                   </td>
-                  <td class="rc-total total-val grand">{{ fmtTotal(getTypeTotal(type)) }}</td>
+                  <td class="rc-total total-val grand" [class.is-negative]="isNegative(getTypeTotal(type))">{{
+                    fmtTotal(getTypeTotal(type)) }}</td>
+                  <td class="rc-changes variance-cell total-val">
+                    <span *ngIf="hasTypeVariance(type)" class="variance-badge"
+                      [class.unfavorable]="typeVarianceState(type) === 'up'"
+                      [class.favorable]="typeVarianceState(type) === 'down'"
+                      [class.neutral]="typeVarianceState(type) === 'flat'">
+                      {{ typeVarianceSign(type) }}{{ fmtTypeVariance(type) }}
+                    </span>
+                    <span *ngIf="!hasTypeVariance(type)" class="variance-none">—</span>
+                  </td>
                   <td class="rc-act"></td>
                 </tr>
 
@@ -444,10 +653,22 @@
                   [class.total-actual]="type === 'recharge-actual'"
                   [class.total-scenario]="type === 'recharge-other-scenario'">
                   <td class="rc-label total-label">{{ getTypeLabel(type) }}</td>
-                  <td *ngFor="let m of months; let mi = index; trackBy: trackByIndex" class="rc-month total-val">
+                  <td *ngFor="let m of months; let mi = index; trackBy: trackByIndex" class="rc-month total-val"
+                    [class.month-locked]="isMonthLocked(mi)"
+                    [class.is-negative]="isNegative(getTypeColTotal(type, mi))">
                     {{ fmtTotal(getTypeColTotal(type, mi)) }}
                   </td>
-                  <td class="rc-total total-val grand">{{ fmtTotal(getTypeTotal(type)) }}</td>
+                  <td class="rc-total total-val grand" [class.is-negative]="isNegative(getTypeTotal(type))">{{
+                    fmtTotal(getTypeTotal(type)) }}</td>
+                  <td class="rc-changes variance-cell total-val">
+                    <span *ngIf="hasTypeVariance(type)" class="variance-badge"
+                      [class.unfavorable]="typeVarianceState(type) === 'up'"
+                      [class.favorable]="typeVarianceState(type) === 'down'"
+                      [class.neutral]="typeVarianceState(type) === 'flat'">
+                      {{ typeVarianceSign(type) }}{{ fmtTypeVariance(type) }}
+                    </span>
+                    <span *ngIf="!hasTypeVariance(type)" class="variance-none">—</span>
+                  </td>
                   <td class="rc-act"></td>
                 </tr>
               </tfoot>
@@ -461,24 +682,51 @@
   </div><!-- /scroll-area -->
 </div>
 
-<!-- ─── Monthly Comments Modal ─────────────────────────────────────── -->
-<app-modal [title]="commentModalTitle" [isOpen]="commentModalOpen" (closed)="closeComments()">
-  <div class="comment-modal-body">
-    <p class="comment-modal-hint">
-      Comments are saved per month for <strong>{{ currentYear }}</strong>. Switch the year on the toolbar to keep a
-      separate set per year.
-    </p>
+<!-- ─── Monthly Comments — GC per month + the CC trail ─────────────────
+     GC (General Comment) is edited here, one per month. CC (Cell Comments) are the
+     mandatory justifications written on the grid cell (below) and are read-only here. -->
+<cm-forecast-comments-modal
+  [isOpen]="commentModalOpen"
+  [title]="commentModalTitle"
+  [slots]="commentSlots"
+  [generalDrafts]="generalDraft"
+  (generalDraftChange)="onGeneralDraftChange($event)"
+  (saved)="saveComments()"
+  (closed)="closeComments()"></cm-forecast-comments-modal>
 
-    <div class="comment-grid">
-      <div class="comment-item" *ngFor="let m of months; let i = index; trackBy: trackByIndex">
-        <label class="comment-month">{{ m }} {{ currentYear }}</label>
-        <textarea class="comment-input" rows="2" [(ngModel)]="commentDraft[i]" placeholder="Add a comment…"></textarea>
-      </div>
-    </div>
+<!-- ─── The cell comment popover ───────────────────────────────────────
+     ONE instance, mounted at the root of this template and positioned from the cell's
+     viewport rect. It cannot live inside the cell: the grid's sticky, z-indexed scroll
+     wrappers each open a stacking context, and anything rendered in a cell is painted
+     over by them no matter how high its z-index goes — the trap cm-hierarchy-select hit. -->
+<cm-forecast-cell-comment
+  [isOpen]="cellCommentOpen"
+  [label]="cellCommentLabel"
+  [context]="cellCommentContext"
+  [comment]="cellCommentDraft"
+  [history]="cellCommentHistory"
+  [required]="cellCommentRequired"
+  [anchor]="cellCommentAnchor"
+  [anchorEl]="cellCommentAnchorEl"
+  [autoFocusInput]="cellCommentAutoFocus"
+  (commentChange)="onCellCommentChange($event)"
+  (saved)="saveCellComment()"
+  (closed)="closeCellComment()"></cm-forecast-cell-comment>
 
-    <div class="comment-modal-actions">
-      <button class="btn-cancel" (click)="closeComments()">Cancel</button>
-      <button class="btn-save" (click)="saveComments()">Save Comments</button>
-    </div>
-  </div>
-</app-modal>
+<!-- ─── Delete row confirmation ────────────────────────────────────── -->
+<cm-confirm-dialog [isOpen]="deleteDialogOpen" title="Delete this row?" [message]="deleteDialogMessage"
+  detail="The row is removed from the grid straight away, but the deletion is only written to the database when you click Save. Until then, Cancel will bring it back."
+  confirmLabel="Yes, delete it" cancelLabel="No, keep it" variant="danger" (confirmed)="confirmRemoveRow()"
+  (cancelled)="cancelRemoveRow()"></cm-confirm-dialog>
+<!-- ─── Recharge drill-down ────────────────────────────────────────────
+     The invoice recharges behind a row's Recharge Actual figure. Read-only; recharges are
+     created on the invoice, not here. -->
+<cm-recharge-drill
+  [isOpen]="drillOpen"
+  [title]="drillTitle"
+  [rows]="drillRows"
+  [loading]="drillLoading"
+  [loadError]="drillError"
+  [expected]="drillExpected"
+  [currency]="drillCurrency"
+  (closed)="closeRechargeDrill()"></cm-recharge-drill>

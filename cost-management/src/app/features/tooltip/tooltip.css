@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tooltip — ported from the AKS platform (frontend/src/features/Tooltip).
+
+   GLOBAL on purpose. The bubble is appended to document.body so it escapes any
+   `overflow: hidden` / stacking context, which means component-scoped styles
+   (with Angular's _ngcontent attributes) would never reach it. Registered in
+   angular.json → styles.
+
+   ── Which colour is the default? ────────────────────────────────────────────
+   Crown's UI is dark throughout, so the LIGHT bubble (pale background, dark
+   text) is the default here — a dark bubble on a dark screen reads poorly.
+   That inverts the AKS source, where the dark bubble is the default and the
+   light one lives under [data-theme='dark'].
+
+   The dark variant is kept and reachable: add the `ttp-dark` class, either per
+   tooltip via [cmTooltipClass]="'ttp-dark'", or globally by moving those two
+   declarations into .ttp-content / .ttp-arrow.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Bubble ── */
+.ttp-bubble {
+  position: fixed;
+  z-index: 99999;
+  /* Never trap the cursor — the bubble must not sit between the pointer and the
+     element that triggered it, or hovering would flicker. */
+  pointer-events: none;
+  animation: ttpFadeIn 0.15s ease;
+}
+
+@keyframes ttpFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Default: LIGHT bubble (for Crown's dark UI) ── */
+.ttp-content {
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.45;
+  padding: 7px 12px;
+  border-radius: 8px;
+  max-width: 260px;
+  word-wrap: break-word;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.01em;
+  white-space: pre-line;   /* honour \n in longer explanatory tooltips */
+}
+
+.ttp-arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #e2e8f0;
+  transform: rotate(45deg);
+}
+
+/* ── Alternative: DARK bubble (the AKS default) ──
+   Kept for a light surface, or anywhere the pale bubble disappears. Opt in with
+   [cmTooltipClass]="'ttp-dark'". */
+.ttp-bubble.ttp-dark .ttp-content {
+  background: #1e293b;
+  color: #f1f5f9;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ttp-bubble.ttp-dark .ttp-arrow {
+  background: #1e293b;
+}
+
+/* ── Arrow placement, per position ── */
+.ttp-top .ttp-arrow,
+.ttp-top-left .ttp-arrow,
+.ttp-top-right .ttp-arrow {
+  bottom: -4px;
+  left: 50%;
+  margin-left: -4px;
+}
+
+.ttp-top-left .ttp-arrow  { left: 16px; margin-left: 0; }
+.ttp-top-right .ttp-arrow { left: auto; right: 16px; margin-left: 0; }
+
+.ttp-bottom .ttp-arrow,
+.ttp-bottom-left .ttp-arrow,
+.ttp-bottom-right .ttp-arrow {
+  top: -4px;
+  left: 50%;
+  margin-left: -4px;
+}
+
+.ttp-bottom-left .ttp-arrow  { left: 16px; margin-left: 0; }
+.ttp-bottom-right .ttp-arrow { left: auto; right: 16px; margin-left: 0; }
+
+.ttp-left .ttp-arrow  { right: -4px; top: 50%; margin-top: -4px; }
+.ttp-right .ttp-arrow { left: -4px;  top: 50%; margin-top: -4px; }

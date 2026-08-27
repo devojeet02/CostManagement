@@ -11,6 +11,26 @@
   font-weight: 700;
 }
 
+/* Small "?" beside a toggle label whose parent carries an explanatory `title`.
+   Signals that hovering explains the consequence — used on Budgeted, whose OFF
+   state creates an unbudgeted forecast line. */
+.info-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  vertical-align: middle;
+}
+
 /* ─── Auto-stamp section ──────────────────────────────────────── */
 .auto-stamp-section {
   .auto-stamp-header {
@@ -445,6 +465,202 @@
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color);
   transition: color var(--transition-speed), border-color var(--transition-speed);
+}
+
+/* ─── Line-item allocation tracker ────────────────────────────────
+   The lines' share of the header's Inv Amount. Same anatomy as the Recharge panel's
+   "Total Allocation … Delta … must equal 0" (label · value · flag, green when it
+   balances) because it answers the same question one level up — and users read the
+   two together. Full width under the section title: as a chip beside the title it
+   was easy to miss entirely. */
+.alloc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: -4px 0 14px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 12px;
+  transition: border-color var(--transition-speed), background-color var(--transition-speed);
+}
+
+.alloc-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.alloc-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The denominator is context, not the headline figure. */
+.alloc-of {
+  font-weight: 600;
+  opacity: 0.65;
+  padding-left: 2px;
+}
+
+.alloc-currency {
+  font-weight: 600;
+  font-size: 0.85em;
+  opacity: 0.7;
+  letter-spacing: 0.3px;
+}
+
+.alloc-flag {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-style: italic;
+  font-weight: 600;
+  cursor: default;
+}
+
+/* Amber, not red: this is advisory, and a header including VAT against net lines is a
+   legitimate mismatch rather than an error. */
+.alloc-row.balanced {
+  border-color: rgba(47, 158, 68, 0.35);
+  .alloc-value { color: #2f9e44; }
+}
+
+.alloc-row.unbalanced {
+  border-color: rgba(224, 166, 78, 0.40);
+  .alloc-value,
+  .alloc-flag { color: #e0a64e; }
+}
+
+/* Shown instead of the tracker before there is any total to allocate against. */
+.alloc-hint {
+  margin: -4px 0 14px;
+  padding: 7px 12px;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+
+  strong { color: var(--accent-color); }
+}
+
+/* ─── Recurring invoice ───────────────────────────────────────────
+   Invoice-level question, sitting above the line grid. Boxed so it reads as its own
+   decision rather than another field in the itemisation form — answering Yes changes
+   what saving DOES (it writes future months onto the forecast), which no other control
+   in this section does. */
+.recurring-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Sits below the Add-line row, so the margin is on top rather than the bottom. */
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  transition: border-color var(--transition-speed), background-color var(--transition-speed);
+}
+
+/* Tinted once active — the block now has consequences, so it should not look inert. */
+.recurring-block--on {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.recurring-question,
+.recurring-periodicity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.recurring-periodicity {
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.recurring-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 190px;
+}
+
+.recurring-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.recurring-radios {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Pill-shaped rather than bare radios: at four options a plain radio row reads as a wall of
+   dots, and the labels are what the user is actually choosing between. */
+.recurring-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+  }
+
+  input {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent-color);
+  }
+
+  /* :has() so the whole pill reflects the selection, not just the dot. Chrome/Edge only
+     matters here — this is an internal tool on Chromium. */
+  &:has(input:checked) {
+    border-color: var(--accent-color);
+    background: rgba(56, 189, 248, 0.10);
+    color: var(--text-primary);
+  }
+}
+
+/* Names the months that will be written. Deliberately verbose — it is the only place the
+   forecast side effect is visible before saving. */
+.recurring-preview {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--accent-color);
+  opacity: 0.9;
+}
+
+/* Amount fields are locked until the header total exists. Dimmed as a block so the
+   label dims with the input — a bright label over a dead field reads as a bug. */
+.field-group--locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+
+  input { cursor: not-allowed; }
 }
 
 /* ─── Form Grid ───────────────────────────────────────────────── */
@@ -1451,6 +1667,16 @@
   &.unbalanced .recharge-total-flag {
     color: #d94646; /* red — does not balance */
   }
+}
+
+/* The processing site's currency, shown against every recharge amount. Quieter than the
+   figure it qualifies — it is the same code on every row, so it should not compete with
+   the numbers for attention. Inherits colour so it still turns red/green with the total. */
+.recharge-currency-code {
+  font-weight: 600;
+  font-size: 0.85em;
+  opacity: 0.75;
+  letter-spacing: 0.3px;
 }
 
 /* action-footer removed — Save/Cancel are now in the page header */

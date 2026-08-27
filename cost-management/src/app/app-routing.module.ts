@@ -9,6 +9,8 @@ import { AdminCostManagementComponent } from './components/admin-cost-management
 import { PeriodManagementComponent } from './components/period-management/period-management.component';
 import { AuditLogComponent } from './components/audit-log/audit-log.component';
 import { BudgetPlannerComponent } from './components/budget-planner/budget-planner.component';
+import { InvoiceViewComponent } from './components/invoice-view/invoice-view.component';
+import { InvoiceEditComponent } from './components/invoice-edit/invoice-edit.component';
 
 /**
  * ROOT IS THE DASHBOARD.
@@ -20,7 +22,9 @@ import { BudgetPlannerComponent } from './components/budget-planner/budget-plann
  */
 const routes: Routes = [
   { path: '', component: CostDashboardComponent },
+  { path: 'invoice-view', component: InvoiceViewComponent },
   { path: 'invoice-upload', component: InvoiceUploadComponent },
+  { path: 'invoice-edit/:id', component: InvoiceEditComponent },
   { path: 'forecast', component: ForecastComponent },
   { path: 'headcount', component: HeadcountComponent },
   { path: 'budget-planner', component: BudgetPlannerComponent },

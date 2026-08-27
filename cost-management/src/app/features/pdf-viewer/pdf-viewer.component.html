@@ -1,0 +1,64 @@
+<!-- Click-away: the backdrop closes, the card stops the bubble so clicks inside don't. -->
+<div class="pdf-overlay" *ngIf="isOpen" (click)="close()">
+  <div class="pdf-card" (click)="$event.stopPropagation()">
+
+    <div class="pdf-header">
+      <div class="pdf-heading">
+        <h3 class="pdf-title">Invoice PDF{{ invoiceLabel ? ' — ' + invoiceLabel : '' }}</h3>
+        <span class="pdf-subtitle" *ngIf="fileName">{{ fileName }}</span>
+      </div>
+
+      <div class="pdf-header-actions">
+        <button class="pdf-btn-newtab" *ngIf="pdfUrl" (click)="openInNewTab()" title="Open in new tab">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+          Open in new tab
+        </button>
+
+        <button class="pdf-close-btn" (click)="close()" title="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="pdf-body">
+
+      <!-- Loading -->
+      <div class="pdf-state" *ngIf="loading">
+        <div class="pdf-spinner"></div>
+        <span class="pdf-state-title">Loading invoice PDF…</span>
+      </div>
+
+      <!-- Nothing to show -->
+      <div class="pdf-state" *ngIf="!loading && errorMessage">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+          class="pdf-state-icon">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="9" y1="15" x2="15" y2="15" />
+        </svg>
+        <span class="pdf-state-title">{{ errorMessage }}</span>
+        <span class="pdf-state-hint">
+          Upload a PDF from the Invoice Upload screen to preview it here.
+        </span>
+      </div>
+
+      <!-- The document -->
+      <iframe *ngIf="!loading && pdfUrl"
+              class="pdf-frame"
+              [src]="pdfUrl"
+              title="Invoice PDF preview"></iframe>
+    </div>
+
+  </div>
+</div>

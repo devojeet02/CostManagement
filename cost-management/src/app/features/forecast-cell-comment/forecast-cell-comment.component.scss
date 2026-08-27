@@ -1,0 +1,206 @@
+/* ─── One month's justification popover ────────────────────────────────────
+   Anchored to the grid cell being edited. `position: fixed` with coordinates supplied
+   by the parent — see the component doc for why this is rendered at the template root
+   instead of inside the cell. */
+
+/* There is deliberately no backdrop — see the note in the template. */
+
+.fcc {
+  position: fixed;
+  z-index: 8501;
+  width: 320px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 13px 11px;
+  background: #131a29;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  /* The panel must be in the DOM to be measured, so it is hidden rather than removed until
+     `place()` has run — otherwise it shows for one frame at the previous cell's coordinates. */
+  visibility: hidden;
+}
+
+.fcc--placed {
+  visibility: visible;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────────────── */
+.fcc-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.fcc-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.fcc-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #38bdf8;
+}
+
+.fcc-required-mark {
+  margin-left: 2px;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* Which line and series the cell belongs to — a month alone is ambiguous once the
+   popover has covered the row it came from. */
+.fcc-context {
+  font-size: 10.5px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fcc-close {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover { color: #cbd5e1; }
+}
+
+/* ─── Input ───────────────────────────────────────────────────────────────── */
+.fcc-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #e2e8f0;
+  background-color: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+
+  &::placeholder { color: #475569; }
+
+  &:focus {
+    outline: none;
+    border-color: #38bdf8;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+/* Missing mandatory justification: red border + the short warning underneath. */
+.fcc--required .fcc-input {
+  border-color: #dc2626;
+
+  &:focus { border-color: #dc2626; }
+}
+
+.fcc-warning {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f87171;
+}
+
+/* ─── History trail ───────────────────────────────────────────────────────── */
+.fcc-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  /* Long-lived lines accumulate edits; cap the trail and scroll rather than growing the
+     popover past the viewport, which would force it to flip above the cell. */
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.fcc-history-head {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #475569;
+}
+
+.fcc-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.fcc-history-label {
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.fcc-history-text {
+  color: #cbd5e1;
+  word-break: break-word;
+}
+
+.fcc-history-meta {
+  font-size: 10px;
+  color: #475569;
+}
+
+/* ─── Actions ─────────────────────────────────────────────────────────────── */
+.fcc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.fcc-btn-save {
+  background: #38bdf8;
+  color: #0b0f19;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover { background: #0ea5e9; }
+}
+
+.fcc-btn-cancel {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: #94a3b8;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+}

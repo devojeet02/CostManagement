@@ -1,0 +1,120 @@
+<div class="dup-alert" *ngIf="duplicate" [class.dup-alert--overwrite]="overwriteSelected">
+
+  <div class="dup-alert-main">
+    <span class="dup-alert-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    </span>
+
+    <div class="dup-alert-body">
+      <h4 class="dup-alert-title">
+        <ng-container *ngIf="!overwriteSelected">Possible duplicate invoice</ng-container>
+        <ng-container *ngIf="overwriteSelected">Updating the existing invoice</ng-container>
+      </h4>
+
+      <p class="dup-alert-text" *ngIf="!overwriteSelected">
+        Invoice <strong>{{ fmt(duplicate.invNumber) }}</strong> from
+        <strong>{{ fmt(duplicate.supplier) }}</strong> already exists
+        (ref&nbsp;#{{ duplicate.id }}, {{ lineCount }} line{{ lineCount === 1 ? '' : 's' }} —
+        line {{ lineNumbers }}).
+        <ng-container *ngIf="allowOverwrite">You can update that record instead, or carry on
+          and save this as a separate invoice.</ng-container>
+        <ng-container *ngIf="!allowOverwrite">Saving will keep this as a separate record.</ng-container>
+      </p>
+
+      <p class="dup-alert-text" *ngIf="overwriteSelected">
+        Saving will <strong>overwrite invoice ref&nbsp;#{{ duplicate.id }}</strong>
+        ({{ fmt(duplicate.invNumber) }} — {{ fmt(duplicate.supplier) }}) with the values on
+        this screen. Its {{ lineCount }} existing line{{ lineCount === 1 ? '' : 's' }} will be
+        replaced by the lines below.
+      </p>
+
+      <button class="dup-alert-toggle" (click)="toggle()">
+        {{ expanded ? 'Hide existing values' : 'Show existing values' }}
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          [class.rotated]="expanded">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="dup-alert-actions">
+      <button class="dup-btn-primary" *ngIf="allowOverwrite && !overwriteSelected"
+        (click)="onUseExisting()">
+        Update existing record
+      </button>
+      <button class="dup-btn-ghost" (click)="onDismiss()">
+        {{ overwriteSelected ? 'Cancel overwrite' : 'Dismiss' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Every stored field, so the user sees exactly what would be overwritten. -->
+  <div class="dup-alert-details" *ngIf="expanded">
+
+    <div class="dup-section-title">Existing header</div>
+    <div class="dup-field-grid">
+      <div class="dup-field"><span class="dup-field-label">Invoice #</span><span class="dup-field-value">{{ fmt(duplicate.invNumber) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Supplier</span><span class="dup-field-value">{{ fmt(duplicate.supplier) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">PAR</span><span class="dup-field-value">{{ fmt(duplicate.par) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">PO</span><span class="dup-field-value">{{ fmt(duplicate.po) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Site</span><span class="dup-field-value">{{ fmt(duplicate.site) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Team</span><span class="dup-field-value">{{ fmt(duplicate.team) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Currency</span><span class="dup-field-value">{{ fmt(duplicate.currency) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Exchange Rate</span><span class="dup-field-value">{{ duplicate.exchangeRate ?? '—' }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Inv Amount</span><span class="dup-field-value">{{ fmtAmount(duplicate.invAmount, duplicate.currency) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Invoice Date</span><span class="dup-field-value">{{ fmtDate(duplicate.invoiceDate) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Accounting Date</span><span class="dup-field-value">{{ fmtDate(duplicate.accountingDate) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Budgeted</span><span class="dup-field-value">{{ duplicate.isBudgeted ? 'Yes' : 'No' }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Attached PDF</span><span class="dup-field-value">{{ fmt(duplicate.fileName) }}</span></div>
+      <div class="dup-field"><span class="dup-field-label">Last Updated By</span><span class="dup-field-value">{{ fmt(duplicate.lastUpdatedBy) }}</span></div>
+    </div>
+
+    <div class="dup-section-title">
+      Existing lines
+      <span class="dup-section-count">{{ lineCount }}</span>
+    </div>
+
+    <div class="dup-table-scroll" *ngIf="lineCount > 0; else noLines">
+      <table class="dup-line-table">
+        <thead>
+          <tr>
+            <th>Line</th><th>Account</th><th>Internal Order</th><th>Spend Type</th>
+            <th>Spend Layer</th><th>Category</th><th>System</th><th>Description</th>
+            <th class="num">Amount</th><th>Period</th><th>Recharge</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let l of duplicate.lineItems; trackBy: trackByIndex">
+            <td>{{ l.line }}</td>
+            <td>{{ fmt(l.account) }}</td>
+            <td>{{ fmt(l.internalOrder) }}</td>
+            <td>{{ fmt(l.spendType) }}</td>
+            <td>{{ fmt(l.spendLayer) }}</td>
+            <td>{{ fmt(l.category) }}</td>
+            <td>{{ fmt(l.system) }}</td>
+            <td class="desc">{{ fmt(l.description) }}</td>
+            <td class="num">{{ fmtAmount(l.amountCurrency, duplicate.currency) }}</td>
+            <td>{{ fmtDate(l.periodStart) }} – {{ fmtDate(l.periodEnd) }}</td>
+            <td>
+              <span *ngIf="l.rechargeTo">Direct → {{ l.rechargeTo }}</span>
+              <span *ngIf="!l.rechargeTo && l.rechargeSites?.length">
+                {{ l.rechargeSites.length }} site{{ l.rechargeSites.length === 1 ? '' : 's' }}
+              </span>
+              <span *ngIf="!l.rechargeTo && !l.rechargeSites?.length">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #noLines>
+      <p class="dup-no-lines">This invoice has no line items recorded.</p>
+    </ng-template>
+  </div>
+</div>

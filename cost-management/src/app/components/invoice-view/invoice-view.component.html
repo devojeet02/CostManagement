@@ -1,0 +1,376 @@
+<div class="invoice-view-page">
+
+  <div class="scroll-area">
+
+    <!-- Page Header — same button family as the Invoice Upload screen, with
+         Save replaced by "Upload Invoice". -->
+    <div class="page-header">
+      <h2 class="page-title">Invoice View</h2>
+      <div class="header-right">
+        <button class="btn-cancel" id="btn-invoice-view-refresh" title="Reload the list"
+          (click)="onRefresh()" [disabled]="loading">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          Refresh
+        </button>
+
+        <button class="btn-save" id="btn-invoice-view-upload" title="Upload a new invoice"
+          routerLink="/invoice-upload">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          Upload Invoice
+        </button>
+
+        <button class="btn-back" routerLink="/" title="Back to Home">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          Back
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar — typable chips, mirroring the Forecast screen. Selections hold the
+         lookup code and are applied server-side, since the list is paged. -->
+    <div class="filter-bar">
+
+      <!-- Clear lives here rather than in the chip grid: with seven chips it would otherwise
+           land in a different place on every viewport width. -->
+      <div class="filter-bar-head">
+        <span class="filter-bar-title">Filters</span>
+        <span class="filter-active-count" *ngIf="activeFilterCount > 0">
+          {{ activeFilterCount }} active
+        </span>
+        <button class="btn-clear-filters" *ngIf="hasActiveFilters" (click)="clearFilters()"
+          title="Clear all filters">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+          Clear filters
+        </button>
+      </div>
+
+      <div class="filter-chips-row">
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.invNumber">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Invoice #</span>
+            <input type="text"
+                   class="chip-input"
+                   [(ngModel)]="filters.invNumber"
+                   (ngModelChange)="onFilterTyped()"
+                   name="filter-invnumber"
+                   id="filter-invnumber"
+                   autocomplete="new-password"
+                   placeholder="All Invoices" />
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.supplier">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Supplier</span>
+            <cm-hierarchy-select [(ngModel)]="filters.supplier" (ngModelChange)="onFilterChanged()"
+              [groups]="supplierGroups" bindValue="value" placeholder="All Suppliers"
+              name="filter-supplier"></cm-hierarchy-select>
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.site">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Site</span>
+            <cm-hierarchy-select [(ngModel)]="filters.site" (ngModelChange)="onFilterChanged()"
+              [groups]="siteGroups" bindValue="value" placeholder="All Sites"
+              name="filter-site"></cm-hierarchy-select>
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.team">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Team</span>
+            <cm-hierarchy-select [(ngModel)]="filters.team" (ngModelChange)="onFilterChanged()"
+              [groups]="teamGroups" bindValue="value" placeholder="All Teams"
+              name="filter-team"></cm-hierarchy-select>
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.currency">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.8 9.4a3 3 0 1 0 0 5.2"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Currency</span>
+            <cm-hierarchy-select [(ngModel)]="filters.currency" (ngModelChange)="onFilterChanged()"
+              [groups]="currencyGroups" bindValue="value" placeholder="All Currencies"
+              name="filter-currency"></cm-hierarchy-select>
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.account">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Account</span>
+            <cm-hierarchy-select [(ngModel)]="filters.account" (ngModelChange)="onFilterChanged()"
+              [groups]="accountGroups" bindValue="value" placeholder="All Accounts"
+              name="filter-account"></cm-hierarchy-select>
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.internalOrder">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Internal Order</span>
+            <!-- Live SAP-backed search: the catalogue is far too large to preload. -->
+            <cm-hierarchy-select [(ngModel)]="filters.internalOrder" (ngModelChange)="onFilterChanged()"
+              [searchFn]="searchInternalOrders" [bindValue]="'value'" placeholder="Search Internal Orders…"
+              name="filter-internal-order"></cm-hierarchy-select>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="content-layout">
+      <div class="list-card">
+
+        <div class="list-card-header">
+          <h3 class="section-title">All Invoices</h3>
+          <span class="row-count" *ngIf="!loading && !loadError && total > 0">
+            {{ total }} invoice{{ total === 1 ? '' : 's' }}
+          </span>
+        </div>
+
+        <!-- ── Loading ────────────────────────────────────────────── -->
+        <div class="state-block" *ngIf="loading">
+          <cm-loader message="Loading invoices…"></cm-loader>
+        </div>
+
+        <!-- ── Load failed ────────────────────────────────────────── -->
+        <div class="state-block" *ngIf="!loading && loadError">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+            class="state-icon">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span class="state-title">Could not load invoices</span>
+          <span class="state-hint">The Cost Center service did not respond.</span>
+          <button class="btn-retry" (click)="load()">Try again</button>
+        </div>
+
+        <!-- ── Empty: nothing matched the filters ─────────────────── -->
+        <div class="state-block" *ngIf="!loading && !loadError && total === 0 && hasActiveFilters">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+            class="state-icon">
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span class="state-title">No invoices match these filters</span>
+          <span class="state-hint">Try a different supplier, site, team or invoice number.</span>
+          <button class="btn-retry" (click)="clearFilters()">Clear filters</button>
+        </div>
+
+        <!-- ── Empty: nothing saved yet ───────────────────────────── -->
+        <div class="state-block" *ngIf="!loading && !loadError && total === 0 && !hasActiveFilters">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+            class="state-icon">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          <span class="state-title">No invoices yet</span>
+          <span class="state-hint">Saved invoices will appear here once the first one is uploaded.</span>
+          <button class="btn-retry" routerLink="/invoice-upload">Upload Invoice</button>
+        </div>
+
+        <!-- ── The list ───────────────────────────────────────────── -->
+        <ng-container *ngIf="!loading && !loadError && total > 0">
+          <div class="table-scroll">
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th class="col-inv">Invoice #</th>
+                  <th class="col-supplier">Supplier</th>
+                  <th class="col-par">PAR</th>
+                  <th class="col-po">PO</th>
+                  <th class="col-site">Site</th>
+                  <th class="col-team">Team</th>
+                  <th class="col-io">Internal Order</th>
+                  <th class="col-acct">Account</th>
+                  <th class="col-curr">Currency</th>
+                  <th class="col-fx">FX Rate</th>
+                  <th class="col-amount">Inv Amount</th>
+                  <th class="col-lines">Lines</th>
+                  <th class="col-budgeted">Budgeted</th>
+                  <th class="col-credit">Credit</th>
+                  <th class="col-date">Invoice Date</th>
+                  <th class="col-date">Accounting Date</th>
+                  <th class="col-date">Created</th>
+                  <th class="col-pdf">PDF</th>
+                  <th class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of invoices; let i = index; trackBy: trackById"
+                    [class.row-even]="i % 2 === 0"
+                    [class.row-odd]="i % 2 !== 0">
+                  <td class="col-inv">{{ row.invNumber || '—' }}</td>
+                  <td class="col-supplier">{{ row.supplier || '—' }}</td>
+                  <td class="col-par">{{ row.par || '—' }}</td>
+                  <td class="col-po">{{ row.po || '—' }}</td>
+                  <td class="col-site">{{ row.site || '—' }}</td>
+                  <td class="col-team">{{ row.team || '—' }}</td>
+                  <!-- Per-line values: "first +N", full list in the tooltip. -->
+                  <td class="col-io" [title]="cellTitle(row.internalOrders)">
+                    {{ fmtCodes(row.internalOrders) }}
+                  </td>
+                  <td class="col-acct" [title]="cellTitle(row.accounts)">
+                    {{ fmtCodes(row.accounts) }}
+                  </td>
+                  <td class="col-curr">{{ row.currency || '—' }}</td>
+                  <td class="col-fx">{{ fmtRate(row.exchangeRate) }}</td>
+                  <td class="col-amount">{{ fmtAmount(row.invAmount, row.currency) }}</td>
+                  <td class="col-lines">{{ row.lineCount ?? '—' }}</td>
+                  <td class="col-budgeted">
+                    <span class="budget-pill" [class.budget-pill--no]="row.isBudgeted === false"
+                          *ngIf="row.isBudgeted !== undefined">
+                      {{ row.isBudgeted ? 'Yes' : 'No' }}
+                    </span>
+                    <span *ngIf="row.isBudgeted === undefined">—</span>
+                  </td>
+                  <td class="col-credit">
+                    <!-- Only credits are badged; a normal invoice stays visually quiet. -->
+                    <span class="credit-pill" *ngIf="row.isCredit">Credit</span>
+                    <span *ngIf="!row.isCredit">—</span>
+                  </td>
+                  <td class="col-date">{{ fmtDate(row.invoiceDate) }}</td>
+                  <td class="col-date">{{ fmtDate(row.accountingDate) }}</td>
+                  <td class="col-date">{{ fmtDate(row.createdUtc) }}</td>
+
+                  <td class="col-pdf">
+                    <!-- Only rows with a linked PDF get the active button. -->
+                    <button *ngIf="hasPdf(row); else noPdf"
+                            class="btn-show-pdf"
+                            (click)="showPdf(row)"
+                            [title]="row.fileName || 'Show PDF'">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      Show PDF
+                    </button>
+
+                    <ng-template #noPdf>
+                      <span class="no-pdf" [title]="noPdfTitle()">No invoice attached</span>
+                    </ng-template>
+                  </td>
+
+                  <td class="col-actions">
+                    <button class="btn-edit-invoice"
+                            [routerLink]="['/invoice-edit', row.id]"
+                            title="Edit this invoice">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ── Pager ────────────────────────────────────────────── -->
+          <div class="pager">
+            <div class="pager-left">
+              <label class="pager-size">
+                <span class="pager-size-label">Rows per page</span>
+                <!-- One-way bound: the handler needs the OLD size to keep the current row on
+                     screen, so it reads this.pageSize before writing the new value.
+                     [ngValue] (not [value]) keeps these as numbers — strings would break the
+                     pager arithmetic. -->
+                <select class="pager-size-select"
+                        [ngModel]="pageSize"
+                        (ngModelChange)="onPageSizeChange($event)"
+                        [disabled]="loading"
+                        name="page-size" id="page-size"
+                        autocomplete="new-password">
+                  <option *ngFor="let n of pageSizeOptions; trackBy: trackByIndex" [ngValue]="n">{{ n }}</option>
+                </select>
+              </label>
+
+              <span class="pager-summary">
+                Showing {{ rangeStart }}–{{ rangeEnd }} of {{ total }}
+              </span>
+            </div>
+
+            <div class="pager-controls">
+              <button class="pager-btn" (click)="prevPage()" [disabled]="!canPrev" title="Previous page">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+
+              <ng-container *ngFor="let p of pageNumbers; trackBy: trackByIndex">
+                <span class="pager-gap" *ngIf="p === -1">…</span>
+                <button *ngIf="p !== -1"
+                        class="pager-num"
+                        [class.active]="p === page"
+                        (click)="goToPage(p)">{{ p }}</button>
+              </ng-container>
+
+              <button class="pager-btn" (click)="nextPage()" [disabled]="!canNext" title="Next page">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </ng-container>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared PDF preview — click-driven, closes on backdrop click, Escape or the close button. -->
+<cm-pdf-viewer [isOpen]="viewerOpen"
+               [invoiceId]="viewerInvoiceId"
+               [invoiceLabel]="viewerLabel"
+               [fileName]="viewerFileName"
+               (closed)="closeViewer()"></cm-pdf-viewer>

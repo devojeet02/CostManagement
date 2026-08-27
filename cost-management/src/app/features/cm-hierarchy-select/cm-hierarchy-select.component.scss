@@ -1,0 +1,234 @@
+.hs-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* ─── Input trigger ─────────────────────────────────────────────── */
+.hs-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0 10px;
+  transition: border-color var(--transition-speed), background-color var(--transition-speed);
+
+  &:hover,
+  &.open {
+    border-color: var(--accent-color);
+  }
+
+  &.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: var(--bg-hover);
+
+    &:hover {
+      border-color: var(--border-color);
+    }
+
+    .hs-input {
+      cursor: not-allowed;
+    }
+  }
+
+  .hs-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 7px 0;
+    width: 100%;
+    min-width: 0;
+    font-family: inherit;
+    transition: color var(--transition-speed);
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  .hs-clear {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin-right: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color var(--transition-speed), background-color var(--transition-speed);
+
+    &:hover {
+      color: #d94646;
+      background: var(--bg-hover);
+    }
+  }
+
+  .hs-chevron {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: transform 0.2s ease, color var(--transition-speed);
+    pointer-events: none;
+
+    &.rotated {
+      transform: rotate(180deg);
+      color: var(--accent-color);
+    }
+  }
+}
+
+/* ─── Dropdown panel ────────────────────────────────────────────── */
+.hs-dropdown {
+  /* ── Theme variables, redeclared here on purpose ──────────────────────────
+     The panel is re-parented to <body> when it opens (see the portal in
+     hierarchy-select.component.ts), which puts it OUTSIDE `.cm-root` — the only
+     place the theme custom properties are defined. Without these, each var()
+     below resolves to nothing and the panel renders fully transparent with no
+     border, floating over the page.
+
+     Values mirror `.cm-root[data-theme="dark"]` in
+     cost-management-shell.component.scss, the only theme Crown ships. Keep them
+     in step if that block changes. Inside .cm-root they are identical, so this
+     changes nothing for a non-portalled render. */
+  --bg-secondary: #202940;
+  --bg-primary: #1a2035;
+  --bg-hover: #2d3a56;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --accent-color: #38bdf8;
+  --card-shadow: rgba(0, 0, 0, 0.3);
+  --transition-speed: 0.07s;
+
+  /* Fixed so it renders above/outside any overflow ancestor (e.g. the scrollable
+     line-items container). Exact top/left/width/bottom are set inline at open time.
+     Opens downward by default; flips up only when there isn't room below. */
+  position: fixed;
+  /* Re-parented to <body> at open time (see ngAfterViewChecked), so this competes in the
+     ROOT stacking context — high enough to clear the app shell and sticky table headers. */
+  z-index: 9000;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px var(--card-shadow);
+  padding: 6px 0;
+  max-height: 220px;
+  overflow-y: auto;
+  transition: background-color var(--transition-speed), border-color var(--transition-speed);
+}
+
+/* ─── Group header ──────────────────────────────────────────────── */
+.hs-group-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--accent-color);
+  padding: 8px 12px 4px;
+  transition: color var(--transition-speed);
+}
+
+/* ─── Option row ────────────────────────────────────────────────── */
+.hs-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 20px;
+  font-size: 13px;
+  /* Long labels (e.g. "IO1 – CRM Migration") must not wrap into unreadable stacks. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--accent-color);
+  }
+
+  &.hs-option--selected {
+    color: var(--accent-color);
+    font-weight: 600;
+  }
+
+  .hs-option-dot {
+    flex-shrink: 0;
+    width: 14px;
+    color: var(--accent-color);
+  }
+
+  .hs-option-dot--empty {
+    width: 14px;
+  }
+}
+
+/* ─── Clear-selection option ────────────────────────────────────── */
+.hs-option--clear {
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2px;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: #d94646;
+  }
+
+  .hs-option-dot {
+    width: 14px;
+    color: currentColor;
+  }
+}
+
+/* ─── Async: type hint + loading ────────────────────────────────── */
+.hs-hint {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
+  transition: color var(--transition-speed);
+}
+
+.hs-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: color var(--transition-speed);
+}
+
+.hs-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: hs-spin 0.6s linear infinite;
+}
+
+@keyframes hs-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Empty state ───────────────────────────────────────────────── */
+.hs-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
+  transition: color var(--transition-speed);
+}

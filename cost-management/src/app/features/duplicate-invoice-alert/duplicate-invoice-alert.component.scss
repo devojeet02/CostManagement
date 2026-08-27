@@ -1,0 +1,256 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Duplicate invoice banner.
+ *
+ * Amber while it is a warning; shifts to the accent colour once the user has opted
+ * into overwriting, so the two states can't be confused at a glance.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+$dup-warn: #f59e0b;
+
+.dup-alert {
+  margin: 0 32px 16px;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-left: 3px solid $dup-warn;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.07);
+  overflow: hidden;
+  animation: dup-in 0.18s ease;
+
+  &--overwrite {
+    border-color: color-mix(in srgb, var(--accent-color) 45%, transparent);
+    border-left-color: var(--accent-color);
+    background: color-mix(in srgb, var(--accent-color) 8%, transparent);
+
+    .dup-alert-icon { color: var(--accent-color); }
+  }
+}
+
+@keyframes dup-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dup-alert-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.dup-alert-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: $dup-warn;
+  margin-top: 1px;
+}
+
+.dup-alert-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.dup-alert-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin: 0 0 4px;
+}
+
+.dup-alert-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+
+  strong { color: var(--text-primary); }
+}
+
+.dup-alert-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+
+  svg {
+    transition: transform 0.2s ease;
+    &.rotated { transform: rotate(180deg); }
+  }
+}
+
+.dup-alert-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dup-btn-primary {
+  background: var(--accent-color);
+  border: none;
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+
+  &:hover { opacity: 0.88; }
+}
+
+.dup-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+/* ─── Expanded detail ───────────────────────────────────────────── */
+.dup-alert-details {
+  border-top: 1px solid var(--border-color);
+  padding: 14px 16px 16px;
+  background: var(--bg-secondary);
+}
+
+.dup-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+
+  &:not(:first-child) { margin-top: 18px; }
+}
+
+.dup-section-count {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.dup-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 16px;
+}
+
+.dup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dup-field-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.dup-field-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.dup-line-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 11px;
+
+  th {
+    text-align: left;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: var(--bg-primary);
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 7px 10px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    white-space: nowrap;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .desc {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.dup-no-lines {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ─── Small screens ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dup-alert { margin: 0 16px 12px; }
+
+  .dup-alert-main {
+    flex-wrap: wrap;
+  }
+
+  .dup-alert-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

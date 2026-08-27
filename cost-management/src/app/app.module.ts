@@ -31,6 +31,16 @@ import { PeriodManagementComponent } from './components/period-management/period
 import { AuditLogComponent } from './components/audit-log/audit-log.component';
 import { BudgetPlannerComponent } from './components/budget-planner/budget-planner.component';
 import { ConfirmDialogComponent } from './features/confirm-dialog/confirm-dialog.component';
+import { CmHierarchySelectComponent } from './features/cm-hierarchy-select/cm-hierarchy-select.component';
+import { ForecastCellCommentComponent } from './features/forecast-cell-comment/forecast-cell-comment.component';
+import { ForecastCommentsModalComponent } from './features/forecast-comments-modal/forecast-comments-modal.component';
+import { RechargeDrillComponent } from './features/recharge-drill/recharge-drill.component';
+import { CmDatePickerComponent } from './features/cm-date-picker/cm-date-picker.component';
+import { PdfViewerComponent } from './features/pdf-viewer/pdf-viewer.component';
+import { RelatedDataPanelComponent } from './features/related-data-panel/related-data-panel.component';
+import { DuplicateInvoiceAlertComponent } from './features/duplicate-invoice-alert/duplicate-invoice-alert.component';
+import { InvoiceViewComponent } from './components/invoice-view/invoice-view.component';
+import { InvoiceEditComponent } from './components/invoice-edit/invoice-edit.component';
 
 
 @NgModule({
@@ -62,7 +72,17 @@ import { ConfirmDialogComponent } from './features/confirm-dialog/confirm-dialog
     PeriodManagementComponent,
     AuditLogComponent,
     BudgetPlannerComponent,
-    ConfirmDialogComponent
+    ConfirmDialogComponent,
+    CmHierarchySelectComponent,
+    ForecastCellCommentComponent,
+    ForecastCommentsModalComponent,
+    RechargeDrillComponent,
+    CmDatePickerComponent,
+    PdfViewerComponent,
+    RelatedDataPanelComponent,
+    DuplicateInvoiceAlertComponent,
+    InvoiceViewComponent,
+    InvoiceEditComponent
   ],
   imports: [
     BrowserModule,

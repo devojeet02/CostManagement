@@ -36,6 +36,7 @@ export class SideNavComponent {
     {
       title: 'Cost Management',
       items: [
+        { label: 'Invoice View', route: '/invoice-view', icon: 'receipt' },
         { label: 'Invoice Upload', route: '/invoice-upload', icon: 'upload' },
         { label: 'Forecast', route: '/forecast', icon: 'chart' },
         { label: 'Headcount', route: '/headcount', icon: 'people' },
