@@ -371,6 +371,81 @@ select option {
   margin: 0 32px 24px;
 }
 
+/* ─── Empty / loading / error states ─────────────────────────────
+   Shown instead of the grid so a blank screen always explains itself. Same shape and palette as
+   ForecastComponent's .fc-state-block, so the two screens read as one product. */
+.hc-state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 32px 24px;
+  padding: 64px 32px;
+  text-align: center;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+
+  .hc-state-icon {
+    color: #475569;
+  }
+
+  /* Only the loading spinner turns; the other icons are static. */
+  .hc-state-icon--spin {
+    animation: hc-state-spin 0.9s linear infinite;
+  }
+
+  .hc-state-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  .hc-state-hint {
+    font-size: 12px;
+    color: #64748b;
+    max-width: 420px;
+    line-height: 1.55;
+
+    strong {
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+  }
+
+  .hc-state-btn {
+    margin-top: 6px;
+    background: #38bdf8;
+    border: none;
+    color: #0b0f19;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      opacity: 0.88;
+    }
+  }
+}
+
+@keyframes hc-state-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Phone: the state block is the whole screen, so it does not need the desktop's gutters or its
+   deep padding — and it must clear the fixed Cancel/Save footer. */
+@media (max-width: 480px) {
+  .hc-state-block {
+    margin: 0 16px 16px !important;
+    padding: 40px 20px !important;
+  }
+}
+
 /* ─── Two-table Unified Layout ───────────────────────────────── */
 .hc-tables-outer {
   padding: 0 32px 24px;
@@ -493,7 +568,9 @@ tr.hc-row-drop-over td.hc-drag-col {
   position: sticky;
   left: 0;
   z-index: 10;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  /* Cyan accent divider between the left and right tables (visual only) —
+     matches `.left-table-wrap` on the Forecast screen. */
+  border-right: 2px solid #22d3ee;
   box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.2);
 }
 
@@ -527,9 +604,18 @@ tr.hc-row-drop-over td.hc-drag-col {
   min-width: 116px;
 }
 
+.hc-team {
+  width: 104px;
+  min-width: 104px;
+}
+
+/* Employment Type. The class keeps the old `cat` name because `HeadcountRow.category` is what
+   the backend persists; only the on-screen label changed. Widened from 92px for the longer
+   header — `.hc-thead th` is `white-space: nowrap`, so a header that does not fit does not wrap,
+   it overflows its column. */
 .hc-cat {
-  width: 92px;
-  min-width: 92px;
+  width: 124px;
+  min-width: 124px;
 }
 
 .hc-emp {
@@ -620,6 +706,23 @@ tbody tr {
   height: 34px;
 }
 
+/* Pin EVERY sub-row cell to an exact height in all three tables (drag rail,
+   left, right). `height` on the row alone is only a minimum, so cells holding
+   a <select>, a value <input>, the comment button, or nothing at all (the
+   left table's empty spacer cells) resolve to slightly different heights and
+   the tables drift apart row-by-row — most visibly on the LAST spacer row of
+   each block and at the totals footer. Fixing the cell height (border-box
+   folds the separators in) forces them to the same rhythm. The final sub-row
+   is 34px + its 6px block-gap border = 40px. Mirrors the Forecast screen. */
+tbody tr td {
+  height: 34px;
+  box-sizing: border-box;
+}
+
+tbody tr.hc-row-last-sub td {
+  height: 40px;
+}
+
 tr.hc-row-even.hc-row-hovered td {
   background-color: #162137 !important;
 }
@@ -663,6 +766,12 @@ tr.hc-row-last-sub td {
   select {
     width: 100%;
     min-width: 0;
+    /* Fixed height + border-box so a <select> (taller intrinsic size) can't
+       make the left identity row grow past the right table's value rows.
+       This keeps both tables at an identical 34px row height so they don't
+       drift apart row-by-row. */
+    height: 24px;
+    box-sizing: border-box;
     background: transparent;
     border: 1px solid transparent;
     color: #cbd5e1;
@@ -671,16 +780,22 @@ tr.hc-row-last-sub td {
     font-size: 11px;
     font-weight: 500;
     font-family: inherit;
-    transition: all 0.15s ease;
+    /* Explicit property list, NOT `all`. `all` also transitions background-position, so
+       any rule that touches the background makes the <select> chevron slide across the
+       field instead of staying put. */
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
+    /* `background-color`, never the `background` shorthand: the shorthand resets
+       background-image to `none` and background-position to `0% 0%`, which wipes the
+       chevron drawn below and drags it to the left edge on hover/focus. */
     &:hover {
-      background: rgba(255, 255, 255, 0.03);
+      background-color: rgba(255, 255, 255, 0.03);
       border-color: rgba(255, 255, 255, 0.08);
     }
 
     &:focus {
       outline: none;
-      background: rgba(56, 189, 248, 0.05) !important;
+      background-color: rgba(56, 189, 248, 0.05) !important;
       border-color: rgba(56, 189, 248, 0.45) !important;
       color: #ffffff;
     }
@@ -750,6 +865,10 @@ tr.hc-row-last-sub td {
   input[type="text"] {
     display: block;
     width: 100%;
+    /* Match the left table's identity inputs exactly (see .hc-id-cell) so both
+       tables keep the same 34px row height and stay row-for-row aligned. */
+    height: 24px;
+    box-sizing: border-box;
     background: transparent;
     border: 1px solid transparent;
     color: #475569;
@@ -854,8 +973,8 @@ tr.hc-sub-other .hc-row-total {
   border: 1px solid rgba(56, 189, 248, 0.18);
   color: rgba(56, 189, 248, 0.55);
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1087,6 +1206,165 @@ tfoot tr.hc-total-other td {
 }
 
 /* ─── Mobile Media Queries (max-width: 768px) ───────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   SPLIT PANES (max-width: 1600px)
+
+   Seven identity columns no longer fit beside twelve months. Rather than let the left
+   table keep growing and squeeze the months, both tables become 50/50 panes that scroll
+   themselves, with the teal accent as the divider between them — the same treatment the
+   Forecast screen carries at this breakpoint. Wider desktops keep the original single
+   shared scroll with the whole left table frozen.
+
+   Layout only: no data, no behaviour, nothing the component reads.
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1600px) {
+
+  /* Hide the detached drag-reorder rail — it eats horizontal space that the seventh column
+     now wants, and HTML5 drag isn't usable on touch anyway. Reorder stays on wide desktop. */
+  .hc-drag-rail-outer {
+    display: none !important;
+  }
+
+  /* Hand the vertical scroll down to the panes. Keeping it here instead would leave each
+     pane at its full content height, so its horizontal scrollbar would sit below the fold
+     of the scrollport and only be reachable after scrolling to the last row. */
+  .hc-tables-container {
+    overflow: hidden !important;
+    align-items: stretch !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+
+  /* 50 / 50 panes, each scrolling in both directions. `scroll` (not `auto`) on the horizontal
+     axis so both panes always reserve an identical scrollbar strip at the bottom, keeping the
+     two tables aligned even when one happens to fit. The heights come off the old container so
+     the block occupies exactly the space it used to. */
+  .hc-left-wrap,
+  .hc-right-wrap {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    overflow-x: scroll !important;
+    overflow-y: auto !important;
+    max-height: calc(100vh - 340px) !important;
+    min-height: 400px !important;
+  }
+
+  .hc-left-wrap {
+    left: auto !important;
+    z-index: 5 !important;
+    box-shadow: none !important;
+    border-right: none !important;
+  }
+
+  .hc-right-wrap {
+    /* Cyan accent divider between the two panes (visual only). Moved off the left pane's
+       right edge so it sits between them rather than mid-pane once they split 50/50. */
+    border-left: 2px solid #22d3ee !important;
+  }
+
+  .hc-left-wrap::-webkit-scrollbar,
+  .hc-right-wrap::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .hc-left-wrap::-webkit-scrollbar-track,
+  .hc-right-wrap::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .hc-left-wrap::-webkit-scrollbar-thumb,
+  .hc-right-wrap::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+  }
+
+  .hc-left-wrap::-webkit-scrollbar-thumb:hover,
+  .hc-right-wrap::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  /* Freeze Region (left pane) and Scenario (right pane) — each names the row its pane is
+     scrolling, so both stay put.
+
+     THE LAYERING MATTERS, and getting it wrong is what makes cells overlap while scrolling.
+     Sticky elements at the same z-index are painted in DOM order, so the tiers have to be
+     strictly ordered rather than merely "high":
+
+       body cell, normal ........ auto   scrolls under everything
+       body cell, frozen ........ 5      same tier as the sticky right columns; they never
+                                         meet horizontally, so they cannot fight
+       header cell, normal ...... 6      must beat EVERY body cell, frozen ones included -
+                                         tbody comes after thead, so a tie loses
+       header cell, frozen ...... 7      must beat the normal headers too, which come after
+                                         it in the row for the same reason
+  */
+  th.hc-region,
+  td.hc-region,
+  th.hc-scenario-col,
+  td.hc-scenario-col {
+    position: sticky !important;
+    left: 0 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  td.hc-region,
+  td.hc-scenario-col {
+    z-index: 5 !important;
+  }
+
+  th.hc-region,
+  th.hc-scenario-col {
+    z-index: 7 !important;
+  }
+
+  /* A frozen column needs an OPAQUE background or the scrolling cells show straight through
+     it. Every one of these is the pre-composited solid the row would have painted anyway. */
+  th.hc-region,
+  th.hc-scenario-col {
+    background-color: #0b0f19 !important;
+  }
+
+  td.hc-region,
+  td.hc-scenario-col {
+    background-color: #0f172a !important;
+  }
+
+  tr.hc-row-even td.hc-region,
+  tr.hc-row-even td.hc-scenario-col {
+    background-color: #131b2e !important;
+  }
+
+  tr.hc-row-odd td.hc-region,
+  tr.hc-row-odd td.hc-scenario-col {
+    background-color: #1a233a !important;
+  }
+
+  /* The unsaved-row tint has to win here too, or a new row loses its accent behind the freeze. */
+  tr.hc-row-new td.hc-region,
+  tr.hc-row-new td.hc-scenario-col {
+    background-color: #142b43 !important;
+  }
+
+  tr.hc-row-new.hc-row-hovered td.hc-region,
+  tr.hc-row-new.hc-row-hovered td.hc-scenario-col {
+    background-color: #16354f !important;
+  }
+
+  tfoot tr.hc-total-row td.hc-region,
+  tfoot tr.hc-total-row td.hc-scenario-col {
+    background-color: #0b0f19 !important;
+  }
+
+  tfoot tr.hc-total-other td.hc-region,
+  tfoot tr.hc-total-other td.hc-scenario-col {
+    background-color: #080c14 !important;
+  }
+}
+
 @media (max-width: 768px) {
   .hc-filter-bar {
     padding: 14px 16px 0 !important;
@@ -1154,12 +1432,19 @@ tfoot tr.hc-total-other td {
   td.hc-region {
     position: sticky !important;
     left: 0 !important;
-    z-index: 6 !important;
     border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
     box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2) !important;
   }
 
+  /* Same tiering as the split-pane block above — see the note there. This rule set is later
+     in the file, so leaving the body cell at the header's z-index would put the overlap back
+     below 768px only. */
+  td.hc-region {
+    z-index: 5 !important;
+  }
+
   th.hc-region {
+    z-index: 7 !important;
     background-color: #0b0f19 !important;
   }
 
@@ -1196,5 +1481,778 @@ tfoot tr.hc-total-other td {
   .hc-total-sub-label {
     font-size: 10px !important;
     display: block !important;
+  }
+}
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE — card view, panes and footer
+
+   Every selector is a .hcm-* class inside an *ngIf="isCardView / isMobileView" block, so at
+   desktop widths none of it matches anything. No existing rule is edited. Mirrors the Forecast
+   screen; see its notes for the pattern.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.hcm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 12px 96px;   /* bottom clears the fixed footer */
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.hcm-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  min-width: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+.hcm-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hcm-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hcm-edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hcm-del {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Read-only facts: label over value, two per line. */
+.hcm-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 10px;
+  margin: 0 0 10px;
+
+  > div { min-width: 0; }
+
+  /* Seven facts pair up as Region/Country, Site/Team, Employment Type/Employee and then leave
+     Function for TBA alone with a hole beside it. Span the odd one out across both columns so
+     the card
+     ends on a full line — and the longest label of the seven gets the width it wants.
+     `:nth-child(odd)` keeps this self-correcting: with an even number of facts it stops applying.
+     Scoped inside .hcm-facts deliberately — a bare `:last-child { grid-column: span 2 }` leaked
+     into the footer popover on the Forecast screen. */
+  > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  dt {
+    margin: 0;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 12px;
+    color: #e2e8f0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.hcm-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.hcm-row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  svg { flex-shrink: 0; }
+}
+
+.hcm-row-badge {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+/* ── Scenario block + months ──────────────────────────────────────────────── */
+.hcm-sub {
+  margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 9px;
+}
+
+.hcm-sub-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.hcm-sub-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.hcm-sub-total {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #34d399;
+  font-variant-numeric: tabular-nums;
+}
+
+.hcm-months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.hcm-month {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hcm-month-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.hcm-month input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #131b2e;
+  color: #e2e8f0;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+
+  &:focus { border-color: #38bdf8; }
+}
+
+/* ── Fixed footer ─────────────────────────────────────────────────────────── */
+.hcm-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(8, 13, 25, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(6px);
+
+  /* The buttons keep their own colours from the desktop rules; only the box is restated. */
+  .hc-btn-cancel,
+  .hc-btn-save {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .hc-btn-cancel { flex-grow: 0.6; }
+}
+
+.hcm-opts {
+  position: relative;   /* the popover below is absolute against this */
+  flex: 0 0 auto;
+}
+
+.hcm-opts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 38px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  cursor: pointer;
+
+  &.open {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.12);
+    color: #7dd3fc;
+  }
+}
+
+/* Opens UPWARD - the footer is pinned to the bottom of the viewport. */
+.hcm-opts-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10;
+  min-width: 250px;
+  max-width: 82vw;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0f172a;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+.hcm-opts-title {
+  margin: 0 0 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.hcm-opts-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 7px 0;
+  font-size: 12px;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.hcm-opts-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+  select {
+    width: 100%;
+    box-sizing: border-box;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #131b2e;
+    color: #e2e8f0;
+    font-size: 12.5px;
+    outline: none;
+  }
+}
+
+.hcm-opts-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* ── Panes (row editor, comments) ─────────────────────────────────────────────
+   `top` is set inline from the measured nav height, so the shell top bar stays visible. */
+.hcm-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;          /* over the grid and the footer, under cm-snackbar (3000) */
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;    /* opaque: the card list must not read through it */
+}
+
+.hcm-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  flex-shrink: 0;
+}
+
+.hcm-sheet-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f7fbff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hcm-sheet-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #7dd3fc;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Balances the Back button so the title stays centred. */
+.hcm-sheet-spacer { width: 56px; }
+
+.hcm-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.hcm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 36px;
+    padding: 0 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #131b2e;
+    color: #e2e8f0;
+    font-size: 12.5px;
+    outline: none;
+
+    &:focus { border-color: #38bdf8; }
+  }
+}
+
+.hcm-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.hcm-sheet-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  background: #070f1c;
+  flex-shrink: 0;
+}
+
+.hcm-sheet-cancel,
+.hcm-sheet-apply {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hcm-sheet-cancel {
+  flex-grow: 0.6;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.hcm-sheet-apply {
+  border: none;
+  background: #38bdf8;
+  color: #04263a;
+}
+
+/* The comments body fills its pane and scrolls inside it. Scoped under .hcm-sheet, so the
+   modal path on desktop keeps its own layout untouched. */
+.hcm-sheet .hc-comment-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.hcm-sheet .hc-comment-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hcm-sheet .hc-comment-modal-actions {
+  flex-shrink: 0;
+  padding-top: 12px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Compact header (phones) ──────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Filter chips two per line rather than one. */
+  .hc-filter-chips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .hc-chip { min-width: 0; }
+
+  /* The third chip has no partner, so it takes the full width rather than sitting as a lone
+     half-width tile. */
+  .hc-filter-chips .hc-chip:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  /* Toggle and Budget chip share the row beneath instead of stacking separately. */
+  .hc-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hc-toggle { flex: 1 1 100%; }
+  .hc-compare-chip { flex: 0 0 auto; }
+}
+
+/* ── Unsaved rows added this session ──────────────────────────────────────────
+   filteredHeadcountRows floats these to the TOP of the grid so there is somewhere to type; the
+   tint is what marks them as not-yet-saved once they are there. Blue, matching the Forecast
+   screen's Add Row accent, so the two grids mean the same thing by the same colour.
+
+   ⚠️ SOLID hex, never rgba(). This grid has sticky columns (left: 0 and right: 44px) and a
+   cell's opaque background is the only thing hiding the month cells sliding underneath it — a
+   translucent tint lets the scrolling content show straight through the frozen column.
+
+   ⚠️ Background ONLY. The rail, left and right tables are separate <table>s kept in step purely
+   by their rows having equal heights, so anything altering a row's box drifts them apart.
+
+   At the END of the file, and .hc-row-hovered spelled out, because tr.hc-row-even.hc-row-hovered
+   td sets its own background at higher specificity than a bare tr.hc-row-new td would have. */
+tr.hc-row-new td {
+  background-color: #142b43 !important;
+}
+
+tr.hc-row-new.hc-row-hovered td {
+  background-color: #16354f !important;
+}
+
+/* The card equivalent of the same tint. */
+.hcm-card--new {
+  background: #142b43;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+/* ─── Employee lookup (cm-hierarchy-select in a grid cell) ───────
+   The Employee column is a typeahead over the active users rather than a <select>. The control
+   brings its own frame, which is wrong inside a 140px identity cell, so it is stripped back and
+   the cell provides the chrome — the same treatment the Forecast screen gives its Internal Order
+   lookup. */
+.hc-emp.hc-id-cell {
+  cm-hierarchy-select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  ::ng-deep cm-hierarchy-select {
+    .hs-input-wrap {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 0 4px 0 6px;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.08);
+      }
+
+      &.open {
+        background: rgba(56, 189, 248, 0.05);
+        border-color: rgba(56, 189, 248, 0.45);
+      }
+    }
+
+    /* MUST stay nested under .hs-input-wrap. hierarchy-select emits
+       `.hs-input-wrap[_ngcontent] .hs-input[_ngcontent]` at (0,4,0); a flatter override loses
+       and its own 7px padding survives — which would make this row TALLER than the right
+       table's and drift the two grids apart. Everything else in .hc-id-cell is pinned to 24px
+       inside a 34px row for exactly this reason. */
+    .hs-input-wrap .hs-input {
+      height: 24px;
+      box-sizing: border-box;
+      padding: 0;
+      font-size: 11px;
+      font-weight: 500;
+      color: #cbd5e1;
+      cursor: text;
+
+      &::placeholder {
+        color: #64748b;
+      }
+    }
+
+    .hs-chevron {
+      color: #475569;
+    }
+  }
+}
+
+/* Mobile edit pane: the lookup replaces a <select>, so it has to match the height and frame of
+   the fields above and below it rather than bring the control's own. */
+.hcm-field--lookup {
+  ::ng-deep cm-hierarchy-select {
+    display: block;
+    width: 100%;
+
+    .hs-input-wrap {
+      background: #0b0f19;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 0 8px;
+
+      &.open {
+        border-color: rgba(56, 189, 248, 0.45);
+      }
+    }
+
+    /* 34 + the wrap's 1px border top and bottom = the 36px the sibling <select>s occupy, so the
+       pane reads as one uniform column of fields rather than one short row. */
+    .hs-input-wrap .hs-input {
+      height: 34px;
+      box-sizing: border-box;
+      padding: 0;
+      font-size: 13px;
+      color: #e2e8f0;
+      font-family: inherit;
+
+      &::placeholder {
+        color: #64748b;
+      }
+    }
+  }
+}
+
+
+/* ─── Pager ────────────────────────────────────────────────────────────────
+   Identical to the Forecast pager — same markup, same palette — so the two grids page alike.
+   Written in hardcoded slate values because that is what this screen uses throughout; mixing in
+   the shell's theme custom properties would leave the pager a slightly different grey. */
+.hc-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0px 32px 0;
+  padding: 10px 14px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.hc-pager-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.hc-pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.hc-pager-size-label,
+.hc-pager-summary {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* Keeps the native dropdown arrow deliberately. Drawing one with background-image would need a
+   hover rule, and the `background` shorthand there resets background-image/-position — the bug
+   that made this screen's other select arrows slide about. Only background-COLOR animates. */
+.hc-pager-size-select {
+  height: 26px;
+  padding: 0 4px 0 8px;
+  background-color: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(56, 189, 248, 0.5);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #38bdf8;
+  }
+
+  option {
+    background: #0b0f19;
+    color: #cbd5e1;
+  }
+}
+
+.hc-pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hc-pager-btn,
+.hc-pager-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #e2e8f0;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  svg {
+    display: block;
+  }
+}
+
+.hc-pager-num.active {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #0b0f19;
+}
+
+.hc-pager-gap {
+  padding: 0 2px;
+  color: #475569;
+  font-size: 12px;
+}
+
+/* Phone: the grid's own gutters shrink to 16px, so the pager follows, and the two halves stack
+   rather than squeezing the page numbers. */
+@media (max-width: 480px) {
+  .hc-pager {
+    margin: 10px 16px 0 !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .hc-pager-left {
+    justify-content: space-between !important;
+  }
+
+  .hc-pager-controls {
+    justify-content: center !important;
   }
 }

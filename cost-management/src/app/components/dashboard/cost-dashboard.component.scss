@@ -48,6 +48,8 @@
   padding: 18px 22px 28px;
   background: #071b2f;
   color: #f7fbff;
+  /* Positioned ancestor for the anchored <cm-loader>, which covers this body only. */
+  position: relative;
 }
 
 .dashboard-filter-row,
@@ -65,21 +67,9 @@
   flex-shrink: 0;
 }
 
-/* Second row: Site + Currency. Laid out with flex, not the auto-fit grid above — two controls
-   in a 6-column grid would stretch to a third of the screen each. The row above keeps its
-   own margin, so this one only needs the gap to it closed. */
-.dashboard-filter-row.secondary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-top: -6px;
-
-  .filter-chip {
-    flex: 0 0 auto;
-    min-width: 200px;
-  }
-}
+/* The former `.dashboard-filter-row.secondary` rule was removed when Site / Category /
+   Currency were merged into the single row above — its flex layout and 200px chip minimum no
+   longer apply to anything. The auto-fit grid sizes all nine chips uniformly now. */
 
 /* ── Currency multi-select ───────────────────────────────────────────────────────────
    A native <select multiple> renders as an always-open scrolling list box, which cannot sit
@@ -1527,4 +1517,638 @@ body.dashboard-pdf-exporting .export-actions {
   &:hover { background: rgba(101, 89, 238, 0.18); color: #fff; }
 
   &:focus-visible { outline: 2px solid #6559ee; outline-offset: 2px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE FILTERS (phones only)
+
+   Every selector is a .dmf-* class inside an *ngIf="isMobileView" block, so none of it
+   matches anything at desktop widths. No existing rule is edited.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.dmf-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dmf-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.1);
+  color: #7dd3fc;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  svg { flex-shrink: 0; }
+  &:active { background: rgba(56, 189, 248, 0.2); }
+}
+
+/* How many filters are on, so the button says something without opening it. */
+.dmf-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #38bdf8;
+  color: #04263a;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* The real .btn-clear-filters sits in this bar on mobile. It carries `margin-left: auto` for
+   the desktop toolbar, which would shove it to the far edge here - reset so it sits directly
+   beside the funnel, and keep its own purple styling untouched. */
+.dmf-bar .btn-clear-filters {
+  margin-left: 0;
+}
+
+.dmf-applied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.dmf-applied-chip {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dmf-currency-state {
+  display: block;
+  margin: -4px 0 12px;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+/* ── The panel ─────────────────────────────────────────────────────────────── */
+.dmf-panel {
+  position: fixed;
+  /* `top` is set inline from the measured nav height so the shell's top bar stays visible;
+     inset would pin it to 0 and cover the nav. */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;              /* over the dashboard, under cm-snackbar (3000) */
+  display: flex;
+  flex-direction: column;
+  background: #071b2f;        /* opaque: the dashboard must not read through it */
+}
+
+.dmf-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  flex-shrink: 0;
+}
+
+.dmf-panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f7fbff;
+}
+
+.dmf-back,
+.dmf-panel-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #7dd3fc;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dmf-panel-clear { color: #94a3b8; }
+
+/* The list scrolls; the header and footer do not. */
+.dmf-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dmf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dmf-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.dmf-field select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0d2136;
+  color: #e2e8f0;
+  font-size: 13.5px;
+  outline: none;
+
+  &:focus { border-color: #38bdf8; }
+}
+
+/* The currency control keeps its shared classes; only the box is restated to match the
+   selects beside it. */
+.dmf-currency {
+  width: 100%;
+
+  .currency-trigger {
+    width: 100%;
+    box-sizing: border-box;
+    height: 40px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #0d2136;
+    color: #e2e8f0;
+    font-size: 13.5px;
+  }
+}
+
+.dmf-panel-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  background: #061626;
+  flex-shrink: 0;
+}
+
+.dmf-btn-back,
+.dmf-btn-apply {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dmf-btn-back {
+  flex-grow: 0.6;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.dmf-btn-apply {
+  border: none;
+  background: #38bdf8;
+  color: #04263a;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE (<= 480px) — KPI cards, two per row and compact
+
+   480 matches isCardView / isMobileView, so this is the phone layout only. It sits at the END
+   of the file on purpose: the existing `@media (max-width: 760px)` rule sets the grid to a
+   single column, and at equal specificity the later block wins. 481-760px is untouched and
+   keeps that single column; desktop cannot reach a max-width query at all.
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* The two axis captions folded into the tooltip. They are descriptive lines, not label/value
+     pairs, so they run full width and muted rather than being given invented row headings. */
+  .department-tooltip-caption {
+    fill: #94a3b8;
+    font-size: 11px;
+  }
+
+  /* Both toggles on one line. The Key pill keeps its natural width; the departments button
+     takes what is left, so the pair reads as one control strip. */
+  .dep-controls {
+    position: relative;   /* anchor for the floating key below */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  /* ── Chart colour key, behind a compact icon ────────────────────────────── */
+  .dep-legend-toggle {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    font-size: 11.5px;
+    white-space: nowrap;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+
+    svg:first-child { color: #7dd3fc; flex-shrink: 0; }
+  }
+
+  .dep-legend-toggle.open .dep-chevron { transform: rotate(180deg); }
+
+  /* The key FLOATS over the chart instead of pushing it down — it is a reference you glance at
+     and dismiss, so it should not reflow the page every time it opens. Anchored to .dep-controls
+     (position: relative below) and given its own surface, since it now sits over content. */
+  /* Heading and its Key pill on one line. The pill keeps its natural width and is pushed to
+     the right edge; the heading takes the rest. */
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+
+    h2 { margin: 0; min-width: 0; }
+  }
+
+  /* Anchors for the category and recharge keys, the same job .dep-controls does for the
+     department one. Positioned, because each popover is absolute against it. */
+  .cat-controls,
+  .rch-controls {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .dep-legend-pop,
+  .cat-legend-pop,
+  .rch-legend-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 30;
+    min-width: 200px;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: #0d2136;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+    font-size: 11.5px;
+  }
+
+  /* These two hang off a right-aligned pill, so they open leftwards or they run off the screen.
+     MUST come after the block above, which sets `left: 0` - at equal specificity the later rule
+     is what wins, and placing this first silently did nothing. */
+  .cat-legend-pop,
+  .rch-legend-pop {
+    left: auto;
+    right: 0;
+  }
+
+  /* The category key's rows are swatch + label + amount, so they need to be laid out as rows
+     inside the stacked popover. */
+  .cat-legend-pop > div,
+  .rch-legend-pop > div {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    strong { margin-left: auto; }
+  }
+
+  /* Thinner tiles: 86px was sized for a desktop panel and left a tall band of flat colour on a
+     phone. The percentage label shrinks with it so it still sits comfortably inside.
+
+     BOTH min-heights have to come down - the tiles are stretch-aligned flex children, so the
+     GRID's 86px floor kept them at full height however short the tile rule allowed. */
+  .category-grid {
+    min-height: 48px;
+  }
+
+  .category-tile {
+    min-height: 48px;
+    padding: 6px 2px;
+  }
+
+  .category-tile strong {
+    font-size: 11px;
+  }
+
+  /* ── Actual Spend vs Rolling Forecast: header ────────────────────────────
+     The 760px rule above turns .section-header AND .revision-meta into columns, so the two
+     readouts, the Monthly/Cumulative switch and the Show-Actuals button each took a line of
+     their own — five stacked rows before the chart even started.
+
+     Here .revision-meta goes back to a wrapping ROW: the two readouts pair up on one line as
+     compact chips, and the two controls share the line under them. */
+  .forecast-card .section-header {
+    gap: 10px;
+  }
+
+  .revision-meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+  }
+
+  /* Label over value in a bordered chip - "Active revision All scenarios" as one run of text
+     wraps awkwardly at this width, and the pair reads faster stacked. */
+  .revision-meta > span {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 9.5px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .revision-meta > span strong {
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Switch and button split the next line evenly. flex-basis 0 so a long button label cannot
+     push the switch off on its own. */
+  .mode-switch {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+
+    button {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 5px 6px;
+      font-size: 11px;
+    }
+  }
+
+  /* Wraps to two short lines rather than truncating: "Show Actuals vs Budget" does not fit
+     133px on one line at 11px, and an ellipsised toggle label reads as broken. The base rule's
+     nowrap has to be undone explicitly for that. */
+  .budget-trend-toggle {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    padding: 5px 8px;
+    font-size: 11px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  /* Legend: dots inline, revision note on its own line as a quieter caption. */
+  .forecast-card .legend-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 10.5px;
+  }
+
+  .revision-note {
+    flex: 1 1 100%;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border-left: 2px solid rgba(139, 92, 246, 0.6);
+    background: rgba(139, 92, 246, 0.08);
+    color: #b9a9f2;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  /* ── Top Vendors by Spend ────────────────────────────────────────────────
+     The 760px rule above collapses the row to a single column, which puts the name, the bar and
+     the amount on three separate lines each — five vendors then run most of a screen. Two lines
+     is enough: name and amount share the first, the bar spans underneath.
+
+     Explicit row/column placement because the markup order is name, bar, amount — the amount has
+     to jump back up beside the name, which auto-flow cannot do. */
+  .vendor-row {
+    grid-template-columns: 1fr auto;
+    gap: 5px 10px;
+    align-items: center;
+  }
+
+  .vendor-name-cell {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 12px;
+  }
+
+  .vendor-amount {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+    font-size: 12px;
+  }
+
+  .vendor-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    height: 6px;
+  }
+
+  /* Tighter than the shared 14px now that each row is half the height. */
+  .vendor-list {
+    gap: 10px;
+  }
+
+  /* The drill button only appears on hover, which a phone has none of - it would otherwise sit
+     invisible and take up room in the name line. */
+  .vendor-drill-btn {
+    opacity: 1;
+    width: 20px;
+    height: 20px;
+  }
+
+  /* ── Monthly spend chart ─────────────────────────────────────────────────
+     Two problems at phone width, both from a 1200-unit viewBox squeezed into ~280px:
+
+     1. The frame is a fixed 330px tall but the content only scales to ~70px, so the chart sat
+        letterboxed in a mostly empty box. height: auto makes the frame hug the content.
+     2. At that scale one declared pixel rendered at 0.23px — the axis text came out ~2.8px and
+        was simply unreadable.
+
+     Fixed the same way .department-svg already handles it: give it a readable minimum width and
+     let the frame scroll sideways. 900 puts the axis text back to ~9px. */
+  .chart-frame {
+    height: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .forecast-svg {
+    height: auto;
+    min-width: 900px;
+  }
+
+  /* ── Bar chart ───────────────────────────────────────────────────────────── */
+
+  /* Narrower than the desktop 720 so the tighter 560 viewBox is not just magnified back out —
+     this is what actually brings the bars closer together on screen. */
+  .department-svg {
+    min-width: 520px;
+  }
+
+  /* ⚠️ text-anchor must be set HERE, not as an attribute on the <text>. The base rule
+     `.department-variance-label, .department-x-label { text-anchor: middle }` is a CSS
+     property, and CSS beats a presentation attribute — an attr binding was silently ignored,
+     which left the rotated label centred on its anchor and cutting through the axis line. */
+  .department-x-label {
+    text-anchor: end;
+    font-size: 10px;
+  }
+
+  /* Sized down to sit on a 36-unit bar without overhanging it. */
+  .department-variance-label {
+    font-size: 9px;
+  }
+
+  /* ── Department summary + legend cards, behind a toggle ──────────────────── */
+  .dep-toggle {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .dep-toggle-icon { flex-shrink: 0; color: #7dd3fc; }
+
+  /* Pushes the chevron to the right edge whatever the label's length. */
+  .dep-toggle-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dep-chevron {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.18s ease;
+  }
+
+  .dep-toggle.open .dep-chevron { transform: rotate(180deg); }
+
+  /* The aside is *ngIf'd, so when it is shown it just stacks under the toggle. */
+  .department-summary {
+    margin-bottom: 12px;
+  }
+
+  /* One legend card per line reads better than a cramped two-up at this width. */
+  .department-card-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  /* Roughly 165px per card at a 390px viewport, so every value below has to come down with it.
+     min-height goes because the compact contents no longer fill 104px and the cards would sit
+     in a lot of empty space. */
+  .kpi-card {
+    min-height: 0;
+    padding: 10px 11px;
+    min-width: 0;
+  }
+
+  .kpi-title-row {
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .kpi-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .kpi-period {
+    font-size: 9.5px;
+    line-height: 1.2;
+  }
+
+  .kpi-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .kpi-card strong {
+    margin-top: 7px;
+    font-size: 18px;
+    /* Long values must shrink the text, not the card - two columns leave no room to grow. */
+    overflow-wrap: anywhere;
+  }
+
+  /* flex + line-height 1: the trend label is an inline-block sitting on the parent's 16px text
+     baseline, which padded the footer out to 26px for a 12px label. */
+  .kpi-footer {
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  .trend-label {
+    font-size: 9.5px;
+    line-height: 1.25;
+  }
 }

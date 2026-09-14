@@ -3,7 +3,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { formatAmount, parseAmount } from './number-format.util';
 
 /**
- * `appNumberFormat` — drop-in formatter for amount inputs across all screens.
+ * `cmNumberFormat` — drop-in formatter for amount inputs across all screens.
  *
  * Apply to a plain `<input type="text">` that is bound with `ngModel`. The bound
  * model stays a real **number** (so every existing total/calculation keeps
@@ -13,11 +13,11 @@ import { formatAmount, parseAmount } from './number-format.util';
  *
  * It is a `ControlValueAccessor`, so it transparently replaces the default
  * accessor — `[(ngModel)]` and `[ngModel]` + `(ngModelChange)` both work
- * unchanged. Use `[appNumberFormat]="0"` for integer-only fields; the default is
+ * unchanged. Use `[cmNumberFormat]="0"` for integer-only fields; the default is
  * 2 decimals. Negatives (credit notes) and millions are supported.
  */
 @Directive({
-  selector: 'input[appNumberFormat]',
+  selector: 'input[cmNumberFormat]',
   providers: [{
     provide: NG_VALUE_ACCESSOR,
     useExisting: forwardRef(() => NumberFormatDirective),
@@ -25,8 +25,8 @@ import { formatAmount, parseAmount } from './number-format.util';
   }]
 })
 export class NumberFormatDirective implements ControlValueAccessor {
-  /** Max decimal places to show (default 2). Bare `appNumberFormat` → 2. */
-  @Input('appNumberFormat')
+  /** Max decimal places to show (default 2). Bare `cmNumberFormat` → 2. */
+  @Input('cmNumberFormat')
   set maxDecimalsInput(v: number | string | null | undefined) {
     const n = Number(v);
     this.maxDecimals = (v === '' || v === null || v === undefined || isNaN(n)) ? 2 : n;

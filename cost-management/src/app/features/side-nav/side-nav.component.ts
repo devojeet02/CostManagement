@@ -40,7 +40,7 @@ export class SideNavComponent {
         { label: 'Invoice Upload', route: '/invoice-upload', icon: 'upload' },
         { label: 'Forecast', route: '/forecast', icon: 'chart' },
         { label: 'Headcount', route: '/headcount', icon: 'people' },
-        { label: 'Budget Planner', route: '/budget-planner', icon: 'wallet', tag: 'new' },
+        { label: 'Budget Planner', route: '/budget-planner', icon: 'wallet' },
       ],
     },
     {

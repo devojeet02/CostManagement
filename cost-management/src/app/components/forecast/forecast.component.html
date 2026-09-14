@@ -1,4 +1,4 @@
-<div class="forecast-page">
+<div class="forecast-page" [class.fcm-has-footer]="isMobileView">
   <div class="scroll-area">
 
     <!-- Page Header -->
@@ -7,7 +7,7 @@
       <div class="header-right">
         <!-- Audit log lives here rather than in the sidenav: it is only ever read in the
              context of the forecast you are editing. -->
-        <button class="btn-audit" routerLink="/forecast"
+        <button class="btn-audit" routerLink="/Cost-Management/Forecast-Audit"
           cmTooltip="See every change made to the forecast — who changed what, and when."
           cmTooltipPosition="bottom-right">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -43,7 +43,7 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Site/Cost Stream</span>
-            <cm-hierarchy-select [(ngModel)]="filters.site" [groups]="siteFilterGroups" placeholder="All Sites"
+            <cm-hierarchy-select [ngModel]="filters.site" (ngModelChange)="filters.site = $event; applyFilters()" [groups]="siteFilterGroups" placeholder="All Sites"
               name="filter-site"></cm-hierarchy-select>
           </div>
         </div>
@@ -60,7 +60,7 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Team</span>
-            <cm-hierarchy-select [(ngModel)]="filters.team" [groups]="teamFilterGroups" placeholder="All Teams"
+            <cm-hierarchy-select [ngModel]="filters.team" (ngModelChange)="filters.team = $event; applyFilters()" [groups]="teamFilterGroups" placeholder="All Teams"
               name="filter-team"></cm-hierarchy-select>
           </div>
         </div>
@@ -75,7 +75,7 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Account</span>
-            <cm-hierarchy-select [(ngModel)]="filters.account" [groups]="accountFilterGroups" placeholder="All Accounts"
+            <cm-hierarchy-select [ngModel]="filters.account" (ngModelChange)="filters.account = $event; applyFilters()" [groups]="accountFilterGroups" placeholder="All Accounts"
               name="filter-account"></cm-hierarchy-select>
           </div>
         </div>
@@ -90,7 +90,7 @@
           </span>
           <div class="chip-body">
             <span class="chip-label">Scenario</span>
-            <cm-hierarchy-select [(ngModel)]="filters.scenario" [groups]="scenarioFilterGroups"
+            <cm-hierarchy-select [ngModel]="filters.scenario" (ngModelChange)="filters.scenario = $event; applyFilters()" [groups]="scenarioFilterGroups"
               placeholder="All Scenarios" name="filter-scenario"></cm-hierarchy-select>
           </div>
         </div>
@@ -117,6 +117,19 @@
             <span class="toggle-thumb"></span>
           </span>
         </label>
+        <!-- MOBILE: the year joins this row as its fourth cell, so the header reads as one 2x2
+             block - two toggles, then the year beside the third. It leaves the toolbar below,
+             which was carrying it alongside both Add buttons and looked congested. Same handlers
+             as the toolbar's own year-nav, so the reload behaviour is identical. -->
+        <div class="toggle-item ftr-year" *ngIf="isMobileView">
+          <span class="toggle-label">Year</span>
+          <span class="ftr-year-nav">
+            <button type="button" class="year-btn" (click)="prevYear()" aria-label="Previous year">&#8249;</button>
+            <span class="year-label">{{ currentYear }}</span>
+            <button type="button" class="year-btn" (click)="nextYear()" aria-label="Next year">&#8250;</button>
+          </span>
+        </div>
+
         <!-- ── HIDDEN 2026-08-18: "Show Recharge Rows" toggle is not wanted for now. ──
              It was added for the Recharge Management epic (recharge lines excluded from the
              RFC grid, since they are billed out to the business and read on the Recharge View
@@ -142,7 +155,9 @@
     <!-- Toolbar -->
     <div class="table-toolbar">
       <div class="toolbar-left">
-        <div class="year-nav">
+        <!-- On mobile the year moves into the footer's view popover: three controls on this row
+             left the two Add buttons squeezed. -->
+        <div class="year-nav" *ngIf="!isMobileView">
           <button class="year-btn" (click)="prevYear()">&#8249;</button>
           <span class="year-label">{{ currentYear }}</span>
           <button class="year-btn" (click)="nextYear()">&#8250;</button>
@@ -154,7 +169,8 @@
           + Add Overspend Line
         </button>
       </div>
-      <div class="toolbar-right">
+      <!-- On any mobile width these two move to the fixed footer at the end of this file. -->
+      <div class="toolbar-right" *ngIf="!isMobileView">
         <button class="btn-cancel" id="btn-cancel" (click)="cancelChanges()">Cancel</button>
         <button class="btn-save" id="btn-save" (click)="saveChanges()">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -221,8 +237,10 @@
     </div>
 
     <!-- Two-table layout -->
+    <!-- PHASE 1 MOBILE: below 480px this whole grid is replaced by .fcm-list further down.
+         An *ngIf, not CSS, so at desktop widths the DOM is byte-for-byte what it always was. -->
     <div class="tables-outer"
-      *ngIf="!isLoading && !loadError && forecastRows.length > 0 && filteredForecastRows.length > 0">
+      *ngIf="!isCardView && !isLoading && !loadError && forecastRows.length > 0 && filteredForecastRows.length > 0">
 
       <!-- Drag rail (outside the data tables) + tables container, side by side.
            The rail mirrors the row structure so heights auto-align via the
@@ -240,9 +258,12 @@
             <tbody>
               <ng-container *ngFor="let row of filteredForecastRows; let ri = index; trackBy: trackByRow">
                 <tr *ngFor="let sub of visibleSubRows(row); let si = index; let last = last; trackBy: trackBySubRow"
+                    [class.sub-after-recharge]="isAfterRechargeRow(sub)"
                   (mouseenter)="row.isHovered = true" (mouseleave)="row.isHovered = false"
                   [class.row-hovered]="row.isHovered" [class.row-first]="si === 0" [class.row-last-sub]="last"
                   [class.row-even]="ri % 2 === 0" [class.row-odd]="ri % 2 !== 0"
+                    [class.fc-row-new]="isNewRow(row)"
+                    [class.fc-row-new-overspend]="isNewRow(row) && row.isOverspendAddition"
                   [class.fc-row-drop-over]="dragOverRowId === row.id" [class.fc-row-dragging]="draggedRowId === row.id"
                   (dragover)="onRowDragOver($event, row)" (dragleave)="onRowDragLeave(row)"
                   (drop)="onRowDrop($event, row)">
@@ -309,9 +330,12 @@
               <tbody>
                 <ng-container *ngFor="let row of filteredForecastRows; let ri = index; trackBy: trackByRow">
                   <tr *ngFor="let sub of visibleSubRows(row); let si = index; let last = last; trackBy: trackBySubRow"
+                    [class.sub-after-recharge]="isAfterRechargeRow(sub)"
                     (mouseenter)="row.isHovered = true" (mouseleave)="row.isHovered = false"
                     [class.row-hovered]="row.isHovered" [class.row-first]="si === 0" [class.row-last-sub]="last"
                     [class.row-even]="ri % 2 === 0" [class.row-odd]="ri % 2 !== 0"
+                    [class.fc-row-new]="isNewRow(row)"
+                    [class.fc-row-new-overspend]="isNewRow(row) && row.isOverspendAddition"
                     [class.row-overspend]="row.isOverspendAddition"
                     [class.sub-recharge-group]="sub.type === 'recharge' || sub.type === 'recharge-actual' || sub.type === 'recharge-other-scenario'">
 
@@ -540,9 +564,12 @@ Saving does not reset it — reload the screen to re-baseline." cmTooltipPositio
               <tbody>
                 <ng-container *ngFor="let row of filteredForecastRows; let ri = index; trackBy: trackByRow">
                   <tr *ngFor="let sub of visibleSubRows(row); let si = index; let last = last; trackBy: trackBySubRow"
+                    [class.sub-after-recharge]="isAfterRechargeRow(sub)"
                     (mouseenter)="row.isHovered = true" (mouseleave)="row.isHovered = false"
                     [class.row-hovered]="row.isHovered" [class.row-first]="si === 0" [class.row-last-sub]="last"
                     [class.row-even]="ri % 2 === 0" [class.row-odd]="ri % 2 !== 0"
+                    [class.fc-row-new]="isNewRow(row)"
+                    [class.fc-row-new-overspend]="isNewRow(row) && row.isOverspendAddition"
                     [class.sub-local]="sub.type === 'local'"
                     [class.sub-contract]="sub.type === 'contract' || sub.type === 'contract-actual'"
                     [class.sub-actual]="sub.type === 'actual'"
@@ -559,13 +586,19 @@ Saving does not reset it — reload the screen to re-baseline." cmTooltipPositio
 
                     <td *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex" #valueCell
                       class="rc-month value-cell" [class.month-locked]="isMonthLocked(mi)"
-                      [class.value-readonly]="isReadOnlySub(sub)"
+                      [class.value-readonly]="isReadOnlySub(sub) || isDerivedContract(row, sub)"
                       [class.cell-needs-comment]="cellNeedsComment(row, sub, mi)"
-                      [cmTooltip]="cellLockTitle(sub, mi)"
+                      [cmTooltip]="cellLockTitle(row, sub, mi)"
                       cmTooltipPosition="top">
+                      <!-- `[ngModel]` + `(ngModelChange)` rather than the banana-in-box, so a
+                           DERIVED contract line can display local x rate without that value ever
+                           being written onto the row. For every other line the pair behaves
+                           exactly as the two-way binding did. -->
                       <input type="text" inputmode="decimal" cmNumberFormat
-                        [class.is-negative]="isNegative(sub.values[mi])"
-                        [disabled]="isMonthLocked(mi) || isReadOnlySub(sub)" [(ngModel)]="sub.values[mi]"
+                        [class.is-negative]="isNegative(cellValue(row, sub, mi))"
+                        [disabled]="isMonthLocked(mi) || isReadOnlySub(sub) || isDerivedContract(row, sub)"
+                        [ngModel]="cellValue(row, sub, mi)"
+                        (ngModelChange)="setCellValue(row, sub, mi, $event)"
                         name="val-{{row.id}}-{{sub.type}}-{{mi}}" id="val-{{row.id}}-{{sub.type}}-{{mi}}"
                         autocomplete="new-password" placeholder=""
                         (focus)="onCellValueFocus(row, sub, mi, valueCell)" />
@@ -588,8 +621,8 @@ Saving does not reset it — reload the screen to re-baseline." cmTooltipPositio
                         cmTooltipPosition="top"></button>
                     </td>
 
-                    <td class="rc-total sub-total" [class.is-negative]="isNegative(getSubTotal(sub.values))">{{
-                      fmt(getSubTotal(sub.values)) || '—' }}</td>
+                    <td class="rc-total sub-total" [class.is-negative]="isNegative(subTotalFor(row, sub))">{{
+                      fmt(subTotalFor(row, sub)) || '—' }}</td>
 
                     <!-- Changes: live difference against the originally loaded total. Always a
                        badge on editable rows — zero shows green, matching the Scenario
@@ -679,13 +712,369 @@ Saving does not reset it — reload the screen to re-baseline." cmTooltipPositio
       </div><!-- /fc-grid-with-rail -->
     </div>
 
+    <!-- ══ PHASE 1 MOBILE: one card per forecast row, replacing the grid below 480px ══
+         Every control is the SAME binding as its grid counterpart, so editing, locks,
+         mandatory comments and delete all behave identically - only the layout differs.
+         Rendered only when isCardView, so none of this exists at desktop widths. -->
+    <div class="fcm-list"
+      *ngIf="isCardView && !isLoading && !loadError && forecastRows.length > 0 && filteredForecastRows.length > 0">
+
+      <article class="fcm-card" *ngFor="let row of filteredForecastRows; trackBy: trackByRow"
+        [class.fcm-card--new]="isNewRow(row)"
+        [class.fcm-card--overspend]="row.isOverspendAddition">
+
+        <header class="fcm-card-head">
+          <div class="fcm-badges">
+            <span class="unbudgeted-badge" *ngIf="row.isUnbudgeted">UB</span>
+            <span class="overspend-badge" *ngIf="row.isOverspendAddition">Addition</span>
+          </div>
+          <span class="fcm-card-title">{{ row.description || 'Untitled line' }}</span>
+          <button class="fcm-edit" type="button" (click)="openRowEditor(row)" aria-label="Edit line details">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+            </svg>
+            Edit
+          </button>
+          <button class="fcm-del" type="button" (click)="askRemoveRow(row)" aria-label="Delete row">&#10005;</button>
+        </header>
+
+        <!-- The row actions the desktop grid carries in its .lc-act stack. Same handlers, same
+             guards: the recharge drill only appears when the row actually has recharges, and the
+             comment button turns red while this row has edited months with no justification —
+             the save is blocked until they are filled, so it has to be findable here too. -->
+        <div class="fcm-row-actions">
+          <button type="button" class="fcm-row-action" *ngIf="hasRecharges(row)"
+            (click)="openRechargeDrill(row)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            Recharges
+          </button>
+
+          <button type="button" class="fcm-row-action"
+            [class.fcm-row-action--required]="rowNeedsComment(row)"
+            (click)="openComments(row)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Comments
+            <span class="fcm-row-badge fcm-row-badge--alert" *ngIf="rowNeedsComment(row)">!</span>
+            <span class="fcm-row-badge" *ngIf="!rowNeedsComment(row) && commentCount(row) > 0">{{ commentCount(row) }}</span>
+          </button>
+        </div>
+
+        <!-- Read-only facts. Editing is behind the Edit button above: thirteen live inputs in a
+             phone-width card was a wall of controls and a mis-tap risk while scrolling. -->
+        <dl class="fcm-facts">
+          <div><dt>Internal Order</dt><dd>{{ row.internalOrder || '—' }}</dd></div>
+          <div><dt>PAR</dt><dd>{{ row.par || '—' }}</dd></div>
+          <div><dt>Type</dt><dd>{{ row.type || '—' }}</dd></div>
+          <div><dt>Spend Type</dt><dd>{{ optionLabel(spendTypes, row.spendType) }}</dd></div>
+          <div><dt>Spend Layer</dt><dd>{{ optionLabel(spendLayers, row.spendLayer) }}</dd></div>
+          <div><dt>Category</dt><dd>{{ optionLabel(categories, row.category) }}</dd></div>
+          <div><dt>System</dt><dd>{{ optionLabel(systems, row.system) }}</dd></div>
+          <div><dt>Team</dt><dd>{{ optionLabel(teams, row.team) }}</dd></div>
+          <div><dt>Supplier</dt><dd>{{ optionLabel(suppliers, row.supplier) }}</dd></div>
+          <div><dt>Currency</dt><dd>{{ optionLabel(currencies, row.currency) }}</dd></div>
+          <div class="fcm-facts-flags" *ngIf="row.differentCurrency || row.rechargeRequired">
+            <span class="fcm-flag" *ngIf="row.differentCurrency">Different currency</span>
+            <span class="fcm-flag" *ngIf="row.rechargeRequired">Recharge required</span>
+          </div>
+        </dl>
+
+        <!-- One block per visible sub-row (Forecast / Actual / Contract / …), matching the
+             toggles above, so the card shows exactly what the grid would. -->
+        <!-- <div>, NOT <section>: the host app's global styles.css carries
+             `section { background-color: #f8f9fa !important }`, which paints any <section> white
+             and cannot be overridden from a component stylesheet. Same trap the Budget Planner
+             and dashboard templates call out. -->
+        <div class="fcm-sub" *ngFor="let sub of visibleSubRows(row); trackBy: trackBySubRow">
+          <div class="fcm-sub-head">
+            <span class="fcm-sub-name">{{ sub.label }} <em>({{ sub.currency }})</em></span>
+            <span class="fcm-sub-total" [class.is-negative]="isNegative(getSubTotal(sub.values))">
+              {{ fmt(getSubTotal(sub.values)) || '—' }}
+            </span>
+          </div>
+
+          <div class="fcm-months">
+            <div class="fcm-month" *ngFor="let val of sub.values; let mi = index; trackBy: trackByIndex" #mValueCell
+              [class.month-locked]="isMonthLocked(mi)"
+              [class.cell-needs-comment]="cellNeedsComment(row, sub, mi)">
+              <span class="fcm-month-label">{{ months[mi] }}</span>
+              <input type="text" inputmode="decimal" cmNumberFormat
+                [class.is-negative]="isNegative(sub.values[mi])"
+                [disabled]="isMonthLocked(mi) || isReadOnlySub(sub)"
+                [(ngModel)]="sub.values[mi]" name="m-val-{{row.id}}-{{sub.type}}-{{mi}}"
+                autocomplete="new-password"
+                (focus)="onCellValueFocus(row, sub, mi, mValueCell)" />
+
+              <button type="button" class="cell-flag cell-flag--alert" *ngIf="cellNeedsComment(row, sub, mi)"
+                (click)="openCellComment(row, sub, mi, mValueCell)"
+                cmTooltip="Comment mandatory — you changed this month. Click to add it."
+                cmTooltipPosition="top">!</button>
+
+              <button type="button" class="cell-flag cell-flag--done" *ngIf="cellHasComment(row, sub, mi)"
+                (click)="openCellComment(row, sub, mi, mValueCell)"
+                cmTooltip="Comment added for this month. Click to view or edit it."
+                cmTooltipPosition="top"></button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <!-- ══ PAGER ═══════════════════════════════════════════════════════════════════════
+         Shared by the desktop grid and the mobile card list — both render the same fetched
+         page, so one pager serves both. Shown whenever there are rows, even on a single page,
+         so "Showing 1-7 of 7" always says what is on screen.
+
+         `totalRows` is the SERVER's count for the whole filtered set, not a local length.
+
+         Deliberately OUTSIDE the grid's own scroll container: it belongs to the list as a
+         whole, not to the horizontally-scrolling table, and must not slide away with it. -->
+    <div class="fc-pager" *ngIf="!isLoading && !loadError && totalRows > 0">
+      <div class="fc-pager-left">
+        <label class="fc-pager-size">
+          <span class="fc-pager-size-label">Rows per page</span>
+          <!-- One-way bound: onPageSizeChange needs the OLD size to keep the current row on
+               screen, so it reads pageSize before writing the new value. [ngValue] (not
+               [value]) keeps these numbers — strings would break the pager arithmetic. -->
+          <select class="fc-pager-size-select"
+                  [ngModel]="pageSize"
+                  (ngModelChange)="onPageSizeChange($event)"
+                  name="fc-page-size" id="fc-page-size"
+                  autocomplete="new-password">
+            <option *ngFor="let n of pageSizeOptions; trackBy: trackByIndex" [ngValue]="n">{{ n }}</option>
+          </select>
+        </label>
+
+        <span class="fc-pager-summary">
+          Showing {{ rangeStart }}&ndash;{{ rangeEnd }} of {{ totalRows }}
+        </span>
+      </div>
+
+      <div class="fc-pager-controls" *ngIf="totalPages > 1">
+        <button type="button" class="fc-pager-btn" (click)="prevPage()" [disabled]="!canPrev"
+          cmTooltip="Previous page">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+
+        <ng-container *ngFor="let p of pageNumbers; trackBy: trackByIndex">
+          <span class="fc-pager-gap" *ngIf="p === -1">&hellip;</span>
+          <button type="button" *ngIf="p !== -1" class="fc-pager-num"
+            [class.active]="p === page" (click)="goToPage(p)">{{ p }}</button>
+        </ng-container>
+
+        <button type="button" class="fc-pager-btn" (click)="nextPage()" [disabled]="!canNext"
+          cmTooltip="Next page">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
   </div><!-- /scroll-area -->
+
+  <!-- ══ MOBILE ROW EDITOR ═══════════════════════════════════════════════════════════════
+       Same shape as the dashboard's filter sheet: header with Back / title / Apply, a scrolling
+       body, and it sits below the shell's nav rather than covering it.
+
+       Every control binds DIRECTLY to the row, so the card behind is already up to date when
+       this closes. Back undoes by restoring the snapshot taken on open; neither button saves —
+       the footer's Save posts the whole grid as it always has. -->
+  <div class="fcm-edit-sheet" *ngIf="isCardView && editingRow" [style.top.px]="panelTopOffset">
+    <header class="fcm-edit-head">
+      <button type="button" class="fcm-edit-back" (click)="closeRowEditor()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        Back
+      </button>
+      <h2 class="fcm-edit-title">Edit line</h2>
+      <span class="fcm-edit-spacer"></span>
+    </header>
+
+    <div class="fcm-edit-body">
+      <label class="fcm-field fcm-field--wide">
+        <span class="fcm-label">Description</span>
+        <input type="text" [(ngModel)]="editingRow.description" name="e-desc-{{editingRow.id}}"
+          autocomplete="new-password" placeholder="Item description" />
+      </label>
+
+      <label class="fcm-field fcm-field--wide">
+        <span class="fcm-label">Internal Order</span>
+        <cm-hierarchy-select [(ngModel)]="editingRow.internalOrder" [searchFn]="searchInternalOrders"
+          [groups]="ioCatalogue" [bindValue]="'value'" name="e-io-{{editingRow.id}}"
+          placeholder="Search IO…"></cm-hierarchy-select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">PAR</span>
+        <input type="text" [(ngModel)]="editingRow.par" name="e-par-{{editingRow.id}}"
+          autocomplete="new-password" placeholder="PAR-" />
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">Type</span>
+        <select [(ngModel)]="editingRow.type" name="e-type-{{editingRow.id}}">
+          <option *ngFor="let ty of types; trackBy: trackByIndex" [value]="ty">{{ ty }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">Spend Type</span>
+        <select [(ngModel)]="editingRow.spendType" name="e-spendtype-{{editingRow.id}}">
+          <option *ngFor="let st of spendTypes; trackBy: trackByIndex" [value]="st.value">{{ st.label }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">Spend Layer</span>
+        <select [(ngModel)]="editingRow.spendLayer" name="e-spendlayer-{{editingRow.id}}">
+          <option *ngFor="let sl of spendLayers; trackBy: trackByIndex" [value]="sl.value">{{ sl.label }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">Category</span>
+        <select [(ngModel)]="editingRow.category" name="e-cat-{{editingRow.id}}">
+          <option *ngFor="let c of categories; trackBy: trackByIndex" [value]="c.value">{{ c.label }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">System</span>
+        <select [(ngModel)]="editingRow.system" name="e-system-{{editingRow.id}}">
+          <option *ngFor="let sy of systems; trackBy: trackByIndex" [value]="sy.value">{{ sy.label }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">Team</span>
+        <select [(ngModel)]="editingRow.team" name="e-team-{{editingRow.id}}">
+          <option *ngFor="let t of teams; trackBy: trackByIndex" [value]="t.value">{{ t.label }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">Supplier</span>
+        <select [(ngModel)]="editingRow.supplier" name="e-sup-{{editingRow.id}}">
+          <option *ngFor="let sup of suppliers; trackBy: trackByIndex" [value]="sup.value">{{ sup.label }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-field">
+        <span class="fcm-label">Currency</span>
+        <select [(ngModel)]="editingRow.currency" name="e-curr-{{editingRow.id}}">
+          <option *ngFor="let cur of currencies; trackBy: trackByIndex" [value]="cur.value">{{ cur.label }}</option>
+        </select>
+      </label>
+
+      <label class="fcm-check">
+        <input type="checkbox" [(ngModel)]="editingRow.differentCurrency" name="e-diff-{{editingRow.id}}" class="custom-table-checkbox" />
+        <span>Different currency</span>
+      </label>
+
+      <label class="fcm-check">
+        <input type="checkbox" [(ngModel)]="editingRow.rechargeRequired" name="e-rch-{{editingRow.id}}" class="custom-table-checkbox" />
+        <span>Recharge required</span>
+      </label>
+    </div>
+
+    <footer class="fcm-edit-foot">
+      <button type="button" class="fcm-edit-cancel" (click)="closeRowEditor()">Back</button>
+      <button type="button" class="fcm-edit-apply" (click)="applyRowEditor()">Apply</button>
+    </footer>
+  </div>
+
+  <!-- PHASE 1 MOBILE: the toolbar's Cancel / Save move down here so they stay reachable while
+       scrolling, instead of sitting in a toolbar that scrolls away.
+
+       Keyed on isMobileView (768), NOT isCardView (480): between those two widths the screen is
+       still the mobile layout, just with the table rather than cards, and the actions have to be
+       pinned there too. Above 768 this does not render at all and the desktop toolbar keeps its
+       own pair, unchanged. Same handlers and same classes, so the buttons are identical. -->
+  <div class="fcm-footer" *ngIf="isMobileView">
+
+    <!-- PHASE 2 MOBILE: the view toggles, on the left of the footer so they are reachable from
+         anywhere in a long grid instead of only from the row at the top of the screen.
+
+         The popover is a CHILD of .fcm-opts, which is the positioned ancestor it anchors to — as
+         a sibling it would resolve against something further up and open in the wrong place. -->
+    <div class="fcm-opts">
+      <button type="button" class="fcm-opts-btn" [class.open]="viewOptionsOpen"
+        [attr.aria-expanded]="viewOptionsOpen"
+        [attr.aria-label]="viewOptionsOpen ? 'Hide view options' : 'Show view options'"
+        (click)="toggleViewOptions()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="6" x2="20" y2="6" /><circle cx="15" cy="6" r="2.2" />
+          <line x1="4" y1="12" x2="20" y2="12" /><circle cx="9" cy="12" r="2.2" />
+          <line x1="4" y1="18" x2="20" y2="18" /><circle cx="16" cy="18" r="2.2" />
+        </svg>
+        <span class="fcm-opts-count" *ngIf="activeViewOptionCount">{{ activeViewOptionCount }}</span>
+      </button>
+
+      <!-- Opens UPWARD: the footer is pinned to the bottom of the screen. -->
+      <div class="fcm-opts-pop" *ngIf="viewOptionsOpen">
+        <p class="fcm-opts-title">View</p>
+
+        <!-- Same bindings as the toggle row at the top of the screen, not copies of its state —
+             flipping one here moves the grid immediately, exactly as it does up there. -->
+        <label class="toggle-item" (click)="toggles.showActual = !toggles.showActual">
+          <span class="toggle-label">Show Actual</span>
+          <span class="toggle-track" [class.toggle-track--on]="toggles.showActual">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+        <label class="toggle-item" (click)="toggles.showOtherScenario = !toggles.showOtherScenario">
+          <span class="toggle-label">Show Other Scenario</span>
+          <span class="toggle-track" [class.toggle-track--on]="toggles.showOtherScenario">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+        <label class="toggle-item" (click)="toggles.showSourceCurrency = !toggles.showSourceCurrency">
+          <span class="toggle-label">Show Source Currency</span>
+          <span class="toggle-track" [class.toggle-track--on]="toggles.showSourceCurrency">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+
+        <!-- The filters land here as a second titled section; the list is already sectioned so
+             they drop in without the popover being reshaped. -->
+      </div>
+    </div>
+
+    <button class="btn-cancel" type="button" (click)="cancelChanges()">Cancel</button>
+    <button class="btn-save" type="button" (click)="saveChanges()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        style="margin-right: 6px; display: inline-block; vertical-align: -2px;">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+        <polyline points="7 3 7 8 15 8"></polyline>
+      </svg>
+      Save Changes
+    </button>
+  </div>
 </div>
 
 <!-- ─── Monthly Comments — GC per month + the CC trail ─────────────────
      GC (General Comment) is edited here, one per month. CC (Cell Comments) are the
      mandatory justifications written on the grid cell (below) and are read-only here. -->
 <cm-forecast-comments-modal
+  [sheet]="isCardView"
+  [topOffset]="panelTopOffset"
   [isOpen]="commentModalOpen"
   [title]="commentModalTitle"
   [slots]="commentSlots"
@@ -722,6 +1111,8 @@ Saving does not reset it — reload the screen to re-baseline." cmTooltipPositio
      The invoice recharges behind a row's Recharge Actual figure. Read-only; recharges are
      created on the invoice, not here. -->
 <cm-recharge-drill
+  [sheet]="isCardView"
+  [topOffset]="panelTopOffset"
   [isOpen]="drillOpen"
   [title]="drillTitle"
   [rows]="drillRows"

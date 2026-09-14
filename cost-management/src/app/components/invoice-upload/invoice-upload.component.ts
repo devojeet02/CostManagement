@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { NgModel } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Observable, Subject, Subscription, forkJoin, of } from 'rxjs';
@@ -6,7 +6,7 @@ import { map, switchMap, catchError, debounceTime } from 'rxjs/operators';
 import { SelectGroup } from '../../features/hierarchy-select/hierarchy-select.component';
 import { SnackbarService } from '../../features/snackbar/snackbar.service';
 import { InternalOrderService } from '../../services/internal-order.service';
-import { InvoiceService, InvoicePayload, InvoiceDetail } from '../../services/invoice.service';
+import { InvoiceService, InvoiceHistoryEntry, InvoicePayload, InvoiceDetail } from '../../services/invoice.service';
 import { MasterDataService, LookupItemDto, AccountDto } from '../../services/master-data.service';
 import { RelatedDataPanelComponent } from '../../features/related-data-panel/related-data-panel.component';
 
@@ -153,8 +153,120 @@ export class InvoiceUploadComponent implements OnInit, OnDestroy {
     return match?.currencyCode ?? '';
   }
 
+  // ── Invoice Change History: progressive list ───────────────────────────────
+  //
+  // The panel used to render every event for every invoice at once. It now shows a page at a
+  // time with a "Load More" at the bottom, which is what the modal actually needs — the events
+  // are already sorted newest-first, so the ones worth seeing are always on top.
+
+  /** How many more events each "Load More" reveals, and the size of the first page. */
+  private static readonly HISTORY_PAGE = 10;
+
+  /**
+   * Everything fetched so far, newest first.
+   *
+   * The server orders the feed globally, so this only re-sorts defensively after an append.
+   * MEMOISED on `changeHistory`'s identity: it is a getter read from the template, so without
+   * this it would copy and re-sort the whole array on every change-detection pass. Both the
+   * initial load and each append assign a NEW array, so identity is a sound cache key.
+   */
+  private sortedCacheSource: ChangeRecord[] | null = null;
+  private sortedCache: ChangeRecord[] = [];
+
   get sortedHistory(): ChangeRecord[] {
-    return [...this.changeHistory].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    if (this.sortedCacheSource === this.changeHistory) return this.sortedCache;
+    this.sortedCacheSource = this.changeHistory;
+    this.sortedCache = [...this.changeHistory].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return this.sortedCache;
+  }
+
+  /**
+   * What the timeline renders.
+   *
+   * Every entry here has actually been fetched. This used to be `slice(0, n)` over a list that
+   * was already fully in memory — the pagination was a window, not a fetch.
+   */
+  get visibleHistory(): ChangeRecord[] {
+    return this.sortedHistory;
+  }
+
+  get hasMoreHistory(): boolean {
+    return this.changeHistory.length < this.historyTotal;
+  }
+
+  /** Drives the button label, so it says how much is actually left ON THE SERVER. */
+  get remainingHistoryCount(): number {
+    return Math.max(0, this.historyTotal - this.changeHistory.length);
+  }
+
+  /**
+   * Fetches the NEXT page and appends it.
+   *
+   * A real request now. It used to just widen a window over data already held, which is why
+   * "Load More" felt instant while opening the panel was slow — the cost had simply been paid
+   * up front, by listing every invoice and then asking for each one's history separately.
+   */
+  loadMoreHistory(): void {
+    if (this.historyLoading || !this.hasMoreHistory) return;
+    this.historyLoading = true;
+
+    this.invoiceService.historyPaged(this.historyPage + 1, InvoiceUploadComponent.HISTORY_PAGE).subscribe({
+      next: res => {
+        this.historyLoading = false;
+        // Only advanced on success, so a failed fetch retries the same page rather than skipping it.
+        this.historyPage += 1;
+        this.historyTotal = res?.total ?? this.historyTotal;
+        this.changeHistory = [
+          ...this.changeHistory,
+          ...(res?.items ?? []).map(e => InvoiceUploadComponent.toChangeRecord(e))
+        ];
+      },
+      error: () => {
+        this.historyLoading = false;
+        this.snackbar.show('Could not load more history. Please try again.', 'error');
+      }
+    });
+  }
+
+  /**
+   * The "Loading more…" strip at the foot of the timeline, which doubles as the scroll sentinel.
+   *
+   * A ViewChild SETTER rather than a plain @ViewChild: the strip is behind *ngIf, so it appears
+   * and disappears as pages load and as the panel opens and closes, and the observer has to
+   * follow it. Angular calls this every time that element comes or goes.
+   */
+  @ViewChild('historySentinel') set historySentinel(ref: ElementRef<HTMLElement> | undefined) {
+    this.historyObserver?.disconnect();
+    this.historyObserver = undefined;
+    if (!ref) return;
+
+    const el = ref.nativeElement;
+    this.historyObserver = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) this.loadMoreHistory();
+    }, {
+      // The modal body is what scrolls, not the window — observing against the viewport would
+      // never fire, because the strip is inside an overflow container.
+      root: el.closest('.modal-body'),
+      // No prefetch margin: the reader asked to scroll down each time, and a margin here means
+      // the next page starts before the strip is actually reached.
+      rootMargin: '0px'
+    });
+    this.historyObserver.observe(el);
+  }
+
+  private historyObserver?: IntersectionObserver;
+
+  /**
+   * Opens the panel, refetching from the first page.
+   *
+   * Deliberately refetches rather than reusing what was loaded last time: this feed covers every
+   * invoice, so it may well have moved on since the panel was last closed.
+   */
+  openHistory(): void {
+    this.isHistoryOpen = true;
+    // Only refetch when there is nothing to show. ngOnInit already loaded page 1, and refetching
+    // on every open threw that away and asked for the same page again.
+    if (this.changeHistory.length === 0) this.loadSavedHistory();
   }
 
   protected static defaultPeriodStart(): string {
@@ -524,6 +636,39 @@ systemOptions: any;
    */
   get relatedDataExcludeId(): number | undefined { return undefined; }
 
+  /**
+   * Master-data CODE → display name, for the panel's parameters section.
+   *
+   * Site, Team, Supplier and Account are stored as codes; this screen already holds the
+   * catalogues that name them, so it hands the panel a lookup rather than making it fetch four
+   * more times. Spend Type / Layer / Category / System are stored as names and need no entry.
+   *
+   * MEMOISED on the source arrays' identity, and that matters: this is bound in the template,
+   * so a fresh object every change-detection pass would hand the panel a new @Input value
+   * forever. The groups are replaced wholesale when each lookup resolves, never mutated, so
+   * comparing identity is enough to know when to rebuild.
+   */
+  private paramLabelSources: SelectGroup[][] = [];
+  private paramLabelCache: { [code: string]: string } = {};
+
+  get paramLabels(): { [code: string]: string } {
+    const sources = [this.siteGroups, this.teamGroups, this.supplierGroups, this.accountGroups];
+    if (sources.length === this.paramLabelSources.length
+      && sources.every((g, i) => g === this.paramLabelSources[i])) {
+      return this.paramLabelCache;
+    }
+
+    const map: { [code: string]: string } = {};
+    for (const groups of sources) {
+      for (const group of groups ?? []) {
+        for (const item of group.items ?? []) map[item.value] = item.label;
+      }
+    }
+    this.paramLabelSources = sources;
+    this.paramLabelCache = map;
+    return map;
+  }
+
   // `protected` (not private) so InvoiceEditComponent can extend this class and reuse the
   // whole form — validations, recharge maths, line handling — without duplicating it.
   constructor(
@@ -628,45 +773,53 @@ systemOptions: any;
    * @param openWhenDone when true (after a save), pops the history panel open.
    */
   protected loadSavedHistory(openWhenDone = false): void {
-    this.invoiceService.list().subscribe({
+    this.historyPage = 1;
+    this.invoiceService.historyPaged(this.historyPage, InvoiceUploadComponent.HISTORY_PAGE).subscribe({
       next: res => {
-        const items = res?.items ?? [];
-        if (items.length === 0) {
-          this.changeHistory = [];
-          if (openWhenDone) { this.isHistoryOpen = true; }
-          return;
-        }
-        forkJoin(
-          items.map(it => this.invoiceService.getHistory(it.id).pipe(map(logs => ({ it, logs }))))
-        ).subscribe({
-          next: results => {
-            const records: ChangeRecord[] = [];
-            for (const { it, logs } of results) {
-              const amount = Number(it.invAmount).toLocaleString(undefined, { minimumFractionDigits: 2 });
-              const summary = `${(it.supplier || '').toUpperCase()} · ${it.currency} ${amount} · ${it.site}`;
-              const events = (logs && logs.length)
-                ? logs
-                : [{ timestamp: it.createdUtc, user: 'system', changes: [{ field: 'Created', from: null, to: null }] }];
-              for (const log of events) {
-                records.push({
-                  timestamp: new Date(log.timestamp),
-                  user: log.user || 'system',
-                  changes: [{
-                    field: `Invoice ${it.invNumber}`,
-                    from: (log.changes && log.changes[0]?.field) || 'Created',
-                    to: summary
-                  }]
-                });
-              }
-            }
-            this.changeHistory = records;
-            if (openWhenDone) { this.isHistoryOpen = true; }
-          },
-          error: () => { if (openWhenDone) { this.isHistoryOpen = true; } }
-        });
+        this.changeHistory = (res?.items ?? []).map(e => InvoiceUploadComponent.toChangeRecord(e));
+        this.historyTotal = res?.total ?? 0;
+        if (openWhenDone) { this.isHistoryOpen = true; }
       },
       error: () => { /* backend unreachable — keep whatever is already shown */ }
     });
+  }
+
+  /**
+   * Deliberately NOT re-checked after a page lands.
+   *
+   * There was a post-append `setTimeout(0)` here that re-measured the strip and loaded again if
+   * it was still on screen. It ran BEFORE Angular had rendered the new rows, so the strip always
+   * measured as still-visible and queued the next page immediately — the list ran away and
+   * fetched everything in one go, pinned to the bottom. Appending grows the content and pushes
+   * the strip below the fold; IntersectionObserver then fires again by itself when the reader
+   * scrolls back down to it, which is exactly the intended pacing.
+   */
+
+  /** Server's count of events across every invoice, so the strip knows what is left. */
+  private historyTotal = 0;
+
+  /** Last page fetched. The panel appends, so this only ever moves forward. */
+  private historyPage = 1;
+
+  private historyLoading = false;
+
+  /**
+   * One event → one timeline entry.
+   *
+   * The invoice's supplier / amount / site now arrive WITH the event, which is the whole point of
+   * the new endpoint: the panel used to fetch every invoice separately just to print this line.
+   */
+  private static toChangeRecord(e: InvoiceHistoryEntry): ChangeRecord {
+    const amount = Number(e.invAmount).toLocaleString(undefined, { minimumFractionDigits: 2 });
+    return {
+      timestamp: new Date(e.timestamp),
+      user: e.user || 'system',
+      changes: [{
+        field: `Invoice ${e.invNumber ?? ''}`.trim(),
+        from: e.action || 'Created',
+        to: `${(e.supplier || '').toUpperCase()} · ${e.currency} ${amount} · ${e.site}`
+      }]
+    };
   }
 
   onBudgetedChange(checked: boolean): void {
@@ -861,6 +1014,29 @@ systemOptions: any;
   onAmountEntry(item: ReturnType<InvoiceUploadComponent['blankLineItem']>, alloc: RechargeAllocation, value: any): void {
     alloc.amount = value === '' || value === null || value === undefined ? null : Number(value);
     alloc.mode = 'amount';
+  }
+
+  /**
+   * Coarse percentage stepper, sitting beside the input's native arrows.
+   *
+   * The native spinner keeps its original 0.01 — the right granularity for a fine correction, but
+   * ten clicks to shift a single tenth. This pair moves by 0.1, so the two together cover the
+   * hundredths and the tenths without anyone retyping the number.
+   *
+   * Routed through onPctEntry so it inherits the same clamping (and the over-100 warning) as
+   * typing; stepping must not be a second, laxer way into the same field.
+   *
+   * Rounded to TWO decimals — the precision the field itself accepts. Without it, 33.33 + 0.1 is
+   * 33.43000000000001 in binary floating point, and rounding to one decimal instead would quietly
+   * discard the hundredths a Spread evenly allocation depends on.
+   */
+  stepPct(item: ReturnType<InvoiceUploadComponent['blankLineItem']>, alloc: RechargeAllocation,
+          delta: number, model?: NgModel): void {
+    const current = this.displayPct(item, alloc) ?? 0;
+    const next = Math.min(100, Math.max(0, +(current + delta).toFixed(2)));
+    this.onPctEntry(item, alloc, next, model);
+    // The input is bound one-way, so a value the model already held would not repaint without this.
+    if (model) model.control.setValue(next);
   }
 
   onPctEntry(item: ReturnType<InvoiceUploadComponent['blankLineItem']>, alloc: RechargeAllocation, value: any, model?: NgModel): void {
@@ -1291,6 +1467,7 @@ systemOptions: any;
   }
 
   ngOnDestroy(): void {
+    this.historyObserver?.disconnect();
     this.revokeUrl();
     this.duplicateSub.unsubscribe();
   }

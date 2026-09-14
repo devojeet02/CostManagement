@@ -118,9 +118,17 @@ export class BudgetTrendComponent {
   // Two stacked plots share the x axis: the spend chart on top, and a variance strip beneath it.
   // ⚠️ The variance needs its OWN band because it goes negative and the spend axis starts at 0 —
   // plotting an overspend of −70k on that scale would put it off the bottom of the chart.
-  readonly width = 960;
-  readonly height = 424;
-  readonly padding = { top: 20, right: 24, bottom: 42, left: 74 };
+  // ⚠️ Sized to match the dashboard's own monthly chart, which sits directly above this one and
+  // was visibly out of proportion beside it — same container width, but this rendered 535px tall
+  // against its 329.
+  //
+  // The WIDTH matching 1200 matters as much as the height. Both SVGs are viewBox-scaled to the
+  // same container, so the viewBox width sets the scale factor: at 960 everything here — text,
+  // stroke weights, dots — was drawn ~25% larger than the identical declaration on the chart
+  // above. Matching the viewBox makes one declared pixel mean the same thing in both.
+  readonly width = 1200;
+  readonly height = 330;
+  readonly padding = { top: 16, right: 24, bottom: 36, left: 74 };
 
   /**
    * Height of the variance strip, and the gap separating it from the spend chart.
@@ -129,8 +137,14 @@ export class BudgetTrendComponent {
    * two plots read as one crowded chart and the title collided with the spend baseline — the
    * separation is what tells the eye these are different scales.
    */
-  private readonly varianceHeight = 84;
-  private readonly varianceGap = 48;
+  // Trimmed with the overall height so the spend plot above keeps a usable share of it.
+  //
+  // ⚠️ The gap is the constraint, not the strip height — it has to carry the strip's title above
+  // varianceTop. Cutting it to 26 put the title 1.6px INTO the spend baseline, exactly the
+  // collision the note above describes. 36 clears it; the strip gave up the difference so the
+  // overall height still matches the chart above.
+  private readonly varianceHeight = 54;
+  private readonly varianceGap = 36;
 
   /** Bottom of the SPEND plot — not the bottom of the svg. */
   get mainBottom(): number {

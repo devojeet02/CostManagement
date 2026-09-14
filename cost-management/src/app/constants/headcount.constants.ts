@@ -37,6 +37,14 @@ export interface HeadcountRow {
   team: string;
   /** Free-text note shown in the Comments column. */
   comment: string;
+  /**
+   * Position in the grid, as the server holds it.
+   *
+   * Round-tripped rather than re-derived from the array index at save time. That worked while the
+   * grid held the whole table, but under paging the index restarts at 0 on every page, so page 2
+   * would renumber itself over the top of page 1.
+   */
+  sortOrder?: number;
   scenarioRows: HcScenarioRow[];
   isHovered?: boolean;
 }
@@ -92,16 +100,40 @@ export const HC_API_ENDPOINTS = {
 // TODO: Load each from its HC_API_ENDPOINTS.master.* endpoint when ready.
 
 export const HC_MONTHS         = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ─── What is master data and what is not ──────────────────────────────────────
+// Site, Team and the scenario years load from /api/v1/master/* in
+// HeadcountComponent.loadDropdownData(), so the Admin > Cost Management screen is their single
+// source of truth. The lists below are NOT lazy leftovers — each one is here because the Admin
+// screen has no section for it:
+//
+//   Region / Country   The master data has no org hierarchy at all. tblCMSite holds only
+//                      SiteId/SiteCode/SiteName/CurrencyId — no country, no region. Adding
+//                      these needs a schema decision plus master data (backend todo #19).
+//   Employee           No master table. A person list is HR data and does not belong to the
+//                      cost-management lookups.
+//   Function for TBA   No master table.
+//   Employee type      Deliberately not master data. This is the person's EMPLOYMENT type,
+//                      NOT the spend categories behind /master/categories (which return
+//                      'IT Consultancy', 'IT Outsource Services' and the like). It also drives
+//                      screen logic: Function for TBA is enabled only while the value is
+//                      exactly 'TBA', so binding it to the spend categories would both mislabel
+//                      the column and silently disable that field for every row.
 export const HC_REGIONS        = ['EMEA','APAC','Americas'];
 export const HC_COUNTRIES      = ['UK','Turkey','Spain','France','Germany'];
-export const HC_SITES          = ['Montego-UKCP','Ankara-TR','Madrid-ES','Paris-FR','Global'];
-export const HC_TEAMS          = ['Infrastructure','Applications','Governance & Vendor','Model & Processes'];
 export const HC_EMPLOYEE_TYPES = ['Full Time','Part Time','VIE','TBA'];
 export const HC_EMPLOYEES      = ['A. Whitmore','B. Castellano','C. Okafor','D. Lindholm','E. Marchetti','New Analyst (unassigned)'];
 export const HC_FUNCTIONS      = ['Analyst','Engineer','Consultant','Manager','Coordinator'];
 
-/** Selectable scenario years — drives which year's monthly values the grid shows. */
-export const HC_SCENARIO_YEARS = [2026, 2025, 2024];
+/**
+ * Selectable scenario years — drives which year's monthly values the grid shows, and the set of
+ * keys `blankYearMap()` builds for every new scenario band.
+ *
+ * Fixed on purpose, and NOT read from /master/scenarios: planning needs a stable window that
+ * includes years no scenario has been created for yet (you cannot plan 2027 if 2027 is only
+ * offered once someone has already made a 2027 scenario). Newest first, to match the dropdown.
+ */
+export const HC_SCENARIO_YEARS = [2027, 2026, 2025, 2024];
 
 // ─── Default State ────────────────────────────────────────────────────────────
 
@@ -134,21 +166,25 @@ export function buildDefaultScenarioRows(): HcScenarioRow[] {
 }
 
 // ─── Mock / Hardcoded Data ────────────────────────────────────────────────────
-// TODO: Replace with → this.http.get<HeadcountRow[]>(HC_API_ENDPOINTS.headcount.getAll())
-//       Map the API response to the HeadcountRow[] shape and assign to headcountRows.
-//       Each scenario row carries a distinct set of monthly values per year so the
-//       Scenario Year dropdown visibly changes the grid.
+// DEAD as far as the live screen is concerned. HeadcountComponent loads the grid from
+// SHOWCASE: these rows ARE the roster. There is no backend here, so HeadcountService seeds its
+// in-memory store from them and every page, filter and save in the demo runs against this array.
+//
+// Site and Team must hold master-data CODES ('london-hq', 'infrastructure'), never display names.
+// A <select> whose model matches no option value renders BLANK, which is exactly how this file
+// broke the screen before: it carried 'Montego-UKCP' / 'Infrastructure' and both dropdowns looked
+// unbound when the wiring was correct. Add a row only with a code from MasterDataService.
 
 export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
   {
     id: 1,
     region: 'EMEA',
     country: 'UK',
-    site: 'Montego-UKCP',
+    site: 'london-hq',
     category: 'Full Time',
     employee: 'A. Whitmore',
     functionForTba: '',
-    team: 'Infrastructure',
+    team: 'infrastructure',
     comment: 'Started in March 2026',
     scenarioRows: [
       {
@@ -173,11 +209,11 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     id: 2,
     region: 'EMEA',
     country: 'UK',
-    site: 'Montego-UKCP',
+    site: 'london-hq',
     category: 'Part Time',
     employee: 'B. Castellano',
     functionForTba: '',
-    team: 'Applications',
+    team: 'applications',
     comment: '50% claim back from JV',
     scenarioRows: [
       {
@@ -202,11 +238,11 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     id: 3,
     region: 'EMEA',
     country: 'UK',
-    site: 'Montego-UKCP',
+    site: 'london-hq',
     category: 'Full Time',
     employee: 'C. Okafor',
     functionForTba: '',
-    team: 'Infrastructure',
+    team: 'infrastructure',
     comment: 'Recharged to Operations',
     scenarioRows: [
       {
@@ -231,11 +267,11 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     id: 4,
     region: 'EMEA',
     country: 'Turkey',
-    site: 'Ankara-TR',
+    site: 'manchester',
     category: 'VIE',
     employee: 'D. Lindholm',
     functionForTba: '',
-    team: 'Model & Processes',
+    team: 'model-processes',
     comment: '',
     scenarioRows: [
       {
@@ -260,11 +296,11 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
     id: 5,
     region: 'EMEA',
     country: 'UK',
-    site: 'Montego-UKCP',
+    site: 'london-hq',
     category: 'TBA',
     employee: 'New Analyst (unassigned)',
     functionForTba: 'Analyst',
-    team: 'Governance & Vendor',
+    team: 'governance-vendor',
     comment: 'Replacement for Rob',
     scenarioRows: [
       {
@@ -281,6 +317,180 @@ export const MOCK_HEADCOUNT_ROWS: HeadcountRow[] = [
           2026: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
           2025: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
           2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+    ]
+  },
+  {
+    id: 6,
+    region: 'EMEA',
+    country: 'UK',
+    site: 'manchester',
+    category: 'Full Time',
+    employee: 'Fred Mitchell',
+    functionForTba: '',
+    team: 'applications',
+    comment: 'Moved from Bradford in Q2',
+    scenarioRows: [
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
+    ]
+  },
+  {
+    id: 7,
+    region: 'EMEA',
+    country: 'Netherlands',
+    site: 'amsterdam',
+    category: 'Full Time',
+    employee: 'CHATERJII, Amarthya',
+    functionForTba: '',
+    team: 'infrastructure',
+    comment: 'Cloud platform lead',
+    scenarioRows: [
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+        }
+      },
+    ]
+  },
+  {
+    id: 8,
+    region: 'EMEA',
+    country: 'France',
+    site: 'france',
+    category: 'VIE',
+    employee: 'jennifer.douglas@eur.crowncork.com',
+    functionForTba: '',
+    team: 'model-processes',
+    comment: 'VIE contract ends Nov 2026',
+    scenarioRows: [
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+          2025: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+          2025: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+    ]
+  },
+  {
+    id: 9,
+    region: 'AMER',
+    country: 'USA',
+    site: 'usa',
+    category: 'Part Time',
+    employee: 'vanshika.verma@acumant.com',
+    functionForTba: '',
+    team: 'governance-vendor',
+    comment: '0.5 FTE shared with Procurement',
+    scenarioRows: [
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+    ]
+  },
+  {
+    id: 10,
+    region: 'EMEA',
+    country: 'Ireland',
+    site: 'dublin',
+    category: 'TBA',
+    employee: 'Data Engineer (open req)',
+    functionForTba: 'Data Engineer',
+    team: 'applications',
+    comment: 'Requisition approved, start date TBC',
+    scenarioRows: [
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+          2025: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+          2025: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          2024: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+      },
+    ]
+  },
+  {
+    id: 11,
+    region: 'EMEA',
+    country: 'UK',
+    site: 'bradford',
+    category: 'Full Time',
+    employee: 'Devojeet Modak',
+    functionForTba: '',
+    team: 'infrastructure',
+    comment: 'Backfill for site network role',
+    scenarioRows: [
+      {
+        type: 'primary',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      },
+      {
+        type: 'other',
+        valuesByYear: {
+          2026: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2025: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          2024: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         }
       },
     ]

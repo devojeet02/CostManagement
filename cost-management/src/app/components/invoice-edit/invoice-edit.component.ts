@@ -112,6 +112,48 @@ export class InvoiceEditComponent extends InvoiceUploadComponent implements OnIn
   }
 
   /**
+   * Show the PDF already attached to this invoice in the same preview frame the Upload screen
+   * uses for a freshly picked file.
+   *
+   * The template's frame is driven by `uploadedFileUrl`, which only `handleFile()` ever set —
+   * so an invoice opened for editing previously showed just the file-name chip and an empty
+   * panel, even though the PDF existed in storage.
+   *
+   * Nothing in the parent needed changing: assigning `objectUrl` alongside `uploadedFileUrl`
+   * means the existing cleanup paths already cover this URL — `handleFile()` revokes it before
+   * a new pick, and `removeFile()` / `ngOnDestroy()` revoke it too.
+   *
+   * ⚠️ `selectedFile` is deliberately left null. It is what `onSave()` uses to decide whether
+   * to POST to /upload, so populating it would re-upload the very file we just downloaded on
+   * every save.
+   */
+  private loadStoredPdfPreview(): void {
+    // The name is the only signal available here, and the backend warns it can outlive the
+    // file itself — an edit carries the label forward even if the blob was never written. So
+    // this is a reason to try, not a guarantee; a miss is handled below.
+    if (!this.existingFileName) return;
+
+    this.invoiceService.getPdf(this.invoiceId).subscribe({
+      next: blob => {
+        // The user may have picked their own file while this request was in flight. That is
+        // their intent and it must win, so don't overwrite it with the stored copy.
+        if (this.selectedFile) return;
+
+        this.revokeUrl();
+        this.objectUrl = URL.createObjectURL(blob);
+        this.uploadedFileUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+      },
+      // Non-fatal on purpose: the invoice is perfectly editable without its preview, so a
+      // missing blob or a storage outage must not become a load error or a snackbar. The
+      // file-name chip still shows, and saving is unaffected.
+      error: err => {
+        console.warn(
+          `Invoice ${this.invoiceId}: the stored PDF could not be loaded for preview.`, err);
+      }
+    });
+  }
+
+  /**
    * Maps the fetched invoice onto the inherited form fields.
    *
    * Dates arrive as ISO date-times but cm-date-picker and the payload both work in
@@ -142,6 +184,7 @@ export class InvoiceEditComponent extends InvoiceUploadComponent implements OnIn
     // here, so this is a label, not a File. uploadedFileName also feeds buildPayload().
     this.existingFileName = invoice.fileName ?? null;
     this.uploadedFileName = invoice.fileName ?? null;
+    this.loadStoredPdfPreview();
 
     const lines = invoice.lineItems ?? [];
     this.lineItems = lines.length
@@ -242,6 +285,6 @@ export class InvoiceEditComponent extends InvoiceUploadComponent implements OnIn
   }
 
   private goToList(): void {
-    this.router.navigate(['/invoice-view']);
+    this.router.navigate(['/Cost-Management/Invoice-View']);
   }
 }

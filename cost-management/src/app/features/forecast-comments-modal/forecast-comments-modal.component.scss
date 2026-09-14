@@ -279,3 +279,77 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Sheet mode (phones) ──────────────────────────────────────────────────────
+   Only applies when [sheet]="true"; the modal path above is untouched. The body markup is the
+   same in both, so everything here reframes rather than restyles it. */
+.fcs-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;          /* over the grid and its footer, under cm-snackbar (3000) */
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;    /* opaque: the card list must not read through it */
+}
+
+.fcs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  flex-shrink: 0;
+}
+
+.fcs-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f7fbff;
+}
+
+.fcs-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #7dd3fc;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Balances the Back button so the title stays centred. */
+.fcs-spacer { width: 56px; }
+
+/* The body fills the sheet and scrolls inside it. The modal's own 52vh cap on .fcm-grid is
+   what has to go: in a full-height pane it would leave the months in a short scroller with
+   dead space beneath. */
+.fcs-sheet .fcm-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.fcs-sheet .fcm-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The body's own Cancel / Save row becomes the sheet's footer. */
+.fcs-sheet .fcm-actions {
+  flex-shrink: 0;
+  padding-top: 12px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

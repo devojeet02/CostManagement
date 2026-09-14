@@ -5,6 +5,12 @@
 -->
 <div class="budget-planner">
 
+  <!-- Anchored: same LoaderService that already drives this screen's fetches, but drawn over the
+       planner body instead of as the shell's overlay card. Mounted unconditionally so it stays
+       registered for the screen's whole life - an unmounted anchor falls back to the card. -->
+  <cm-loader [global]="true" [overlay]="false" size="lg"></cm-loader>
+
+
   <header class="planner-header">
     <div>
       <h2>Budget Planner</h2>

@@ -139,3 +139,63 @@
   background: rgba(224, 166, 78, 0.05);
   .rd-total-value, .rd-total-check { color: #e0a64e; }
 }
+
+/* ── Sheet mode (phones) ──────────────────────────────────────────────────────
+   Only applies when [sheet]="true"; the modal path is untouched. The body markup is the same
+   in both, so this reframes rather than restyles it. */
+.rds-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;          /* over the grid and its footer, under cm-snackbar (3000) */
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;    /* opaque: the card list must not read through it */
+}
+
+.rds-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  flex-shrink: 0;
+}
+
+.rds-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f7fbff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rds-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #7dd3fc;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Balances the Back button so the title stays centred. */
+.rds-spacer { width: 56px; }
+
+/* The body fills the sheet and scrolls inside it. The table it holds is wider than a phone, so
+   it also has to scroll sideways here rather than pushing the page out. */
+.rds-sheet .rd-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+}

@@ -1,4 +1,6 @@
-import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import {
   AlertRecord,
   BusinessDimension,
@@ -16,6 +18,7 @@ import {
   SpendCategory,
   VendorSpend,
 } from './cost-dashboard.data';
+import { LoaderService } from '../../features/loader/loader.service';
 import { COST_MANAGEMENT_DATABASE } from './cost-dashboard.records';
 import {
   CostDashboardService, CostDashboardDto, DashboardGapDto, DashboardAlertDto,
@@ -43,7 +46,11 @@ interface KpiStatusResult {
   templateUrl: './cost-dashboard.component.html',
   styleUrls: ['./cost-dashboard.component.scss']
 })
-export class CostDashboardComponent implements OnInit {
+export class CostDashboardComponent implements OnInit, OnDestroy, AfterViewChecked {
+
+  /** Cancels in-flight requests on teardown so a wait cannot outlive the screen - see the
+   *  matching comment in ScenarioManagementComponent. */
+  private readonly destroy$ = new Subject<void>();
   @ViewChild('pdfExportSection') pdfExportSection?: ElementRef<HTMLElement>;
 
   private readonly sourceData: CostManagementDatabase = COST_MANAGEMENT_DATABASE;
@@ -52,10 +59,33 @@ export class CostDashboardComponent implements OnInit {
   readonly chartWidth = 1200;
   readonly chartHeight = 300;
   readonly chartPadding = { top: 22, right: 28, bottom: 48, left: 58 };
-  readonly departmentChartWidth = 940;
+  /**
+   * Chart width. A GETTER so departmentPlotWidth — and therefore the bar spacing derived from it
+   * in getDepartmentX — follows it. At 940 the four bars sit ~213 units apart, which on a phone
+   * reads as four lonely bars in a wide empty field; 560 closes the gaps without touching
+   * desktop, which keeps 940 exactly.
+   */
+  private readonly DEPARTMENT_CHART_WIDTH = 940;
+  private readonly DEPARTMENT_CHART_WIDTH_MOBILE = 560;
+
+  get departmentChartWidth(): number {
+    return this.isMobileView ? this.DEPARTMENT_CHART_WIDTH_MOBILE : this.DEPARTMENT_CHART_WIDTH;
+  }
   readonly departmentChartHeight = 320;
   readonly departmentChartPadding = { top: 24, right: 24, bottom: 72, left: 62 };
-  readonly departmentBarWidth = 56;
+  /**
+   * Bar width. A GETTER, not a constant, so getDepartmentBarX / getDepartmentBarEndX follow it
+   * automatically — 56px bars at a phone's scale are fat slabs with no gap between them.
+   * Desktop keeps the original 56 exactly.
+   */
+  private readonly DEPARTMENT_BAR_WIDTH = 56;
+  // 36, not 24: the variance label ("-92.5%") is drawn centred on the bar and overhung a 24px
+  // one badly. Still well under the desktop 56.
+  private readonly DEPARTMENT_BAR_WIDTH_MOBILE = 36;
+
+  get departmentBarWidth(): number {
+    return this.isMobileView ? this.DEPARTMENT_BAR_WIDTH_MOBILE : this.DEPARTMENT_BAR_WIDTH;
+  }
 
   hoveredChartPoint: ChartPoint | null = null;
   hoveredSeries: SeriesKey = 'forecast';
@@ -195,7 +225,7 @@ export class CostDashboardComponent implements OnInit {
   currencyOptions: DashboardFilterOption[] = [];
   currencyMenuOpen = false;
 
-  constructor(private dashboardService: CostDashboardService) {}
+  constructor(private dashboardService: CostDashboardService, private loader: LoaderService) {}
 
   /** False until the first response (or failure) lands — see the template's loader. */
   hasLoadedOnce = false;
@@ -208,6 +238,43 @@ export class CostDashboardComponent implements OnInit {
     // and pruneSelectedFilters() keeps them valid from then on.
     this.selectedFilters = { ...this.selectedFilters, department: '', vendor: '', scenario: '' };
     this.loadLive();
+  }
+
+  ngOnDestroy(): void {
+    // A panel still parked on <body> at teardown would be orphaned there forever.
+    this.restoreFiltersPanel();
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  /**
+   * Moves the open filters panel to <body>.
+   *
+   * ⚠️ NOT a z-index problem, so do not "fix" it by raising one. The app shell wraps the routed
+   * content in a STACKING CONTEXT, so the panel's z-index is only ever compared with its
+   * siblings inside the dashboard — never with the shell's sticky navbar (z 1020), which
+   * therefore painted straight through the panel's header. Same cause and same fix as
+   * `cm-modal`'s `attachToBody`; see that note in the module docs.
+   *
+   * The two things that bite when a node is relocated do not apply here: this panel uses no
+   * `:host ::ng-deep` selectors (Angular's `_ngcontent` attributes travel with the elements) and
+   * no CSS custom properties (its colours are literals), so it styles identically on <body>.
+   */
+  ngAfterViewChecked(): void {
+    const el = this.filtersPanelRef?.nativeElement;
+    if (el && el.parentElement !== document.body) {
+      this.filtersPanelHome = el.parentElement;
+      document.body.appendChild(el);
+    }
+  }
+
+  /** Put it back BEFORE *ngIf removes it — Angular asks the recorded parent to drop the child. */
+  private restoreFiltersPanel(): void {
+    const el = this.filtersPanelRef?.nativeElement;
+    if (el && this.filtersPanelHome && el.parentElement === document.body) {
+      this.filtersPanelHome.appendChild(el);
+    }
+    this.filtersPanelHome = null;
   }
 
   private loadLive(): void {
@@ -228,7 +295,13 @@ export class CostDashboardComponent implements OnInit {
       // was before this filter existed whenever the period is untouched.
       fromMonth: this.isPeriodFiltered ? this.periodFrom : null,
       toMonth: this.isPeriodFiltered ? this.periodTo : null,
-    }).subscribe({
+    // Piped through LoaderService so this screen uses the same mechanism as the rest of the
+    // module; the anchored <cm-loader> in the template draws it over the dashboard body rather
+    // than as the shell's overlay card. finalize also unwinds it on error and on unsubscribe.
+    }).pipe(
+      this.loader.track('Loading cost data…'),
+      takeUntil(this.destroy$)
+    ).subscribe({
       next: result => {
         this.live = result;
         this.liveLoading = false;
@@ -485,11 +558,28 @@ export class CostDashboardComponent implements OnInit {
     return this.isSingleCurrency ? this.live!.currencyMix[0] : '';
   }
 
+  /**
+   * Closes any open pop-up when the click lands outside it.
+   *
+   * Each check is guarded by its own `open` flag first, so a click while everything is closed
+   * still does no DOM work. The toggle buttons themselves sit INSIDE the matched wrapper, so
+   * their own click bubbles to here and correctly does not re-close what it just opened.
+   */
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (!this.currencyMenuOpen) return;
     const target = event.target as HTMLElement;
-    if (!target.closest('.currency-multiselect')) this.currencyMenuOpen = false;
+    if (this.currencyMenuOpen && !target.closest('.currency-multiselect')) {
+      this.currencyMenuOpen = false;
+    }
+    if (this.departmentLegendOpen && !target.closest('.dep-controls')) {
+      this.departmentLegendOpen = false;
+    }
+    if (this.categoryLegendOpen && !target.closest('.cat-controls')) {
+      this.categoryLegendOpen = false;
+    }
+    if (this.rechargeLegendOpen && !target.closest('.rch-controls')) {
+      this.rechargeLegendOpen = false;
+    }
   }
 
   // ── DISABLED 2026-08-20: PDF export needs html2canvas + jspdf, neither of which is
@@ -1511,6 +1601,205 @@ export class CostDashboardComponent implements OnInit {
     this.periodTo = 12;
     this.loadLive();
     this.data = this.buildDashboardData();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // MOBILE FILTERS PANEL
+  //
+  // On a phone the nine filter chips do not fit, so they move behind a funnel button that
+  // opens a full-screen panel: pick, then Apply.
+  //
+  // ⚠️ The panel edits DRAFT copies, never the live selections. On desktop every chip calls
+  // loadLive() the instant it changes, which is right there and is left exactly as it was -
+  // but doing that inside the panel would fire up to nine refetches while the user is still
+  // choosing, and would make "Apply" meaningless because the change already happened. Apply
+  // copies the drafts across and refetches ONCE; Back simply drops them.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /** Phone-sized. 480px matches the Forecast screen's card-view switch, so the module has one
+   *  idea of "phone" rather than two. */
+  isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 480 : false;
+
+  @HostListener('window:resize')
+  onViewportResize(): void {
+    this.isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 480 : false;
+    // A panel left open while the window grows back to desktop would sit over the dashboard
+    // with no way to reach its buttons, since they only render on mobile.
+    if (!this.isMobileView && this.filtersPanelOpen) {
+      this.restoreFiltersPanel();
+      this.filtersPanelOpen = false;
+    } else if (this.filtersPanelOpen) {
+      this.panelTopOffset = this.measurePanelTopOffset();
+    }
+  }
+
+  filtersPanelOpen = false;
+
+  /**
+   * Mobile only: the department summary — the "All departments" heading, its description and the
+   * per-department legend cards — starts collapsed behind a toggle. On a phone that block pushed
+   * the chart itself off the first screen. Desktop never reads this; the aside is always shown
+   * there, exactly as before.
+   */
+  departmentPanelOpen = false;
+
+  toggleDepartmentPanel(): void {
+    this.departmentPanelOpen = !this.departmentPanelOpen;
+  }
+
+  /** Mobile only: the chart's colour key (Budget baseline / Actual YTD / …), collapsed by
+   *  default so it does not take five lines above the chart on a phone. */
+  departmentLegendOpen = false;
+
+  toggleDepartmentLegend(): void {
+    this.departmentLegendOpen = !this.departmentLegendOpen;
+  }
+
+  /** Mobile only: same treatment for Spend by Category's colour key. */
+  categoryLegendOpen = false;
+
+  toggleCategoryLegend(): void {
+    this.categoryLegendOpen = !this.categoryLegendOpen;
+  }
+
+  /** Mobile only: and for Internal Recharge's. */
+  rechargeLegendOpen = false;
+
+  toggleRechargeLegend(): void {
+    this.rechargeLegendOpen = !this.rechargeLegendOpen;
+  }
+
+  /**
+   * Where the panel's top edge sits, so the shell's top nav stays visible above it rather than
+   * being covered by a full-screen sheet.
+   *
+   * Measured rather than hard-coded: the nav is the SHELL's, outside this component, and its
+   * height is not ours to assume. Falls back to 0 (full screen) if it is not found, which is
+   * the old behaviour rather than a broken layout.
+   */
+  panelTopOffset = 0;
+
+  private measurePanelTopOffset(): number {
+    // `.navbar-main`, NOT `.navbar`: the shell's off-canvas sidenav is `aside.sidenav.navbar`
+    // and matches first, which measured 524px and pushed the panel off the bottom of the screen.
+    const nav = document.querySelector('nav.navbar-main') as HTMLElement | null;
+    if (!nav) return 0;
+    const bottom = Math.round(nav.getBoundingClientRect().bottom);
+    // Sanity guard: anything taller than a third of the viewport is not the top bar, so fall
+    // back to a full-height panel rather than a sliver.
+    const ceiling = Math.round(window.innerHeight / 3);
+    return bottom > 0 && bottom <= ceiling ? bottom : 0;
+  }
+
+  @ViewChild('dmfPanel') private filtersPanelRef?: ElementRef<HTMLElement>;
+  /** Where the panel lived before it was moved to <body>, so it can be put back. */
+  private filtersPanelHome: HTMLElement | null = null;
+
+  draftFilters: Record<FilterKey, string> = this.getInitialFilters();
+  draftSite = '';
+  draftCategory = '';
+  draftCurrencies: string[] = [];
+
+  /** Seeds the drafts from what is currently applied, so the panel opens showing today's state. */
+  openFiltersPanel(): void {
+    this.draftFilters = { ...this.selectedFilters };
+    this.draftSite = this.selectedSite;
+    this.draftCategory = this.selectedCategory;
+    this.draftCurrencies = [...this.selectedCurrencies];
+    this.panelTopOffset = this.measurePanelTopOffset();
+    this.filtersPanelOpen = true;
+  }
+
+  /** Back — discards the drafts by simply never reading them again. */
+  closeFiltersPanel(): void {
+    this.restoreFiltersPanel();
+    this.filtersPanelOpen = false;
+    this.currencyMenuOpen = false;
+  }
+
+  /** Apply — commits every draft at once, then a single refetch. */
+  applyFiltersPanel(): void {
+    this.selectedFilters = { ...this.draftFilters };
+    this.selectedSite = this.draftSite;
+    this.selectedCategory = this.draftCategory;
+    this.selectedCurrencies = [...this.draftCurrencies];
+    this.restoreFiltersPanel();
+    this.filtersPanelOpen = false;
+    this.currencyMenuOpen = false;
+    this.loadLive();
+  }
+
+  /**
+   * Clear all, inside the panel — resets the DRAFTS only, so it is staged like every other
+   * change and still needs Apply. Deliberately not clearDashboardFilters(), which commits and
+   * refetches immediately: that would clear the dashboard behind an open panel and leave Back
+   * with nothing to undo.
+   *
+   * Mirrors what clearDashboardFilters() resets, minus the period (the panel does not own it).
+   */
+  clearDraftFilters(): void {
+    this.draftFilters = { ...this.draftFilters, department: '', vendor: '', scenario: '' };
+    this.draftSite = '';
+    this.draftCategory = '';
+    this.draftCurrencies = [];
+  }
+
+  onDraftFilterChange(key: FilterKey, value: string): void {
+    this.draftFilters = { ...this.draftFilters, [key]: value };
+  }
+
+  // Draft equivalents of the live currency helpers. Same shapes, so the panel's markup is the
+  // same as the desktop chip's apart from which state it reads.
+  isDraftCurrencySelected(code: string): boolean {
+    return this.draftCurrencies.includes(code);
+  }
+
+  toggleDraftCurrency(code: string): void {
+    this.draftCurrencies = this.isDraftCurrencySelected(code)
+      ? this.draftCurrencies.filter(c => c !== code)
+      : [...this.draftCurrencies, code];
+  }
+
+  clearDraftCurrencies(): void {
+    this.draftCurrencies = [];
+  }
+
+  get draftCurrencyLabel(): string {
+    if (this.draftCurrencies.length === 0) return 'All currencies';
+    if (this.draftCurrencies.length === 1) return this.draftCurrencies[0];
+    return `${this.draftCurrencies.length} currencies`;
+  }
+
+  /**
+   * What is currently applied, for the summary under the Filters button.
+   *
+   * Mirrors `hasActiveFilters` exactly: Region / Country / Entity are placeholders with no
+   * backing dimension, so listing one as applied would claim a narrowing that never happened.
+   * They are still selectable in the panel, because they are still on screen on desktop.
+   */
+  get appliedFilterChips(): string[] {
+    const chips: string[] = [];
+    const labelFor = (key: FilterKey): string => {
+      const group = this.filterGroups.find(g => g.key === key);
+      const value = this.selectedFilters[key];
+      return group?.options.find(o => o.value === value)?.label ?? value;
+    };
+    (['department', 'vendor', 'scenario'] as FilterKey[]).forEach(k => {
+      if (this.selectedFilters[k]) chips.push(labelFor(k));
+    });
+    if (this.selectedSite) {
+      chips.push(this.siteOptions.find(o => o.value === this.selectedSite)?.label ?? this.selectedSite);
+    }
+    if (this.selectedCategory) {
+      chips.push(this.categoryOptions.find(o => o.value === this.selectedCategory)?.label ?? this.selectedCategory);
+    }
+    if (this.selectedCurrencies.length) chips.push(this.currencyLabel);
+    if (this.isPeriodFiltered) chips.push(`Months ${this.periodFrom}-${this.periodTo}`);
+    return chips;
+  }
+
+  get appliedFilterCount(): number {
+    return this.appliedFilterChips.length;
   }
 
   // ── Year navigation ────────────────────────────────────────────────────────

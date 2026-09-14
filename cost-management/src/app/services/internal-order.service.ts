@@ -21,18 +21,25 @@ export class InternalOrderService {
     { value: 'IO6', label: 'IO6 - Security Tooling', group: 'Infrastructure' },
   ];
 
+  /**
+   * SelectGroup is { group, items } — NOT { label, options }. It was built the wrong way round
+   * here and cast with `as unknown as SelectGroup`, so it compiled cleanly and the Internal Order
+   * type-ahead returned six results that rendered as an empty dropdown, which also left the
+   * Related Data panel's internal-order auto-fill with nothing to fill from. Build the real shape
+   * and let the compiler check it.
+   */
   search(query: string): Observable<SelectGroup[]> {
     const q = (query || '').toLowerCase();
     const hits = this.orders.filter(o => o.label.toLowerCase().indexOf(q) >= 0);
 
     const groups: SelectGroup[] = [];
     hits.forEach(o => {
-      let g = groups.filter(x => (x as any).label === o.group)[0];
+      let g = groups.filter(x => x.group === o.group)[0];
       if (!g) {
-        g = { label: o.group, options: [] } as unknown as SelectGroup;
+        g = { group: o.group, items: [] };
         groups.push(g);
       }
-      (g as any).options.push({ value: o.value, label: o.label });
+      g.items.push({ value: o.value, label: o.label });
     });
 
     return of(groups).pipe(delay(140));

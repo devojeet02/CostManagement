@@ -17,7 +17,9 @@ Three things that have each broken this project once, all of which built cleanly
    production-only checks run on the production configuration, which only `ng build` uses.
    Run `npx ng build` before pushing → see "Vercel Deployment".
 2. **A green build proves nothing about what renders.** Mock rows are cast, so a wrong field
-   name compiles perfectly and paints a blank screen. Open the page → see "Showcase Build".
+   name compiles perfectly and paints a blank screen — and a wrong field *value* (a code where
+   the options hold names) empties a dropdown just as silently. Open the page → see "Showcase
+   Build".
 3. **A wrong route silently lands on the Dashboard** rather than 404-ing, so broken links look
    like working buttons. Click them → see "Routes".
 
@@ -121,6 +123,18 @@ was built from it and follows the same anatomy:
   to `.*-thead th` so column headers stay pinned while the body scrolls. The page-level
   scroll-area keeps working — both scrollbars coexist. Headcount uses
   `max-height: calc(100vh - 340px); min-height: 240px;`.
+- **Server-side pagination** (`listPaged()` on both mock services): the grid asks for ONE page
+  and the service returns `{ items, total, page, pageSize, totals }`. Two rules make this work
+  on an *editable* grid, and both are load-bearing:
+  1. **Filtering happens in the service, over the whole set** — never over the rows that
+     happen to be loaded, which would silently ignore every other page. The mock filters are
+     null-lenient (`!filter || !row.value || row.value === filter`), matching the production
+     repo query: a half-coded row is kept rather than vanishing the moment a filter is used.
+  2. **Totals are for the whole filtered set**, not the page, so the footer never disagrees
+     with the figures above it.
+  Edits survive page changes because the component keeps a `loadedRows` cache keyed by id, and
+  the save payload covers every page visited — which is why `bulkSave` must honour
+  `pruneAbsent: false` and never delete rows merely absent from the payload.
 - Constants/types/mock-data/API-endpoint stubs live in `constants/<screen>.constants.ts`
   (e.g. `forecast.constants.ts`, `headcount.constants.ts`), ready to swap mock arrays for
   HTTP calls.
@@ -131,7 +145,26 @@ Angular scopes styles per component, but distinct prefixes keep the screens inde
 greppable and prevent confusion when copying markup between them.
 
 ### Headcount specifics
-- Left columns: Region, Country, Site, Category (employee type), Employee, Function for TBA.
+- Left columns: Region, Country, Site, **Team**, **Employment Type**, Employee, Function for TBA.
+  The column is labelled *Employment Type*, not Category: it holds Full Time / Part Time / VIE /
+  TBA, **not** the spend categories behind `/master/categories`. Binding it to those would
+  mislabel the column *and* break the screen — Function for TBA is enabled only while the value
+  is exactly `'TBA'`, which no spend category will ever equal. It stays on `HC_EMPLOYEE_TYPES`.
+- **Employee is a typeahead, not a `<select>`** — a `cm-hierarchy-select` with `allowCustom`,
+  over the active users from `UserService` (User & Access Management). `displayName` is nullable
+  in production and the option label falls back to the email, so two seeded users deliberately
+  have none to keep that path exercised.
+- **Master data is the source of truth** for Site and Team, which persist the lookup **code**
+  (see "codes vs names"). Region, Country, Employee and employment type are **not** bound on
+  purpose: there is no master table for any of them — the reasoning is recorded in
+  `headcount.constants.ts` so it does not read as laziness.
+- **Empty / loading / error states** (`.hc-state-block`): an empty response renders an empty
+  grid with the Add Row button, never invented rows. Substituting mock rows for a valid empty
+  response is what made the screen look broken while the wiring was correct.
+- `HC_SCENARIO_YEARS` is the fixed list `[2027, 2026, 2025, 2024]`. A year present in the list
+  but absent from a row is a crash, not a blank — the template indexes
+  `sub.valuesByYear[yearFor(sub)][mi]` with no null-checking — so `ensureYearCoverage()` fills
+  any gap with twelve zeros after a load, after the years arrive, and after `addRow()`.
 - **Filter bar = 3 chips on the left** (Site / OneStream Code, Team, Scenario Year) plus the
   scenario **toggle pinned to the right** (`.hc-filter-row` is space-between; `.hc-toggles`
   uses `margin-left: auto`). There is **no year-nav** in the toolbar — the year is driven
@@ -217,6 +250,18 @@ greppable and prevent confusion when copying markup between them.
   `forecast-row-order` in `saveChanges()`; `applySavedOrder()` runs in the constructor
   and at the end of `cancelChanges()`. The data tables (`.left-table` / `.right-table`)
   and their wraps are byte-for-byte unchanged.
+- **Show Source Currency toggle** adds the two blue contract-currency lines to *every* row,
+  not just the totals block. A row that is not flagged **Different Currency** has no contract
+  figures of its own, so the grid derives them as `local x exchangeRate` (rate `1` when none is
+  recorded) — and the mock's `buildTotals()` mirrors that derivation exactly. Diverge and the
+  footer reads 0 under a column of visible numbers. Seeded coverage: row 3 carries its own EUR
+  contract lines at rate 1.17; the rest derive at 1.
+- **Forecast after Recharge** — a green, **non-editable** line spliced in directly above Actual,
+  and only on rows where the Recharge checkbox is ticked. It reads the `recharge-actual`
+  sub-row, falling back to `0` for every month with nothing recorded (row 8 in the seed is
+  exactly that case: ticked, nothing recorded, a flat 0). It has its own tooltip message rather
+  than inheriting Actual's. **TODO, pending confirmation:** it should become forecast *minus*
+  recharge; today it shows the recharge amount itself.
 - **Drop direction rule (shared with Headcount)**: `onRowDrop` uses `splice(toIdx, 0,
   moved)` (no `-1` adjustment). This makes a downward drag drop AFTER the target row and
   an upward drag drop BEFORE — a previous version with `fromIdx < toIdx ? toIdx - 1 :
@@ -275,6 +320,29 @@ into one row and totals silently under-report.
 List, entry and edit, with duplicate detection (invoice number + supplier), the related-data
 panel, and the recharge drill. PDF viewing is the one unavailable feature — see "Showcase
 Build".
+
+**Invoice Change History** loads a page at a time (`historyPaged()`) and appends as you reach
+the bottom, showing "Loading more…" with a spinner rather than a button.
+
+### Related Data panel (`features/related-data-panel/`)
+Shared by Invoice Upload and Edit — `InvoiceEditComponent extends InvoiceUploadComponent`, so
+**anything changed here lands on both screens at once**. It sits OUTSIDE the form/preview
+columns and spans the full page width, so hiding the preview column does not move it.
+
+- **Parameters** — a collapsible block restating what the panel is reporting on: Site, Team and
+  Supplier (invoice-level), then Account, Internal Order, Spend Type, Spend Layer, Category,
+  System and Item Description per line. Added as a *sibling* of the header and the state blocks;
+  no existing div was modified.
+- **Internal-order auto-fill** — nothing new is stored for this: **a forecast line IS the
+  combination**. The panel indexes `ForecastService.list(year)` by internal order, and a cell
+  shows the line's own value when it has one, otherwise the coding that internal order's
+  forecast line was saved with — *dimmed and italic* (`.rdp-pp-from-io`) behind a legend,
+  because it is emphatically not data on this invoice. A typed value always wins, and
+  **nothing is written back to the form**. Lines matching the invoice's site+team are folded in
+  first, per field rather than per row.
+- The forecast fetch is a **separate stream from `reload$`** — it must never delay, cancel or
+  fail the figures the panel exists to show — and is guarded on the year, not the keystroke.
+- A **year selector** (2026/2025) with its own empty state for a year that has no figures.
 
 ---
 
@@ -383,10 +451,36 @@ renders blank**. This bit three times during the port:
 | Invoice View | `invoiceNumber` / `invoiceAmount` | `invNumber` / `invAmount` | a column of dashes |
 | Invoice Edit | `lines` | `lineItems` | blank form, 0.00 amount |
 | Audit Log | `entityName` / `changedBy` / … | `timestamp` / `user` / `actionType` / `module` / `recordAffected` / `oldValue` / `newValue` | 8 rows of empty cells |
+| Forecast | `itemDescription` | `description` | empty Item Desc column — **and** the Related Data panel had no description to inherit |
+| Internal-order type-ahead | `{ label, options }` | `SelectGroup` = `{ group, items }` | six matches returned, dropdown rendered empty, so the panel's internal-order auto-fill had nothing to fill from |
 
 **Rule:** a green build proves nothing here. After touching a mock, *open the page*. If a
 field shows as `-`, `0.00`, or blank, check the name against the interface before anything
 else.
+
+### ⚠️ …and so are field VALUES: codes vs names
+
+A `<select>` whose model matches no option value renders **blank**, exactly like missing data.
+That is a second, quieter version of the same bug, and it hit every grid at some point:
+
+| Field | Stored as | Where the options come from |
+|---|---|---|
+| Site, Team, Supplier, Account, Currency | master-data **code** (`london-hq`, `gl-6100`) | `MasterDataService` lookups |
+| Spend Type, Spend Layer, Category, System | master-data **name** (`Subscription`, `IT Subscriptions`) | the same lookups, mapped by name |
+
+That split is production's, not the showcase's — do not "tidy" it. Headcount's mock rows once
+carried `'Montego-UKCP'` / `'Infrastructure'` and both dropdowns looked unbound when the wiring
+was correct all along.
+
+Two related traps in the same family:
+
+- **A missing field can empty a whole lookup.** `MasterDataService` sites need `currencyId`:
+  Invoice Upload offers only sites that have one (a site with no currency cannot price an
+  invoice), so seeding sites without it left the Site type-ahead with zero options and no error
+  anywhere. Dublin is deliberately left without one — it is recharge-target-only, which is what
+  keeps the "All Sites" recharge list distinguishable from the processing-site list.
+- **A missing flag hides a whole feature.** No mock row had `rechargeRequired`, so the green
+  "Forecast after Recharge" line could never appear on any row. See "Forecast specifics".
 
 ### Services and what they stand in for
 
@@ -400,6 +494,8 @@ else.
 | `invoice` | Invoice View / Upload / Edit, duplicates, related data |
 | `recharge` | recharge instructions drill |
 | `internal-order` | the IO type-ahead |
+| `headcount` | the Headcount grid — paged list, bulk save, year-aware totals |
+| `user` | the Employee lookup on Headcount (stands in for User & Access Management) |
 | `master-data` | sites, teams, accounts, suppliers, currencies |
 | `period` | Period Management |
 | `audit-log` | Audit Log |
@@ -525,27 +621,22 @@ Set in `angular.json` → `projects.cost-management.architect.build.configuratio
 
 | Budget | Warning | Error |
 |---|---|---|
-| `anyComponentStyle` | 25 kB | 40 kB |
-| `initial` | 1 MB | 2 MB |
+| `anyComponentStyle` | 40 kB | 60 kB |
+| `initial` | 1.5 MB | 2.5 MB |
 
-Raised from `10 kB / 25 kB` and `500 kB / 1 MB`. **Budgets are a lint guard, not a runtime
+Raised twice: from `10 kB / 25 kB` and `500 kB / 1 MB`, then again when the production screens
+landed — `forecast.component.scss` alone compiles to 35.26 kB against what was a 40 kB error
+ceiling, and four component stylesheets sat above the 25 kB warning. **Budgets are a lint guard, not a runtime
 limit** — nothing about a 27 kB component stylesheet breaks the app, and the initial bundle
-transfers at ~194 kB gzipped. Trimming CSS out of signed-off screens to satisfy an arbitrary
+transfers at ~212 kB gzipped. Trimming CSS out of signed-off screens to satisfy an arbitrary
 ceiling risks visual regressions for no real benefit.
 
-Compiled sizes at the time of the raise — note how little headroom the old ceiling left:
+The screens grow by CSS faster than by anything else — Forecast went 24.29 kB → 35.26 kB
+compiled as the source-currency rows, the after-recharge line and the pager landed. Each raise
+has been a response to a real failure, not pre-emptive headroom, so **do not lower these
+budgets back**; the warning thresholds keep the signal without failing the build.
 
-| Component style | Compiled | vs the old 25 kB error |
-|---|---|---|
-| invoice-upload | 27.67 kB | over — the reported failure |
-| **forecast** | **24.29 kB** | **under by only 0.71 kB** |
-| dashboard | 19.00 kB | ok |
-| headcount | 16.52 kB | ok |
-| invoice-view | 12.48 kB | ok |
-
-Forecast was 0.71 kB from the same failure. Restoring the old ceiling would break the build on
-the next CSS tweak to that screen — so **do not lower these budgets back**. Warnings still
-fire at the old-ish thresholds, so the signal is kept without failing the build.
+Current initial total: **1.18 MB raw / 211.62 kB transfer**.
 
 ### If the bundle keeps growing
 
@@ -725,6 +816,36 @@ color: var(--text-primary);
 
 ---
 
+## Mobile / Responsive
+
+Dashboard, Forecast and Headcount each carry a full small-screen implementation. It is **not**
+CSS-only: two flags on the component decide which markup renders at all.
+
+```ts
+isMobileView = window.innerWidth <= 768;   // compact toolbar, condensed grid
+isCardView   = window.innerWidth <= 480;   // the table is replaced by cards
+@HostListener('window:resize') ...          // both recomputed, editors reconciled
+```
+
+- At **≤480px** the two-table grid is replaced by one card per record — a facts grid, a Comments
+  button and the twelve month inputs, with a fixed Cancel/Save footer. `.hcm-facts` closes a
+  dangling last item with `> div:last-child:nth-child(odd) { grid-column: 1 / -1 }`.
+- Leaving card view **reconciles the open row editor** (`applyRowEditor()`) rather than
+  discarding it, so a resize mid-edit does not lose typing.
+- `scrollIntoView` uses **`block: 'start'` in card view** and `'nearest'` otherwise. `'nearest'`
+  aligns the *bottom* of an element taller than the scrollport, so a newly added card scrolled
+  to its far end and looked like the scroll had failed.
+- Breakpoints in use: `1600px` (split panes), `768px` (mobile), `480px` / `420px` (cards).
+
+**Verifying this is awkward** — the browser-automation harness renders at a fixed logical width,
+so resizing the window does not reflow the page. Drive the flags directly instead:
+`ng.getComponent(document.querySelector('cm-headcount'))`, set `isCardView = true`, then
+`ng.applyChanges(c)`. The same harness cannot confirm IntersectionObserver, CSS transitions or
+programmatic scrolling either — its tab is hidden with rAF suspended, so verify those by driving
+the logic and counting the calls, not by watching the page.
+
+---
+
 ## Known Gaps in the Showcase
 
 Deliberate, and worth knowing before demoing:
@@ -738,6 +859,11 @@ Deliberate, and worth knowing before demoing:
 - **No authentication.** Production sits behind the Performance Hub shell; there is no
   sign-in here and `lastUpdatedBy` values are seeded names.
 - **Figures are illustrative.** Plausible, internally consistent, and not Crown's real spend.
+- **Headcount row removal is local only.** `removeRow()` drops the row from the grid; there is
+  no delete call behind it (the production repo carries the same TODO).
+- **Scenario Management lists site and team CODES**, not names. That matches production —
+  `this.sites = ['All Sites', ...rows.map(r => r.code ?? r.name)]` — so it is left alone here
+  rather than fixed only in the showcase.
 
 ---
 

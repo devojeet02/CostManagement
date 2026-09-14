@@ -50,6 +50,30 @@
   to { transform: rotate(360deg); }
 }
 
+/* ─── Anchored (scoped) ───────────────────────────────────────────────────
+   Covers only the container it is placed in, so the screen's own header and
+   filters stay visible and usable-looking while its content area loads.
+
+   position: absolute means the HOST CONTAINER MUST BE POSITIONED (relative);
+   without that this escapes to the nearest positioned ancestor, or the
+   viewport, and silently becomes a full-page cover again.
+
+   No card and a lighter scrim than the overlay: this is a region fetching, not
+   a blocking modal wait. z-index stays low - it only has to clear its own
+   container's content, not the shell's dialogs. */
+.cm-loader-scoped {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(1.5px);
+  cursor: progress;
+  animation: cm-loader-fade 0.12s ease-out;
+}
+
 /* ─── Global overlay ──────────────────────────────────────────────────────
    Fixed to the viewport so it covers the shell regardless of which screen is
    routed in.

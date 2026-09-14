@@ -135,10 +135,21 @@ select option {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* The anchored <cm-loader> covers this wrapper, so it must be the positioned ancestor -
+     otherwise it escapes to the viewport and becomes a full-page cover again. */
+  position: relative;
 }
 
+/* display:none, NOT *ngIf: setupScrollSync() binds scroll listeners to the two pane elements
+   once in ngAfterViewInit. Destroying and recreating them on every filter change would drop
+   those listeners and silently break the vertical sync between the panes. */
+.table-outer-wrapper.is-loading .table-scroll-container { display: none; }
+
 .table-scroll-container {
-  flex: 1;
+  /* flex: 0 1 auto (not 1) so a short grid retracts to its own height instead of leaving a tall
+     empty card below the last row. It still shrinks to the space available when rows are many,
+     and the panes below take over the scrolling exactly as before. */
+  flex: 0 1 auto;
   overflow: hidden;
   min-height: 0;
   border: 1px solid var(--border-color);
@@ -157,11 +168,16 @@ select option {
 }
 
 .metadata-pane {
-  flex: 0 0 700px;
-  width: 700px;
+  /* 930px = the col-1..col-8 widths below (927px) plus the divider. flex-grow 0, so spare width
+     goes to the scenarios side rather than inflating these columns. */
+  flex: 0 1 930px;
+  /* Free to shrink: the columns below carry no min-width, so the table shrinks WITH the pane and
+     its right edge - which is where the teal divider lives - is never clipped away by the
+     overflow-x: hidden below. Columns compress and headers may ellipsise once the viewport is
+     genuinely too narrow; that is the intended trade, the divider stays visible either way. */
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  border-right: 2px solid var(--border-active);
   background: var(--bg-card);
   scrollbar-width: none;
 
@@ -169,7 +185,9 @@ select option {
 }
 
 .scenarios-pane {
-  flex: 1 1 auto;
+  /* grow 2 vs the metadata pane's 1: the scenario figures are the point of the screen, so spare
+     width favours them and the metadata side stays the narrower of the two. */
+  flex: 2 1 auto;
   min-width: 0;
   overflow: auto;
   background: var(--bg-card);
@@ -184,8 +202,14 @@ select option {
   table-layout: fixed;
 }
 
-.metadata-table { width: 700px; min-width: 700px; }
-.scenarios-table { width: max-content; }
+/* The teal divider sits on the TABLE, not the pane: the pane is stretched to the full container
+   height, so a border there hangs below the last row when the grid is short. box-sizing is
+   border-box globally, so the 2px stays inside the 700px and does not shift the split. */
+.metadata-table { width: 100%; border-right: 2px solid var(--border-active); }
+
+/* min-width (not width: max-content) so the columns spread across a wide screen instead of
+   leaving dead space, while still overflowing into a horizontal scroll when scenarios are many. */
+.scenarios-table { width: max-content; min-width: 100%; }
 
 .spacer-row, .spacer-row td {
   height: auto !important;
@@ -231,14 +255,28 @@ select option {
   text-align: center;
 }
 
-.col-1 { width: 140px; min-width: 140px; text-align: left !important; padding-left: 14px !important; }
-.col-2 { width: 80px; min-width: 80px; }
-.col-3 { width: 90px; min-width: 90px; }
-.col-4 { width: 130px; min-width: 130px; }
-.col-5 { width: 100px; min-width: 100px; }
-.col-6 { width: 90px; min-width: 90px; }
-.col-7 { width: 100px; min-width: 100px; }
-.col-8 { width: 170px; min-width: 170px; }
+.col-1 { width: 15.102%; text-align: left !important; padding-left: 14px !important; }
+.col-2 { width: 9.924%; }
+.col-3 { width: 10.248%; }
+.col-4 { width: 12.082%; }
+.col-5 { width: 9.493%; }
+.col-6 { width: 9.709%; }
+.col-7 { width: 11.866%; }
+/* auto, not a fixed px: a fixed table layout hands surplus width out EQUALLY, which gave Spend
+   Type the same 141px as Item Description and left the descriptions ellipsised. With col-1..7
+   pinned, the one free-text column absorbs all the spare room instead — and is the first to give
+   it back when the viewport narrows. */
+/* Widths are PERCENTAGES, not px. table-layout:fixed treats a px colgroup width as a floor, so
+   the table stayed 927px wide however narrow its pane got - it just overflowed and had its right
+   edge, teal divider and all, cut off by overflow-x: hidden. Percentages scale with the pane, so
+   the divider is always on screen and columns compress instead. The px each one works out to at
+   full width is in the comment beside it. */
+
+/* 21.6% = 200px at full width: enough that the "Item Description" HEADER never ellipsises there (the rule
+   above puts text-overflow on every th and td), capped so this column cannot eat width the
+   scenario figures can use. Row values longer than it still ellipsise, which is intended - each
+   one carries its full text in a title tooltip. */
+.col-8 { width: 21.575%; }
 
 /* ── Scenario / variance headers ─────────────────────────────── */
 .scenario-header-cell {
@@ -310,7 +348,10 @@ select option {
 .child-row { background: var(--bg-card); height: 38px; }
 .child-row-indent { border-right: 1px solid var(--border-color); }
 
-.truncate-text { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* No max-width: the cell follows its column, so widening the pane actually reveals the text.
+   nowrap + ellipsis stay as a safety net for genuinely long values — wrapping would change row
+   height and break the row-for-row alignment between the two panes. */
+.truncate-text { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .number-cell {
   text-align: right !important;
@@ -447,6 +488,38 @@ select option {
   &:focus { border-color: var(--border-active); }
 }
 
+/* The Scenario Type combo is the shared cm-hierarchy-select, whose own styling is tuned for the
+   Forecast filter bar - transparent, square-cornered, 35px tall. Repaint it as one of this
+   modal's fields so it sits beside the other three. ::ng-deep because the elements it styles
+   belong to the child component's template. */
+.field-select {
+  display: block;
+  width: 100%;
+
+  ::ng-deep .hs-input-wrap {
+    box-sizing: border-box;
+    height: 41px;                 /* = .field-input: 9px padding + 13px text + 1.5px borders */
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border-color);
+    background: var(--bg-input);
+
+    &.open { border-color: var(--border-active); }
+  }
+
+  /* MUST stay nested under .hs-input-wrap: hierarchy-select emits its own
+     `.hs-input-wrap[_ngcontent] .hs-input[_ngcontent]` at (0,4,0), and a flatter override loses
+     to it - the same trap documented in forecast.component.scss. */
+  ::ng-deep .hs-input-wrap .hs-input {
+    height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+}
+
 .field-hint {
   font-size: 10.5px;
   color: var(--text-subtle);
@@ -496,4 +569,8 @@ select option {
   }
 
   .col-2, .col-3, .col-4, .col-5, .col-6, .col-7, .col-8 { display: none; }
+
+  /* Account is the only column left, so it takes the whole table rather than the 15.1% it
+     holds at full width. */
+  .col-1 { width: 100% !important; }
 }

@@ -11,6 +11,13 @@ export type SubRowType =
   | 'contract'
   | 'contract-actual'
   | 'local'
+  /**
+   * Display-only line shown above Actual on rows flagged for recharge.
+   *
+   * Never sent by the backend and never stored on `ForecastRow.subRows` — the grid synthesises
+   * it, so it cannot reach a save payload. See ForecastComponent.visibleSubRows().
+   */
+  | 'forecast-after-recharge'
   | 'actual'
   | 'other-scenario'
   | 'recharge'
@@ -71,6 +78,13 @@ export interface ForecastRow {
   description: string;       // "Item Desc" column
   currency: string;         // site / local currency code
   contractCurrency: string; // currency of the underlying contract
+  /**
+   * Rate from the local currency to the contract currency, as held on the line.
+   *
+   * Read-only — the backend never writes it back from this payload. Absent or zero means no rate
+   * has been recorded, and the grid falls back to 1 so a contract line can still be shown.
+   */
+  exchangeRate?: number | null;
   differentCurrency: boolean;
   rechargeRequired: boolean;
   /**

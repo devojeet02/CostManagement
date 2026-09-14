@@ -400,3 +400,301 @@
   color: var(--text-muted);
   border-top: 1px solid var(--border-subtle);
 }
+
+/* ─── Parameters section (collapsible) ─────────────────────────────────────
+   Restates the dimensions the panel is reporting on. A sibling of the header and the state
+   blocks — it adds no rules to any of them. Colours come from the shell's custom properties
+   like the rest of this file, so both themes work. */
+/* Its own accent-tinted palette, so the section reads as a distinct object on a page that is
+   otherwise flat form cards.
+
+   Single set of values, not a light/dark pair: `.cm-root` carries a STATIC `data-theme="dark"`
+   (see the shell's own comment), so this module is dark-only and a light variant would be dead
+   code nobody could ever see. Kept as local variables anyway so the tint is defined once and
+   the four rules below cannot drift apart.
+
+   Alpha washes over the panel's own background rather than color-mix(): the build targets
+   safari15 and firefox102, neither of which supports color-mix, and it would fail silently to
+   no background at all. */
+:host {
+  --rdp-params-bg: rgba(56, 189, 248, 0.05);
+  --rdp-params-border: rgba(56, 189, 248, 0.22);
+  --rdp-params-rail: #38bdf8;
+  --rdp-params-head: rgba(56, 189, 248, 0.09);
+}
+
+.rdp-params {
+  margin-bottom: 12px;
+  border: 1px solid var(--rdp-params-border);
+  /* The accent rail is what actually sets it apart at a glance — the tint alone is too quiet. */
+  border-left: 3px solid var(--rdp-params-rail);
+  border-radius: 8px;
+  background: var(--rdp-params-bg);
+  overflow: hidden;
+  transition: border-color var(--transition-speed), background var(--transition-speed);
+}
+
+.rdp-params-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--rdp-params-head);
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-heading);
+  transition: background var(--transition-speed), color var(--transition-speed);
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.rdp-params-chevron {
+  flex: none;
+  color: var(--rdp-params-rail);
+  transition: transform 0.18s ease, color var(--transition-speed);
+}
+
+/* Rotate on the wrapper's state class, so the chevron follows the body it controls. */
+.rdp-params--open .rdp-params-chevron {
+  transform: rotate(90deg);
+}
+
+.rdp-params-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rdp-params-note {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.rdp-params-body {
+  /* Top padding matters here: the toggle bar carries its own tinted background, so without a
+     gap the Site/Team/Supplier labels sit flush against its edge and read as part of it. */
+  padding: 12px;
+}
+
+/* Invoice-level trio. Wraps rather than scrolls — three short values always fit. */
+.rdp-params-invoice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0 0 10px;
+
+  > div {
+    min-width: 0;
+  }
+
+  dt {
+    margin: 0 0 1px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-label);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+}
+
+/* Its own scroller: eight columns and a free-text description must never make the panel
+   itself scroll sideways. Mirrors .rdp-table-wrap above. */
+.rdp-params-table-wrap {
+  overflow-x: auto;
+}
+
+.rdp-params-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--rdp-params-border);
+    transition: color var(--transition-speed), border-color var(--transition-speed);
+  }
+
+  /* Every cell stays on ONE line. Without this the Account label — which is the code AND the
+     name, e.g. "gl-6100 – GL 6100 - Software Licences" — wraps to four lines and drags the
+     whole row's height with it, so a two-line invoice fills the panel. The wrapper scrolls
+     instead, which is what it is there for. */
+  td {
+    padding: 7px 8px;
+    text-align: left;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+    transition: color var(--transition-speed), border-color var(--transition-speed);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .rdp-pp-line {
+    width: 44px;
+    color: var(--text-muted);
+  }
+
+  /* The two columns that can run long are capped and ellipsised, with the full text on a
+     title attribute, so neither can push the remaining columns off the scroller. */
+  .rdp-pp-account {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rdp-pp-desc {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.rdp-params-empty {
+  text-align: center !important;
+  color: var(--text-subtle);
+  font-style: italic;
+  padding: 12px 8px !important;
+}
+
+/* A parameter value standing in from the internal order's forecast line rather than typed on
+   this invoice. Dimmed and italic so it can never be mistaken for entered data; the legend
+   below the table explains it whenever any cell is in this state. */
+.rdp-pp-from-io {
+  color: var(--text-subtle);
+  font-style: italic;
+}
+
+/* The internal order itself is what drives those stand-ins, so it carries a little weight. */
+.rdp-params-table .rdp-pp-io {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rdp-params-legend {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+
+  .rdp-pp-from-io {
+    font-weight: 600;
+  }
+}
+
+/* ─── Scrollbars ───────────────────────────────────────────────────────────
+   The month grid and the parameters table both scroll horizontally, and the platform default
+   is a chunky opaque bar that dominates a panel this compact. One rule for every scroller in
+   the component: 6px, transparent track, translucent thumb that firms up on hover — matching
+   the Forecast and Headcount grids so the module has one scrollbar everywhere.
+
+   Webkit pseudo-elements ONLY, matching those screens. `scrollbar-width: thin` was tried and
+   removed: Chrome has supported it since 121 and, per spec, any non-`auto` value makes the
+   browser IGNORE ::-webkit-scrollbar entirely — so it silently replaced the 6px bar with the
+   native "thin" one, measured at 12px. Firefox keeps its default here, which is the same
+   trade-off the Forecast and Headcount grids already make. */
+.rdp-table-wrap,
+.rdp-params-table-wrap,
+.rdp-popover {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--text-subtle);
+  }
+
+  /* Chrome draws a filled square where the two bars meet; transparent keeps the corner clean. */
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* ─── Year chip as a picker ────────────────────────────────────────────────
+   The year chip becomes selectable so the panel can be pointed at an earlier year. It has to
+   keep looking like the chip beside it, so the native <select> is stripped bare and the label
+   supplies the pill; only the caret marks it as interactive. */
+.rdp-chip--pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 5px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-secondary);
+  }
+}
+
+.rdp-year-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  /* Explicit, not `inherit`: a native <select> does not reliably take its parent's colour, and
+     the chip is meant to stay accent-blue exactly as it was before it became selectable. */
+  color: var(--accent-color);
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+  }
+
+  /* The dropdown list itself is painted by the OS, which ignores the transparent background
+     above — without this the options render as dark-on-dark. */
+  option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+}
+
+.rdp-chip-caret {
+  flex: none;
+  opacity: 0.75;
+}
+
+/* Looking at a year other than the invoice's own. Filled rather than outlined, because this is
+   a state the user needs to notice — the figures below are no longer about this invoice's year. */
+.rdp-chip--shifted {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}

@@ -19,6 +19,17 @@ $green:        #14d59a;
 $red:          #ff6477;
 $amber:        #ffcf3d;
 
+/* The shell's .cm-content is a flex column and expects the routed screen's :host to be a flex
+   child (see its comment). This screen never declared one, so the .budget-planner rule below -
+   flex: 1, min-height: 0, overflow-y: auto, all written for a flex child - had no flex parent
+   and the element collapsed to its content height. */
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .budget-planner {
   flex: 1;
   min-height: 0;
@@ -29,6 +40,8 @@ $amber:        #ffcf3d;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* Positioned ancestor for the anchored <cm-loader>, which covers this body only. */
+  position: relative;
 
   /* ⚠️ This is what makes the dropdowns dark, not the `option` rules.
      A native <select>'s popup list is painted by the BROWSER, not by page CSS — on Windows

@@ -1,7 +1,9 @@
-import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { forkJoin } from 'rxjs';
-import { SnackbarService } from '../../features/snackbar/snackbar.service';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Subject, forkJoin } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { SelectGroup } from '../../features/hierarchy-select/hierarchy-select.component';
 import { LoaderService } from '../../features/loader/loader.service';
+import { SnackbarService } from '../../features/snackbar/snackbar.service';
 import { MasterDataService, LookupItemDto } from '../../services/master-data.service';
 import { CostCenterDashboardService, CostCenterRowDto, ScenarioYearColumn } from '../../services/cost-center-dashboard.service';
 import { ForecastService } from '../../services/forecast.service';
@@ -47,7 +49,16 @@ export interface CostRow {
   templateUrl: './scenario-management.component.html',
   styleUrls: ['./scenario-management.component.scss']
 })
-export class ScenarioManagementComponent implements OnInit, AfterViewInit {
+export class ScenarioManagementComponent implements OnInit, AfterViewInit, OnDestroy {
+
+  /**
+   * Cancels in-flight requests when the screen is torn down.
+   *
+   * Without it a fetch started here outlives the screen: navigate away mid-load and the wait it
+   * registered with LoaderService stays open, so the NEXT screen shows a spinner for a request
+   * that is no longer anyone's. Unsubscribing also fires track()'s finalize, which releases it.
+   */
+  private readonly destroy$ = new Subject<void>();
 
   @ViewChild('metadataPane') metadataPaneRef!: ElementRef<HTMLElement>;
   @ViewChild('scenariosPane') scenariosPaneRef!: ElementRef<HTMLElement>;
@@ -78,11 +89,25 @@ export class ScenarioManagementComponent implements OnInit, AfterViewInit {
   // ── Prepare-a-scenario modal state (RFP §8.1) ────────────────────────
   showAddScenarioModal = false;
   newScenarioCode = '';
-  newScenarioType = 'Forecast';
+  /** Blank so the field opens on its placeholder and the type is a deliberate choice. */
+  newScenarioType = '';
   newScenarioYear = 2026;
   /** Which existing scenario's forecast entries to copy into the new one. Empty = start blank. */
   copyFromScenarioId = '';
   readonly years = [2024, 2025, 2026, 2027, 2028];
+
+  /** The three the screen has always suggested; kept even when no scenario uses them yet. */
+  private static readonly BASE_SCENARIO_TYPES = ['Forecast', 'Budget', 'Actual'];
+
+  /**
+   * Options behind the Scenario Type combo.
+   *
+   * A FIELD, not a getter. cm-hierarchy-select memoises its filtering on the IDENTITY of the
+   * array passed to [groups]; a getter would hand it a new array every change-detection pass,
+   * so the memo would never hit and the option elements would be torn down and rebuilt each
+   * time - and an option rebuilt between mousedown and mouseup never fires a click at all.
+   */
+  scenarioTypeGroups: SelectGroup[] = ScenarioManagementComponent.buildTypeGroups([]);
   isSavingScenario = false;
   // No real auth wired up yet — mirrors invoice-upload.component.ts's autoStamp.user mock.
   private readonly currentUser = 'Devojeet Modak';
@@ -92,7 +117,8 @@ export class ScenarioManagementComponent implements OnInit, AfterViewInit {
   dragOverColIndex: number | null = null;
 
   costRows: CostRow[] = [];
-  isLoadingRows = false;
+  /** Starts true so the spinner is up on entry rather than the grid flashing empty first. */
+  isLoadingRows = true;
 
   ngOnInit(): void {
     this.loadFilters();
@@ -101,6 +127,11 @@ export class ScenarioManagementComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.setupScrollSync();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /** Mirrors vertical scroll between the fixed metadata pane and the scrollable scenarios pane. */
@@ -141,10 +172,31 @@ export class ScenarioManagementComponent implements OnInit, AfterViewInit {
           .sort((a, b) => a.year - b.year);
 
         this.varianceCols = this.buildVarianceColumns(this.scenarios);
+        // Offer the types already in use alongside the three defaults, rebuilt once per load.
+        this.scenarioTypeGroups = ScenarioManagementComponent.buildTypeGroups(this.scenarios);
         this.loadCostRows();
       },
-      error: err => console.error('Failed to load scenarios', err)
+      error: err => {
+        // Without this the spinner would spin forever: loadCostRows() is never reached, so
+        // nothing else clears the flag the template is now bound to.
+        console.error('Failed to load scenarios', err);
+        this.isLoadingRows = false;
+      }
     });
+  }
+
+  /**
+   * Distinct scenario types, defaults first, de-duplicated case-insensitively so a stored
+   * "forecast" does not sit in the list beside "Forecast".
+   */
+  private static buildTypeGroups(scenarios: Scenario[]): SelectGroup[] {
+    const byKey = new Map<string, string>();
+    ScenarioManagementComponent.BASE_SCENARIO_TYPES.forEach(t => byKey.set(t.toLowerCase(), t));
+    scenarios.forEach(s => {
+      const t = (s.scenarioType ?? '').trim();
+      if (t && !byKey.has(t.toLowerCase())) byKey.set(t.toLowerCase(), t);
+    });
+    return [{ group: 'Scenario Type', items: [...byKey.values()].map(t => ({ value: t, label: t })) }];
   }
 
   /** V1 = the two most recent non-Actual (RFC/Budget) scenarios compared; V2 = most recent Actual vs. most recent RFC/Budget. */
@@ -167,17 +219,19 @@ export class ScenarioManagementComponent implements OnInit, AfterViewInit {
 
   /** Calls the backend for every loaded scenario column, filtered by the current Site/Team selection. */
   private loadCostRows(): void {
-    if (this.scenarios.length === 0) { this.costRows = []; return; }
+    if (this.scenarios.length === 0) { this.costRows = []; this.isLoadingRows = false; return; }
 
     const columns: ScenarioYearColumn[] = this.scenarios.map(s => ({ scenario: s.code, year: s.year }));
     const site = this.selectedSite === 'All Sites' ? null : this.selectedSite;
     const team = this.selectedTeam === 'All Teams' ? null : this.selectedTeam;
 
-    // `isLoadingRows` was set on both paths but never bound to anything, so this fetch had no
-    // visible indicator at all. The flag is left in place; the loader is what actually shows.
+    // track() shows/hides via finalize, so it also unwinds on error and on unsubscribe. The
+    // anchored <cm-loader> in the template renders it inside the grid area instead of as the
+    // shell's overlay card. isLoadingRows stays as the flag that hides the grid underneath.
     this.isLoadingRows = true;
     this.dashboardService.get(site, team, columns).pipe(
-      this.loader.track('Loading cost centre data…')
+      this.loader.track('Loading cost centre data…'),
+      takeUntil(this.destroy$)
     ).subscribe({
       next: res => {
         this.costRows = this.groupByAccount(res.rows);
@@ -293,10 +347,15 @@ export class ScenarioManagementComponent implements OnInit, AfterViewInit {
 
   openAddScenario(): void {
     this.newScenarioCode = '';
-    this.newScenarioType = 'Forecast';
+    this.newScenarioType = '';
     this.newScenarioYear = 2026;
     this.copyFromScenarioId = this.scenarios[this.scenarios.length - 1]?.code ?? '';
     this.showAddScenarioModal = true;
+  }
+
+  /** Closes only when the backdrop itself was clicked, not when the click came from inside the card. */
+  onModalBackdropClick(event: MouseEvent): void {
+    if (event.target === event.currentTarget) this.closeAddScenario();
   }
 
   closeAddScenario(): void {
@@ -306,6 +365,12 @@ export class ScenarioManagementComponent implements OnInit, AfterViewInit {
   addScenario(): void {
     if (!this.newScenarioCode.trim()) {
       this.snackbar.show('Scenario code is required.', 'error');
+      return;
+    }
+    // Required now that the field starts blank: it is saved as the scenario's name, and an
+    // empty one would leave an unlabelled scenario in the list.
+    if (!this.newScenarioType.trim()) {
+      this.snackbar.show('Scenario type is required.', 'error');
       return;
     }
     if (this.scenarios.some(s => s.code === this.newScenarioCode && s.year === this.newScenarioYear)) {

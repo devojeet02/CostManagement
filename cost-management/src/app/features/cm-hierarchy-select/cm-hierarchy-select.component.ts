@@ -46,6 +46,18 @@ export class CmHierarchySelectComponent implements ControlValueAccessor, OnDestr
   /** Minimum characters before a remote search fires. */
   @Input() minChars = 1;
 
+  /**
+   * Accept a value that is not in `groups`: what the user types becomes the value, and the
+   * dropdown acts as suggestions rather than a closed list.
+   *
+   * OFF by default, and deliberately so. Every other usage is a lookup against a fixed
+   * catalogue (sites, accounts, internal orders) where committing an unmatched string would
+   * let a typo through as data - so there, only select() may set the value. Turn it on for a
+   * free-text field that is merely offering the existing values, e.g. Scenario Type, which is
+   * stored as a plain name and must still accept a brand-new one.
+   */
+  @Input() allowCustom = false;
+
   /** When true the control is read-only and cannot be opened. */
   @Input() disabled = false;
 
@@ -248,6 +260,12 @@ export class CmHierarchySelectComponent implements ControlValueAccessor, OnDestr
       this.selectedLabel = '';
       this.selectedValue = '';
       this.onChange('');
+    } else if (this.allowCustom) {
+      // The typed text IS the value here, so it survives clicking away - onDocumentClick
+      // rewinds searchText to selectedLabel, which would otherwise discard free text.
+      this.selectedLabel = this.searchText;
+      this.selectedValue = this.searchText;
+      this.onChange(this.searchText);
     }
     if (this.isAsync) {
       const q = this.searchText.trim();

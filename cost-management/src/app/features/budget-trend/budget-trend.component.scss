@@ -149,7 +149,7 @@ $under:       #14d59a;
 
 .grid text {
   fill: $text-muted;
-  font-size: 11px;
+  font-size: 12px;   /* matches the dashboard chart's axis text at the shared 1200 viewBox */
   text-anchor: end;
 }
 
@@ -303,4 +303,14 @@ $under:       #14d59a;
   font-size: 11px;
   line-height: 1.5;
   color: rgba(143, 162, 186, 0.85);
+}
+
+/* Phone: the same treatment the dashboard's monthly chart gets, with the SAME 900px minimum.
+   Both charts share a 1200-unit viewBox, so an identical minimum keeps them at an identical
+   scale — which is the whole point of having matched their geometry in the first place.
+   .trend-chart already scrolls sideways, so only the minimum is needed here. */
+@media (max-width: 480px) {
+  .trend-chart svg {
+    min-width: 900px;
+  }
 }

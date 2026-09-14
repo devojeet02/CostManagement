@@ -29,6 +29,16 @@ export class RechargeDrillComponent {
   @Input() loading = false;
   @Input() loadError = false;
 
+  /**
+   * Render as a full-screen SHEET instead of the centred modal — same reasoning and same
+   * mechanism as cm-forecast-comments-modal: the body markup and every binding are shared
+   * between the two, only the frame differs. Defaults false, so desktop is unchanged.
+   */
+  @Input() sheet = false;
+
+  /** Sheet only: where its top edge sits, so the shell's nav stays visible above it. */
+  @Input() topOffset = 0;
+
   @Output() closed = new EventEmitter<void>();
 
   get total(): number {

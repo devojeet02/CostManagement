@@ -100,3 +100,37 @@
   from { opacity: 1; transform: translateX(-50%) translateY(0); }
   to   { opacity: 0; transform: translateX(-50%) translateY(16px); }
 }
+
+/* ── Phones: the snackbar moves to the TOP ──────────────────────────────────
+   At the bottom it collides with the Forecast card view's fixed Cancel / Save footer, and
+   with the on-screen keyboard whenever a field is focused - both cover it exactly where it
+   appears. Desktop is untouched; this only applies at phone widths.
+
+   The slide is inverted to match: it now comes DOWN from above instead of up from below,
+   otherwise the entry animation reads as the message trying to leave. */
+@media (max-width: 480px) {
+  .snackbar {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    left: 12px;
+    right: 12px;
+    /* left/right pin the width, so the -50% centring transform is neither needed nor wanted. */
+    transform: none;
+    max-width: none;
+    animation: snack-in-top 0.28s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+
+    &.snackbar--dismissing {
+      animation: snack-out-top 0.28s ease forwards;
+    }
+  }
+}
+
+@keyframes snack-in-top {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes snack-out-top {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-16px); }
+}

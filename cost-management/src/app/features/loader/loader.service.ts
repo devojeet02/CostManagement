@@ -6,6 +6,8 @@ import { finalize } from 'rxjs/operators';
 export interface LoaderState {
   active: boolean;
   message: string;
+  /** True while a screen is hosting its own anchored loader, so the shell overlay stands down. */
+  anchored: boolean;
 }
 
 /**
@@ -19,40 +21,74 @@ export interface LoaderState {
  */
 @Injectable({ providedIn: 'root' })
 export class LoaderService {
-  private readonly state = new BehaviorSubject<LoaderState>({ active: false, message: '' });
+  private readonly state = new BehaviorSubject<LoaderState>({ active: false, message: '', anchored: false });
   readonly state$ = this.state.asObservable();
 
   /**
-   * Outstanding show() calls.
+   * One entry per outstanding show(), newest last; the newest is what the overlay displays.
    *
-   * Reference-counted rather than a plain boolean because two requests can legitimately
-   * overlap (a year change firing while an earlier load is still in flight). With a boolean
-   * the first one to finish would hide the overlay while the second was still running.
+   * A LIST rather than a boolean because two waits can legitimately overlap (a year change
+   * firing while an earlier load is still in flight); with a boolean the first to finish would
+   * hide the overlay while the second was still running.
+   *
+   * Each entry carries an id so hide(id) can remove THE ONE ITS show() CREATED. Popping the
+   * newest instead is wrong whenever waits overlap and finish out of order: leave a screen
+   * mid-load, and its late hide() would pop the NEXT screen's entry, leaving the new screen
+   * showing the old screen's message until its own request finished.
    */
-  private pending = 0;
+  private entries: { id: number; message: string }[] = [];
 
-  /** One entry per outstanding show(); the newest is what the overlay displays. */
-  private messages: string[] = [];
+  private seq = 0;
 
-  get isActive(): boolean { return this.pending > 0; }
+  /**
+   * Mounted `<cm-loader [global]="true" [overlay]="false">` instances.
+   *
+   * A screen that places its own anchored loader is saying "render the wait HERE, in my content
+   * area". While one is mounted the shell's full-screen overlay suppresses itself, so a single
+   * show() lights exactly one indicator rather than both. Counted rather than a boolean because
+   * routing overlaps: the incoming screen's anchor registers before the outgoing one's is
+   * released, and a boolean would be switched off by that teardown.
+   */
+  private anchors = 0;
 
-  show(message = 'Loading…'): void {
-    this.pending++;
-    this.messages.push(message);
+  get isActive(): boolean { return this.entries.length > 0; }
+
+  /** Returns a token to pass to hide(). Callers that ignore it get the old newest-first behaviour. */
+  show(message = 'Loading…'): number {
+    const id = ++this.seq;
+    this.entries.push({ id, message });
+    this.emit();
+    return id;
+  }
+
+  hide(id?: number): void {
+    if (this.entries.length === 0) return;   // an unbalanced hide() must never go negative
+    if (id === undefined) {
+      this.entries.pop();
+    } else {
+      const i = this.entries.findIndex(e => e.id === id);
+      if (i === -1) return;                  // already removed, e.g. by reset()
+      this.entries.splice(i, 1);
+    }
     this.emit();
   }
 
-  hide(): void {
-    if (this.pending === 0) return;   // unbalanced hide() must never drive the count negative
-    this.pending--;
-    this.messages.pop();
+  /** Called by an anchored loader on init; pair with releaseAnchor() on destroy. */
+  registerAnchor(): void {
+    this.anchors++;
+    this.emit();
+  }
+
+  releaseAnchor(): void {
+    if (this.anchors === 0) return;
+    this.anchors--;
     this.emit();
   }
 
   /** Clear everything regardless of the count — for a hard reset, e.g. on navigation. */
   reset(): void {
-    this.pending = 0;
-    this.messages = [];
+    this.entries = [];
+    // anchors are NOT cleared: they track mounted components, not in-flight work.
     this.emit();
   }
 
@@ -69,15 +105,17 @@ export class LoaderService {
       // defer so the counter moves on SUBSCRIBE, not when the operator is composed —
       // otherwise a cold observable built early would light the overlay immediately.
       defer(() => {
-        this.show(message);
-        return source;
-      }).pipe(finalize(() => this.hide()));
+        // Captured per subscription, so the matching hide() removes exactly this wait.
+        const id = this.show(message);
+        return source.pipe(finalize(() => this.hide(id)));
+      });
   }
 
   private emit(): void {
     this.state.next({
-      active: this.pending > 0,
-      message: this.messages[this.messages.length - 1] ?? ''
+      active: this.entries.length > 0,
+      message: this.entries[this.entries.length - 1]?.message ?? '',
+      anchored: this.anchors > 0
     });
   }
 }

@@ -9,9 +9,19 @@
   <span class="cm-loader-text" *ngIf="text">{{ text }}</span>
 </div>
 
+<!-- Anchored: driven by LoaderService like the overlay, but drawn as a scoped cover over its own
+     container instead of the whole shell. No card, so it reads as "this area is loading" rather
+     than as a modal. -->
+<div class="cm-loader-scoped" *ngIf="visible && anchored" role="status" aria-live="polite" aria-busy="true">
+  <div class="cm-loader">
+    <span class="cm-loader-ring" [ngClass]="'cm-loader-ring--' + size"></span>
+    <span class="cm-loader-text" *ngIf="text">{{ text }}</span>
+  </div>
+</div>
+
 <!-- Global: a fixed scrim over the whole viewport, driven by LoaderService.
      aria-busy tells assistive tech the app is working, not that a dialog opened. -->
-<div class="cm-loader-overlay" *ngIf="visible && global" role="status" aria-live="polite" aria-busy="true">
+<div class="cm-loader-overlay" *ngIf="visible && global && !anchored" role="status" aria-live="polite" aria-busy="true">
   <div class="cm-loader-overlay-card">
     <span class="cm-loader-ring cm-loader-ring--lg"></span>
     <span class="cm-loader-text" *ngIf="text">{{ text }}</span>

@@ -1340,11 +1340,19 @@
 .recharge-v1-scroll-container {
   max-height: 240px;
   overflow-y: auto;
+  /* Below the table's min-width the columns would start crushing again; scrolling sideways keeps
+     every control at a usable size instead of hiding half of them. */
+  overflow-x: auto;
   padding: 4px;
 
-  /* Custom Scrollbar */
+  /* Custom Scrollbar.
+     `width` alone only slims the VERTICAL bar — that is all this container had, because until
+     overflow-x was added there was no horizontal one. The moment sideways scrolling appeared it
+     came back at the browser default (~15px) and looked thick beside the 6px vertical one.
+     `height` is the horizontal bar's thickness; both are needed. */
   &::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
   }
 
   &::-webkit-scrollbar-track {
@@ -1354,6 +1362,15 @@
   &::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--text-subtle);
+  }
+
+  /* Chrome paints a filled square where the two bars meet; transparent keeps the corner clean. */
+  &::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
 
@@ -1433,6 +1450,17 @@
   width: 100%;
   border-collapse: collapse;
 
+  /* FIXED, not auto. The inputs are `width: 100%`, which contributes NO intrinsic width, so under
+     auto layout every column collapsed to its header text — the % column, whose header is one
+     character, ended up 18px wide at every screen size while the declared `width: 100px` was
+     treated as a hint and ignored. Fixed layout makes the declared widths authoritative.
+
+     ⚠️ Fixed layout reads its widths from the FIRST ROW, which here is the `<thead>` row carrying
+     the .col-* classes. The thead is behind *ngIf — when there are no sites it is absent and the
+     first row is the colspan empty-state, which is exactly what we want measured then. */
+  table-layout: fixed;
+  min-width: 520px;
+
   th {
     font-size: 11px;
     font-weight: 600;
@@ -1444,33 +1472,46 @@
     text-align: left;
   }
 
-  /* Left breathing room — only on data rows, not the colspan empty-state cell */
+  /* Left breathing room — only on data rows, not the colspan empty-state cell.
+     Was 80px here AND another 80px on the amount column: 160px of pure indent that the narrow
+     layouts could not afford, and which is what squeezed the inputs in the first place. The
+     column widths below now do that job. */
   th:first-child,
   .cell-chk {
-    padding-left: 80px;
+    padding-left: 24px;
   }
 
-  th.col-amount,
-  td.cell-amount {
-    padding-left: 80px;
-  }
+  /* Column widths as PERCENTAGES, so they share whatever the card is given. Fixed pixels were
+     tried and starved the site name: this card is only ~570px wide inside the form column, and
+     150 + 150 + 200 left it 27px.
 
-  /* Column widths matching image proportions */
+     Amount and % are deliberately EQUAL. They are two ways of entering the same allocation, so
+     one looking stunted beside the other reads as though it accepts something smaller. Months is
+     the column that gives way — its cells are empty, only the header carries the period, and a
+     header may wrap. */
   .col-chk {
-    width: 120px;
+    width: 27%;
   }
 
   .col-amount {
-    /* 80px shift + ~100px input keeps the input the same size as the % column */
-    width: 180px;
+    width: 23%;
   }
 
   .col-pct {
-    width: 100px;
+    /* Slightly wider than the amount column now: it carries the whole-percent stepper as well as
+       the input. Months gives up the difference — its cells are empty. */
+    width: 27%;
+    /* Centred over its column. A single "%" pinned to the left edge of a 120px column read as
+       though it belonged to the amount input beside it rather than labelling this one. The th
+       rule above sets text-align: left for every header, so this has to override it. */
+    text-align: center;
   }
 
   .col-months {
+    width: 23%;
     padding-left: 20px;
+    /* The period sentence is long and must be allowed to wrap rather than widen the column. */
+    white-space: normal;
   }
 
   td {
@@ -1516,6 +1557,14 @@
 
   .cell-months {
     padding-left: 20px;
+  }
+
+  /* The site name is the only unbounded value in the row; it gets the leftover width and
+     ellipsises rather than forcing the inputs to give ground. */
+  .cell-chk .chk-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .recharge-action-link {
@@ -1574,7 +1623,11 @@
 .recharge-period {
   font-size: 12px;
   color: var(--text-secondary);
-  white-space: nowrap;
+  /* WRAPS. It was `nowrap`, which is what made this column demand the width of the whole
+     sentence ("From January 2026 to March 2026") and squeeze the amount and % inputs beside it.
+     Letting it run onto a second line costs nothing — the cells below it are empty. */
+  white-space: normal;
+  line-height: 1.35;
   text-transform: none;
   letter-spacing: normal;
 
@@ -1680,3 +1733,114 @@
 }
 
 /* action-footer removed — Save/Cancel are now in the page header */
+/* ─── Change-history auto-load strip ───────────────────────────────────────
+   Replaces the old "Load More" button. It sits at the foot of the timeline and doubles as the
+   scroll sentinel, so arriving at the bottom fetches the next page on its own. Centred and quiet
+   — it reports progress rather than asking for a decision. */
+.history-loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 13px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.history-spinner {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--border-color);
+  /* One coloured edge is what makes the rotation legible — a full ring just looks static. */
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: history-spin 0.7s linear infinite;
+}
+
+@keyframes history-spin {
+  to { transform: rotate(360deg); }
+}
+
+.history-load-count {
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ─── Related Data, full width ─────────────────────────────────────────────
+   The panel sits BELOW the two-column row rather than inside the form column, so it spans the
+   form and preview widths together and fills the dead space under the preview.
+
+   Its own margins reproduce `.content-layout`'s gutters (16px 32px) because it is no longer a
+   child of that row and so inherits none of them. Nothing here reacts to `.collapsed` on the
+   preview column — that is the point: the panel is outside that flex row, so hiding the preview
+   widens the form column and leaves this untouched. */
+.related-data-row {
+  margin: 0 32px 16px;
+}
+
+/* Matches the two-column layout's own breakpoint, where the gutters narrow. */
+@media (max-width: 1100px) {
+  .related-data-row {
+    margin: 0 16px 16px;
+  }
+}
+
+/* ─── Percentage stepper ───────────────────────────────────────────────────
+   Two granularities side by side, because one was never enough: the input's own arrows keep their
+   original 0.01 (hundredths) and this pair steps by 0.1 (tenths). Ten clicks to shift a tenth was
+   the complaint; retyping the number was the only alternative. */
+.pct-stepper {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+
+  .recharge-cell-input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.pct-step-ones {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: 18px;
+  border: 1px solid var(--border-color);
+  /* Shares the input's right edge so the two read as one control, not a button floating beside
+     a field. The input already drops its own right border in .cell-amount's rule; here the
+     stepper takes over that edge. */
+  border-left: none;
+
+  button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: var(--bg-primary);
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      background: var(--bg-hover);
+      color: var(--accent-color);
+    }
+
+    &:first-child {
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    svg { display: block; }
+  }
+}

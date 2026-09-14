@@ -7,7 +7,9 @@
     <div class="page-header">
       <h2 class="page-title">Invoice View</h2>
       <div class="header-right">
-        <button class="btn-cancel" id="btn-invoice-view-refresh" title="Reload the list"
+        <button class="btn-cancel" id="btn-invoice-view-refresh"
+          cmTooltip="Reload the list from the server, keeping your current filters and page."
+          cmTooltipPosition="bottom"
           (click)="onRefresh()" [disabled]="loading">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -18,8 +20,10 @@
           Refresh
         </button>
 
-        <button class="btn-save" id="btn-invoice-view-upload" title="Upload a new invoice"
-          routerLink="/invoice-upload">
+        <button class="btn-save" id="btn-invoice-view-upload"
+          cmTooltip="Enter a new invoice and attach its PDF."
+          cmTooltipPosition="bottom"
+          routerLink="/Cost-Management/Invoice-Upload">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -29,7 +33,8 @@
           Upload Invoice
         </button>
 
-        <button class="btn-back" routerLink="/" title="Back to Home">
+        <button class="btn-back" routerLink="/"
+          cmTooltip="Back to Home" cmTooltipPosition="bottom">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"></polyline>
@@ -51,7 +56,8 @@
           {{ activeFilterCount }} active
         </span>
         <button class="btn-clear-filters" *ngIf="hasActiveFilters" (click)="clearFilters()"
-          title="Clear all filters">
+          cmTooltip="Reset every filter and show all invoices."
+          cmTooltipPosition="bottom">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -208,7 +214,7 @@
           </svg>
           <span class="state-title">No invoices yet</span>
           <span class="state-hint">Saved invoices will appear here once the first one is uploaded.</span>
-          <button class="btn-retry" routerLink="/invoice-upload">Upload Invoice</button>
+          <button class="btn-retry" routerLink="/Cost-Management/Invoice-Upload">Upload Invoice</button>
         </div>
 
         <!-- ── The list ───────────────────────────────────────────── -->
@@ -219,21 +225,31 @@
                 <tr>
                   <th class="col-inv">Invoice #</th>
                   <th class="col-supplier">Supplier</th>
-                  <th class="col-par">PAR</th>
-                  <th class="col-po">PO</th>
+                  <th class="col-par" cmTooltip="Purchase Approval Request. Spend must be approved under a PAR before it is committed — only the number is held here."
+                      cmTooltipPosition="bottom">PAR</th>
+                  <th class="col-po" cmTooltip="Purchase Order number raised against this invoice."
+                      cmTooltipPosition="bottom">PO</th>
                   <th class="col-site">Site</th>
                   <th class="col-team">Team</th>
                   <th class="col-io">Internal Order</th>
                   <th class="col-acct">Account</th>
                   <th class="col-curr">Currency</th>
-                  <th class="col-fx">FX Rate</th>
-                  <th class="col-amount">Inv Amount</th>
-                  <th class="col-lines">Lines</th>
-                  <th class="col-budgeted">Budgeted</th>
-                  <th class="col-credit">Credit</th>
-                  <th class="col-date">Invoice Date</th>
-                  <th class="col-date">Accounting Date</th>
-                  <th class="col-date">Created</th>
+                  <th class="col-fx" cmTooltip="Rate used to convert the invoice amount into the site currency."
+                      cmTooltipPosition="bottom">FX Rate</th>
+                  <th class="col-amount" cmTooltip="Total in the invoice currency. The site-currency figure is the invoice amount times the FX rate."
+                      cmTooltipPosition="bottom">Inv Amount</th>
+                  <th class="col-lines" cmTooltip="How many itemisation lines this invoice was split across."
+                      cmTooltipPosition="bottom">Lines</th>
+                  <th class="col-budgeted" cmTooltip="Whether this spend was budgeted. Unbudgeted spend needs a new budget line with its own PAR."
+                      cmTooltipPosition="bottom">Budgeted</th>
+                  <th class="col-credit" cmTooltip="A credit note. Amounts are stored positive; the sign is flipped when actuals are calculated."
+                      cmTooltipPosition="bottom">Credit</th>
+                  <th class="col-date" cmTooltip="The date printed on the supplier invoice."
+                      cmTooltipPosition="bottom">Invoice Date</th>
+                  <th class="col-date" cmTooltip="The date the invoice is posted to, which decides the period it lands in."
+                      cmTooltipPosition="bottom">Accounting Date</th>
+                  <th class="col-date" cmTooltip="When this record was first saved in Cost Management."
+                      cmTooltipPosition="bottom">Created</th>
                   <th class="col-pdf">PDF</th>
                   <th class="col-actions">Actions</th>
                 </tr>
@@ -249,10 +265,10 @@
                   <td class="col-site">{{ row.site || '—' }}</td>
                   <td class="col-team">{{ row.team || '—' }}</td>
                   <!-- Per-line values: "first +N", full list in the tooltip. -->
-                  <td class="col-io" [title]="cellTitle(row.internalOrders)">
+                  <td class="col-io" [cmTooltip]="cellTitle(row.internalOrders)">
                     {{ fmtCodes(row.internalOrders) }}
                   </td>
-                  <td class="col-acct" [title]="cellTitle(row.accounts)">
+                  <td class="col-acct" [cmTooltip]="cellTitle(row.accounts)">
                     {{ fmtCodes(row.accounts) }}
                   </td>
                   <td class="col-curr">{{ row.currency || '—' }}</td>
@@ -280,7 +296,7 @@
                     <button *ngIf="hasPdf(row); else noPdf"
                             class="btn-show-pdf"
                             (click)="showPdf(row)"
-                            [title]="row.fileName || 'Show PDF'">
+                            [cmTooltip]="row.fileName || 'Show PDF'">
                       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
@@ -291,14 +307,15 @@
                     </button>
 
                     <ng-template #noPdf>
-                      <span class="no-pdf" [title]="noPdfTitle()">No invoice attached</span>
+                      <span class="no-pdf" [cmTooltip]="noPdfTitle()">No invoice attached</span>
                     </ng-template>
                   </td>
 
                   <td class="col-actions">
                     <button class="btn-edit-invoice"
-                            [routerLink]="['/invoice-edit', row.id]"
-                            title="Edit this invoice">
+                            [routerLink]="['/Cost-Management/Invoice-Edit', row.id]"
+                            cmTooltip="Open this invoice to edit its details, lines and PDF."
+                            cmTooltipPosition="left">
                       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
@@ -338,7 +355,7 @@
             </div>
 
             <div class="pager-controls">
-              <button class="pager-btn" (click)="prevPage()" [disabled]="!canPrev" title="Previous page">
+              <button class="pager-btn" (click)="prevPage()" [disabled]="!canPrev" cmTooltip="Previous page">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="15 18 9 12 15 6"></polyline>
@@ -353,7 +370,7 @@
                         (click)="goToPage(p)">{{ p }}</button>
               </ng-container>
 
-              <button class="pager-btn" (click)="nextPage()" [disabled]="!canNext" title="Next page">
+              <button class="pager-btn" (click)="nextPage()" [disabled]="!canNext" cmTooltip="Next page">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="9 18 15 12 9 6"></polyline>

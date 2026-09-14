@@ -58,6 +58,19 @@ export class ForecastCommentsModalComponent {
   /** (monthIndex, text) as the user types. */
   @Output() generalDraftChange = new EventEmitter<{ month: number; comment: string }>();
 
+  /**
+   * Render as a full-screen SHEET instead of the centred modal.
+   *
+   * For phones, where a modal card inside a 390px viewport is all chrome and no content. The
+   * body markup and every handler are shared between the two — only the frame around them
+   * differs — so there is one implementation of monthly comments, not two to keep in step.
+   * Defaults false, so desktop is the modal exactly as before.
+   */
+  @Input() sheet = false;
+
+  /** Sheet only: where its top edge sits, so the shell's nav stays visible above it. */
+  @Input() topOffset = 0;
+
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 

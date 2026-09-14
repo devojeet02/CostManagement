@@ -26,7 +26,7 @@
           (click)="onSave()" [disabled]="isSaving || isLoading">
           {{ isSaving ? 'Saving…' : 'Save Changes' }}
         </button>
-        <button class="btn-back" routerLink="/invoice-view" title="Back to Invoice View">
+        <button class="btn-back" routerLink="/Cost-Management/Invoice-View" title="Back to Invoice View">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"></polyline>
@@ -53,7 +53,7 @@
       <span class="edit-state-title">{{ loadError }}</span>
       <div class="edit-state-actions">
         <button class="btn-retry-edit" (click)="reload()">Try again</button>
-        <button class="btn-back-to-list" routerLink="/invoice-view">Back to list</button>
+        <button class="btn-back-to-list" routerLink="/Cost-Management/Invoice-View">Back to list</button>
       </div>
     </div>
 
@@ -498,12 +498,37 @@
                             title="Enter a fixed amount (or use %)" />
                         </td>
                         <td class="cell-pct">
-                          <input type="number" min="0" max="100" step="0.01" class="recharge-cell-input"
-                            #pctModel="ngModel"
-                            [class.recharge-derived]="alloc.mode === 'amount' && displayPct(rline, alloc)"
-                            [ngModel]="displayPct(rline, alloc)"
-                            (ngModelChange)="onPctEntry(rline, alloc, $event, pctModel)"
-                            title="Enter a percentage (or use amount)" />
+                          <!-- Two granularities: the input's own arrows keep their original 0.01 for
+                               fine corrections, and the pair beside them steps by 0.1. Leaving the
+                               native step at 0.01 also keeps every 2-decimal value step-VALID, which
+                               matters because Spread evenly produces 33.33 / 33.34. -->
+                          <div class="pct-stepper">
+                            <input type="number" min="0" max="100" step="0.01" class="recharge-cell-input"
+                              #pctModel="ngModel"
+                              [class.recharge-derived]="alloc.mode === 'amount' && displayPct(rline, alloc)"
+                              [ngModel]="displayPct(rline, alloc)"
+                              (ngModelChange)="onPctEntry(rline, alloc, $event, pctModel)"
+                              title="Enter a percentage (or use amount). The arrows inside step by 0.01." />
+
+                            <!-- Tenths. The native arrows do hundredths, which is right for a
+                                 correction but ten clicks to shift 0.1. -->
+                            <span class="pct-step-ones">
+                              <button type="button" tabindex="-1" aria-label="Increase by 0.1 percent"
+                                (click)="stepPct(rline, alloc, 0.1, pctModel)" cmTooltip="+0.1%">
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                  stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                                  <polyline points="6 15 12 9 18 15" />
+                                </svg>
+                              </button>
+                              <button type="button" tabindex="-1" aria-label="Decrease by 0.1 percent"
+                                (click)="stepPct(rline, alloc, -0.1, pctModel)" cmTooltip="&minus;0.1%">
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                  stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                              </button>
+                            </span>
+                          </div>
                         </td>
                         <td class="cell-months"></td>
                       </tr>
@@ -555,17 +580,6 @@
           </div>
         </div>
 
-        <!-- Related Forecast and Actual Data — same shared panel as Upload. This invoice is
-             excluded from the Actuals row (relatedDataExcludeId), so the panel reports what
-             was already posted rather than reflecting the form above it back. -->
-        <div class="form-section">
-          <cm-related-data-panel
-            [year]="relatedDataYear"
-            [site]="selectedSite"
-            [team]="selectedTeam"
-            [lines]="lineItems"
-            [excludeInvoiceId]="relatedDataExcludeId"></cm-related-data-panel>
-        </div>
 
       </div>
 
@@ -573,7 +587,7 @@
       <div class="preview-column" [class.collapsed]="isPreviewCollapsed">
 
         <!-- Invoice Change History Button -->
-        <button class="btn-change-history" (click)="isHistoryOpen = true">
+        <button class="btn-change-history" (click)="openHistory()">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -703,6 +717,23 @@
         </div>
 
       </div>
+
+    </div><!-- /content-layout -->
+
+    <!-- Related Forecast and Actual Data — deliberately OUTSIDE .content-layout.
+         It used to be a section inside the form column, so its width jumped every time the
+         preview was hidden, while the foot of the preview column sat empty. As a SIBLING of the
+         two-column row it spans the full width of both, and the preview collapsing cannot reach
+         it because it is no longer inside that flex row. -->
+    <div class="form-section related-data-row">
+      <cm-related-data-panel
+        [year]="relatedDataYear"
+        [site]="selectedSite"
+        [team]="selectedTeam"
+        [lines]="lineItems"
+        [supplier]="selectedSupplier"
+        [labels]="paramLabels"
+        [excludeInvoiceId]="relatedDataExcludeId"></cm-related-data-panel>
     </div>
 
   </div><!-- /scroll-area -->
@@ -713,7 +744,7 @@
 <cm-modal title="Invoice Change History" [isOpen]="isHistoryOpen" (closed)="isHistoryOpen = false">
 
   <div class="history-timeline" *ngIf="changeHistory.length > 0; else noHistory">
-    <div class="history-entry" *ngFor="let entry of sortedHistory">
+    <div class="history-entry" *ngFor="let entry of visibleHistory">
 
       <div class="entry-meta">
         <div class="entry-meta-left">
@@ -740,6 +771,15 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Auto-loads as it comes into view: this strip IS the scroll sentinel, so reaching the
+         foot of the timeline fetches the next page. No button, because there is nothing for the
+         reader to decide — and the spinner is honest now that each page is a real request. -->
+    <div class="history-loading-more" *ngIf="hasMoreHistory" #historySentinel>
+      <span class="history-spinner" aria-hidden="true"></span>
+      <span>Loading more&hellip;</span>
+      <span class="history-load-count">{{ remainingHistoryCount }} left</span>
     </div>
   </div>
 

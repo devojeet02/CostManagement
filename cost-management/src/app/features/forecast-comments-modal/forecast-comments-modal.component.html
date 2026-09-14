@@ -1,4 +1,26 @@
-<cm-modal [title]="title" [isOpen]="isOpen" (closed)="onClose()">
+<!-- Desktop: the centred modal, unchanged. -->
+<cm-modal *ngIf="!sheet" [title]="title" [isOpen]="isOpen" (closed)="onClose()">
+  <ng-container [ngTemplateOutlet]="commentsBody"></ng-container>
+</cm-modal>
+
+<!-- Phones: the SAME body in a full-screen pane, matching the row editor on the Forecast
+     screen. Sits below the shell nav rather than covering it. -->
+<div class="fcs-sheet" *ngIf="sheet && isOpen" [style.top.px]="topOffset">
+  <header class="fcs-head">
+    <button type="button" class="fcs-back" (click)="onClose()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6" />
+      </svg>
+      Back
+    </button>
+    <h2 class="fcs-title">{{ title }}</h2>
+    <span class="fcs-spacer"></span>
+  </header>
+  <ng-container [ngTemplateOutlet]="commentsBody"></ng-container>
+</div>
+
+<ng-template #commentsBody>
   <div class="fcm-body">
 
     <!-- Names the two kinds up front. Without this the read-only trail under an editable box
@@ -78,4 +100,4 @@
     </div>
 
   </div>
-</cm-modal>
+</ng-template>

@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   MONTHS, TYPES,
@@ -13,7 +13,7 @@ import { SelectGroup, SelectOption } from '../../features/hierarchy-select/hiera
 import { MonthCommentSlot } from '../../features/forecast-comments-modal/forecast-comments-modal.component';
 import { CellAnchor } from '../../features/forecast-cell-comment/forecast-cell-comment.component';
 import { formatAmount } from '../../features/number-format/number-format.util';
-import { ForecastService, ForecastRowPayload } from '../../services/forecast.service';
+import { ForecastService, ForecastRowPayload, ForecastPageFilters } from '../../services/forecast.service';
 import { MasterDataService, LookupItemDto, AccountDto } from '../../services/master-data.service';
 import { SnackbarService } from '../../features/snackbar/snackbar.service';
 import { PeriodService } from '../../services/period.service';
@@ -67,7 +67,8 @@ export class ForecastComponent implements OnInit {
     private periodService: PeriodService,
     private ioService: InternalOrderService,
     private snackbar: SnackbarService,
-    private rechargeService: RechargeService
+    private rechargeService: RechargeService,
+    private host: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit(): void {
@@ -298,13 +299,92 @@ export class ForecastComponent implements OnInit {
    * save, and the mock fallback), and an Actual row must be read-only in every one of those
    * cases. The two agree wherever both are present.
    */
+  // ── Contract-currency lines ────────────────────────────────────────────────
+  //
+  // Terminology note: the toggle is labelled "Show Source Currency", but everything underneath —
+  // the sub-row labels, `contractCurrency`, the `contract` / `contract-actual` types and the
+  // backend's Contract* columns — calls it the CONTRACT currency. Same concept, two names.
+
+  private static readonly CONTRACT_SUB_TYPES: SubRowType[] = ['contract', 'contract-actual'];
+
+  /** The line's own rate, or 1 when none has been recorded. Never zero — that would erase the row. */
+  exchangeRateFor(row: ForecastRow): number {
+    const rate = Number(row.exchangeRate);
+    return Number.isFinite(rate) && rate > 0 ? rate : 1;
+  }
+
+  /**
+   * True when a contract line is being DERIVED rather than read from stored figures.
+   *
+   * Rows flagged Diff Curr keep their own contract values, entered and saved as before. Every
+   * other row has no contract figures at all, so the line shows local × rate instead — which is
+   * display only: `isDerivedContract` drives both the disabled input and the guard in
+   * `setCellValue`, so a derived cell can never be typed into or saved.
+   */
+  isDerivedContract(row: ForecastRow, sub: SubRow): boolean {
+    return !row.differentCurrency && ForecastComponent.CONTRACT_SUB_TYPES.includes(sub.type);
+  }
+
+  /** The row a derived contract line converts FROM. */
+  private contractSourceOf(row: ForecastRow, sub: SubRow): SubRow | undefined {
+    const sourceType: SubRowType = sub.type === 'contract-actual' ? 'actual' : 'local';
+    return row.subRows.find(s => s.type === sourceType);
+  }
+
+  /**
+   * What a month cell shows. Identical to `sub.values[mi]` for every existing row; only a derived
+   * contract line computes anything.
+   */
+  cellValue(row: ForecastRow, sub: SubRow, mi: number): number | null {
+    if (this.isAfterRechargeRow(sub)) return this.afterRechargeValue(row, mi);
+    if (!this.isDerivedContract(row, sub)) return sub.values[mi];
+
+    const source = this.contractSourceOf(row, sub)?.values[mi];
+    if (source === null || source === undefined) return null;
+    // Two decimals: a rate of 0.8371 turns 1000 into 837.0999999999999 otherwise.
+    return +(source * this.exchangeRateFor(row)).toFixed(2);
+  }
+
+  /** Writes an edited cell back. Derived lines are display only and silently ignore edits. */
+  setCellValue(row: ForecastRow, sub: SubRow, mi: number, value: any): void {
+    if (this.isAfterRechargeRow(sub) || this.isDerivedContract(row, sub)) return;
+    sub.values[mi] = value;
+  }
+
+  /** Row total, following the same derivation so the Total column agrees with the cells beside it. */
+  subTotalFor(row: ForecastRow, sub: SubRow): number {
+    if (this.isAfterRechargeRow(sub)) {
+      return this.months.reduce((t, _, i) => t + this.afterRechargeValue(row, i), 0);
+    }
+    if (!this.isDerivedContract(row, sub)) return this.getSubTotal(sub.values);
+    return this.months.reduce((t, _, i) => t + (this.cellValue(row, sub, i) ?? 0), 0);
+  }
+
   isReadOnlySub(sub: SubRow): boolean {
     return sub.readOnly === true || ForecastComponent.ACTUAL_SUB_TYPES.includes(sub.type);
   }
 
   /** Why a value cell can't be edited — the month lock, or the row being an Actual. */
-  cellLockTitle(sub: SubRow, monthIndex: number): string {
+  cellLockTitle(row: ForecastRow, sub: SubRow, monthIndex: number): string {
     if (this.isMonthLocked(monthIndex)) return this.monthLockTitle(monthIndex);
+
+    // Checked BEFORE isReadOnlySub. The line is readOnly, so without its own branch it inherited
+    // the Actuals message and told the reader something untrue about where its figures come from.
+    if (this.isAfterRechargeRow(sub)) {
+      return 'Recharged out to other sites, taken from the recharge on posted invoices.'
+        + ' Read-only: it updates on its own, and shows 0 for a month with nothing recharged.';
+    }
+
+    // A contract line on a row NOT flagged Diff Curr is converted, not entered — its input is
+    // disabled, and before this it explained itself with nothing at all.
+    if (this.isDerivedContract(row, sub)) {
+      // Names the row it actually converts FROM — contract-actual comes off Actual, not Forecast.
+      const from = sub.type === 'contract-actual' ? 'the Actual figures' : 'the Forecast figures';
+      return 'Converted from ' + from + ' at the exchange rate held on this line'
+        + (row.exchangeRate ? '' : ' (none recorded, so 1 is used)')
+        + '. Tick Diff Curr on this row to enter contract figures directly instead.';
+    }
+
     if (this.isReadOnlySub(sub)) {
       return 'Actuals are derived from posted invoices and cannot be edited here.'
         + ' They update automatically when an invoice is saved against this cost line.';
@@ -338,33 +418,101 @@ export class ForecastComponent implements OnInit {
   /** Set when the fetch fails, so the template can offer a retry rather than an empty grid. */
   loadError = false;
 
-  loadForecast(): void {
+  /**
+   * Loads a page of the year. Filters and paging are both server-side.
+   *
+   * `resetToFirstPage` is false when only the page or page size changed — resetting there would
+   * make the pager unable to leave page 1.
+   */
+  loadForecast(resetToFirstPage = true): void {
     this.isLoading = true;
     this.loadError = false;
+    if (resetToFirstPage) this.resetPaging();
 
-    this.forecastService.list(this.currentYear).subscribe({
-      next: rows => {
-        this.isLoading = false;
-        // Real data only. An empty year renders the empty state — it must NOT fall back to
-        // sample rows, which looked like saved forecast data and could be edited and saved
-        // as if it were real.
-        this.forecastRows = rows ?? [];
-        this.applySavedOrder();
-        // What just loaded IS the last saved state — the Changes column measures against it.
-        this.captureBaseline();
-        // Always refreshed, unlike the baseline: this is what "edited since load" compares to,
-        // so an edit that has already been justified must stop counting as one.
-        this.captureLoadedMonthly();
-      },
-      error: err => {
-        this.isLoading = false;
-        this.loadError = true;
-        this.forecastRows = [];
-        this.captureBaseline();
-        console.error('Failed to load forecast', err);
-        this.snackbar.show('Could not load the forecast. Please try again.', 'error');
-      }
-    });
+    this.forecastService.listPaged(this.currentYear, this.page, this.pageSize, this.serverFilters())
+      .subscribe({
+        next: res => {
+          this.isLoading = false;
+          // Real data only. An empty year renders the empty state — it must NOT fall back to
+          // sample rows, which looked like saved forecast data and could be edited and saved
+          // as if it were real.
+          this.forecastRows = this.mergeWithLoaded(res?.items ?? []);
+          this.totalRowCount = res?.total ?? 0;
+          this.serverTotals = res?.totals ?? {};
+          this.pageReported = res?.page ?? this.page;
+          this.applySavedOrder();
+          // What just loaded IS the last saved state — the Changes column measures against it.
+          this.captureBaseline();
+          // Always refreshed, unlike the baseline: this is what "edited since load" compares to,
+          // so an edit that has already been justified must stop counting as one.
+          this.captureLoadedMonthly();
+        },
+        error: err => {
+          this.isLoading = false;
+          this.loadError = true;
+          this.forecastRows = [];
+          this.totalRowCount = 0;
+          this.serverTotals = {};
+          this.captureBaseline();
+          console.error('Failed to load forecast', err);
+          this.snackbar.show('Could not load the forecast. Please try again.', 'error');
+        }
+      });
+  }
+
+  /** The chips, shaped for the paged endpoint. `type` has no server column, so it stays out. */
+  private serverFilters(): ForecastPageFilters {
+    return {
+      site: this.filters.site,
+      team: this.filters.team,
+      account: this.filters.account,
+      scenario: this.filters.scenario,
+      category: this.filters.category,
+      supplier: this.filters.supplier,
+      currency: this.filters.currency
+    };
+  }
+
+  /**
+   * Every row the user has actually loaded this session, by id.
+   *
+   * Two jobs, both consequences of paging an EDITABLE grid:
+   *
+   *  1. Edits must survive paging. Rows are mutated in place by ngModel, so a page revisit that
+   *     replaced them with fresh server copies would silently discard whatever was typed. The
+   *     cached instance is reused instead.
+   *  2. Save must cover every page visited, not just the one on screen. `saveChanges()` builds
+   *     its payload from this map, so edits made on page 1 still save after paging to page 3.
+   *
+   * Cleared on a real reload (save, cancel, year change) — see `resetLoadedRows`.
+   */
+  private loadedRows = new Map<number, ForecastRow>();
+
+  /** Ids removed with the row bin since the last save. */
+  private deletedRowIds: number[] = [];
+
+  /** Keeps in-flight edits by preferring the instance already held for an id. */
+  private mergeWithLoaded(incoming: ForecastRow[]): ForecastRow[] {
+    const merged: ForecastRow[] = [];
+    for (const row of incoming) {
+      // A row deleted locally must not reappear when its page is fetched again.
+      if (this.deletedRowIds.includes(row.id)) continue;
+
+      const held = this.loadedRows.get(row.id);
+      if (held) { merged.push(held); continue; }
+      this.loadedRows.set(row.id, row);
+      merged.push(row);
+    }
+
+    // Unsaved rows exist only in the browser and belong to no page, so they ride along with
+    // whichever page is on screen rather than vanishing the moment the user pages away.
+    const unsaved = [...this.loadedRows.values()].filter(r => this.isNewRow(r));
+    return [...unsaved, ...merged];
+  }
+
+  private resetLoadedRows(): void {
+    this.loadedRows.clear();
+    this.deletedRowIds = [];
   }
 
   /** Lookup rows → options that persist the code (falls back to the name when there is none). */
@@ -457,9 +605,128 @@ export class ForecastComponent implements OnInit {
 
   isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
 
+  /**
+   * Phone-sized: the grid is swapped for the card list (PHASE 1 of the mobile view).
+   *
+   * 480px, not the 768px above, and the two are deliberately separate. 768 keeps its existing
+   * job of narrowing the TABLE (sticky Internal Order column, hidden columns) for the in-between
+   * widths; this one only decides table-vs-cards, and 480 is the widest phone in play - iPhone
+   * Pro Max 430, Galaxy S Ultra 412 - while leaving tablets on the table, which is what was
+   * asked for. Change this single number to move the switch; nothing else is width-aware.
+   */
+  isCardView = typeof window !== 'undefined' ? window.innerWidth <= 480 : false;
+
+  /**
+   * PHASE 2 MOBILE: the view toggles, reachable from the footer.
+   *
+   * The same three toggles as the row at the top of the screen — bound to the SAME
+   * `toggles` object, so this is a second way to reach one piece of state, never a copy of it.
+   * A phone user editing row 40 should not have to scroll back to the top to turn Actuals on.
+   *
+   * Built as a section list rather than a bare stack of switches so the filters can join it
+   * later without the popover being reshaped around them.
+   */
+  viewOptionsOpen = false;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // MOBILE ROW EDITOR
+  //
+  // The card shows its metadata as plain TEXT — a phone-width card carrying thirteen live
+  // inputs was a wall of controls, and every one of them was a mis-tap risk while scrolling.
+  // Editing happens in a full-screen sheet reached from the card's Edit button.
+  //
+  // ⚠️ The sheet binds DIRECTLY to the row, so the card behind it is already correct when it
+  // closes. Back therefore has to undo: it restores the snapshot taken on open. Apply simply
+  // stops reverting. Neither one saves — the footer's Save still posts the whole grid, exactly
+  // as it does on desktop.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /** The row being edited, or null when the sheet is closed. */
+  editingRow: ForecastRow | null = null;
+
+  /** The editable fields as they were when the sheet opened, for Back to restore. */
+  private editSnapshot: Partial<ForecastRow> | null = null;
+
+  /** Exactly the fields the sheet can change — keep this in step with its template. */
+  private static readonly EDITABLE_FIELDS: (keyof ForecastRow)[] = [
+    'internalOrder', 'par', 'type', 'spendType', 'spendLayer', 'category',
+    'system', 'team', 'supplier', 'currency', 'description',
+    'differentCurrency', 'rechargeRequired',
+  ];
+
+  openRowEditor(row: ForecastRow): void {
+    const snap: Partial<ForecastRow> = {};
+    ForecastComponent.EDITABLE_FIELDS.forEach(k => { (snap as any)[k] = (row as any)[k]; });
+    this.editSnapshot = snap;
+    this.editingRow = row;
+    this.panelTopOffset = this.measurePanelTopOffset();
+  }
+
+  /** Back — puts every edited field back as it was. */
+  closeRowEditor(): void {
+    if (this.editingRow && this.editSnapshot) {
+      const row = this.editingRow, snap = this.editSnapshot;
+      ForecastComponent.EDITABLE_FIELDS.forEach(k => { (row as any)[k] = (snap as any)[k]; });
+    }
+    this.editingRow = null;
+    this.editSnapshot = null;
+  }
+
+  /** Apply — keeps what was typed. The footer's Save is what persists it. */
+  applyRowEditor(): void {
+    this.editingRow = null;
+    this.editSnapshot = null;
+  }
+
+  /**
+   * Where the sheet's top edge sits, so the shell's nav stays visible above it.
+   * `.navbar-main`, NOT `.navbar` — the off-canvas sidenav is `aside.sidenav.navbar` and
+   * matches first.
+   */
+  panelTopOffset = 0;
+
+  private measurePanelTopOffset(): number {
+    const nav = document.querySelector('nav.navbar-main') as HTMLElement | null;
+    if (!nav) return 0;
+    const bottom = Math.round(nav.getBoundingClientRect().bottom);
+    const ceiling = Math.round(window.innerHeight / 3);
+    return bottom > 0 && bottom <= ceiling ? bottom : 0;
+  }
+
+  /** Reads a stored code back as the label the user picked, for the card's plain-text facts. */
+  optionLabel(list: SelectOption[], value: string | null | undefined): string {
+    if (!value) return '—';
+    return list.find(o => o.value === value)?.label ?? value;
+  }
+
+  /** How many view toggles are on, so the closed button still says what the grid is showing. */
+  get activeViewOptionCount(): number {
+    return [this.toggles.showActual, this.toggles.showOtherScenario, this.toggles.showSourceCurrency]
+      .filter(Boolean).length;
+  }
+
+  toggleViewOptions(): void {
+    this.viewOptionsOpen = !this.viewOptionsOpen;
+  }
+
+  /** Outside tap closes it. The button lives inside .fcm-opts, so its own bubbled click is
+   *  correctly not treated as "outside" and does not re-close what it just opened. */
+  @HostListener('document:click', ['$event'])
+  onDocumentClickForViewOptions(event: MouseEvent): void {
+    if (!this.viewOptionsOpen) return;
+    if (!(event.target as HTMLElement).closest('.fcm-opts')) this.viewOptionsOpen = false;
+  }
+
   @HostListener('window:resize')
   onResize(): void {
     this.isMobileView = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
+    this.isCardView   = typeof window !== 'undefined' ? window.innerWidth <= 480 : false;
+    // Leaving it open while the window grows back to desktop would strand a panel whose only
+    // trigger no longer renders.
+    if (!this.isMobileView) this.viewOptionsOpen = false;
+    // A sheet left open while the window grows to desktop would sit over a grid that has no
+    // way to close it — its Back button only renders on mobile.
+    if (!this.isCardView && this.editingRow) this.applyRowEditor();
   }
 
   // ── Reference data ─────────────────────────────────────────────────────────
@@ -506,18 +773,157 @@ export class ForecastComponent implements OnInit {
   // moment before the first response lands, which reads as real saved forecast.
   forecastRows: ForecastRow[] = [];
 
+  /**
+   * True until the row has been saved: blankRow() stamps unsaved rows with a NEGATIVE temp id,
+   * and the reload after a successful save replaces it with the server's real one.
+   */
+  isNewRow(row: ForecastRow): boolean {
+    return row.id < 0;
+  }
+
+  /**
+   * The rows on screen.
+   *
+   * The dimension filters moved to the SERVER when this grid became paged — filtering the page
+   * in the browser would only ever search the rows that happened to be loaded and quietly ignore
+   * every other page. `forecastRows` therefore already holds the filtered page.
+   *
+   * `type` is the exception and is still applied here: `ForecastRowDto.Type` is never populated
+   * by the backend, so there is no column to filter on. The original guard is kept verbatim,
+   * including `&& row.type` — which means a row with no type is never excluded, exactly as
+   * before.
+   */
   get filteredForecastRows(): ForecastRow[] {
-    return this.forecastRows.filter(row => {
-      if (this.filters.site     && row.site     && row.site     !== this.filters.site)     return false;
-      if (this.filters.team     && row.team     && row.team     !== this.filters.team)     return false;
-      if (this.filters.account  && row.account  && row.account  !== this.filters.account)  return false;
-      if (this.filters.scenario && row.scenario && row.scenario !== this.filters.scenario) return false;
-      if (this.filters.type     && row.type     && row.type     !== this.filters.type)     return false;
-      if (this.filters.category && row.category && row.category !== this.filters.category) return false;
-      if (this.filters.supplier && row.supplier && row.supplier !== this.filters.supplier) return false;
-      if (this.filters.currency && row.currency && row.currency !== this.filters.currency) return false;
+    const visible = this.forecastRows.filter(row => {
+      if (this.filters.type && row.type && row.type !== this.filters.type) return false;
       return true;
     });
+
+    // Unsaved rows float to the TOP so there is somewhere to type without scrolling to the end
+    // of the grid. DISPLAY ONLY - `forecastRows` itself keeps its order, which is what save()
+    // stamps as `sortOrder` and what onRowDrop() reorders, so a new row still lands in its
+    // normal place once saved and the reload gives it a real id. Relative order is preserved
+    // within each group, so adding two rows keeps them in the order they were added.
+    const unsaved = visible.filter(r => this.isNewRow(r));
+    if (unsaved.length === 0) return visible;
+    return [...unsaved, ...visible.filter(r => !this.isNewRow(r))];
+  }
+
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  //
+  // Client-side, because this screen already holds the whole year in memory
+  // (`forecastService.list(year)`); there is nothing to fetch per page. Mirrors the Invoice View
+  // pager so the two screens read alike.
+  //
+  // ⚠️ This pages the RENDER ONLY, and that distinction is load-bearing:
+  //   * `saveChanges()` builds its payload from `forecastRows`, never from a page — `bulkSave`
+  //     is authoritative for the year and soft-deletes anything absent, so saving a page would
+  //     delete every row not on it.
+  //   * `getTypeColTotal()` / `getTypeTotal()` sum `filteredForecastRows`, so the totals block
+  //     keeps meaning "the whole filtered set", not "this page".
+  //   * `onRowDrop()` and `applySavedOrder()` work on `forecastRows`, so reordering is unaffected.
+  // Hence a SEPARATE getter rather than narrowing `filteredForecastRows`.
+
+  /** Rows per page. User-selectable from the pager; 10 is the default. */
+  pageSize = 10;
+
+  readonly pageSizeOptions = [5, 10, 20, 50];
+
+  /** Requested page. Read through `page` below, which clamps it to what actually exists. */
+  private pageRequested = 1;
+
+  /**
+   * The page actually shown.
+   *
+   * Clamped on READ rather than written back when the filtered set shrinks: this is evaluated
+   * during change detection, and assigning to a field from a getter is exactly what raises
+   * ExpressionChangedAfterItHasBeenChecked. Filtering down to one page therefore corrects itself
+   * without any writes, and `pageRequested` is only ever set from a user action.
+   */
+  get page(): number {
+    return Math.min(Math.max(1, this.pageRequested), this.totalPages);
+  }
+
+  /** Rows matching the filter across every page. Reported by the server, not counted locally. */
+  totalRowCount = 0;
+
+  /** The page the server says it served — it clamps a page past the end back to the last one. */
+  private pageReported = 1;
+
+  get totalRows(): number {
+    return this.totalRowCount;
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.totalRowCount / this.pageSize));
+  }
+
+  /** 1-based index of the first row on this page (0 when the filtered set is empty). */
+  get rangeStart(): number {
+    return this.totalRows === 0 ? 0 : (this.page - 1) * this.pageSize + 1;
+  }
+
+  get rangeEnd(): number {
+    return Math.min(this.page * this.pageSize, this.totalRows);
+  }
+
+  get canPrev(): boolean { return this.page > 1; }
+  get canNext(): boolean { return this.page < this.totalPages; }
+
+  /**
+   * Page numbers to render, windowed around the current page with -1 as an ellipsis marker,
+   * so the pager stays a fixed width however many rows the year holds. Same shape as Invoice View.
+   */
+  get pageNumbers(): number[] {
+    const last = this.totalPages;
+    if (last <= 7) {
+      return Array.from({ length: last }, (_, i) => i + 1);
+    }
+
+    const pages: number[] = [1];
+    const from = Math.max(2, this.page - 1);
+    const to   = Math.min(last - 1, this.page + 1);
+
+    if (from > 2) pages.push(-1);
+    for (let p = from; p <= to; p++) pages.push(p);
+    if (to < last - 1) pages.push(-1);
+
+    pages.push(last);
+    return pages;
+  }
+
+  goToPage(page: number): void {
+    if (page === -1 || page === this.page || page < 1 || page > this.totalPages || this.isLoading) return;
+    this.pageRequested = page;
+    // `false`: this IS the page change, so resetting to page 1 would make the pager unable to
+    // leave page 1.
+    this.loadForecast(false);
+  }
+
+  prevPage(): void { if (this.canPrev) this.goToPage(this.page - 1); }
+  nextPage(): void { if (this.canNext) this.goToPage(this.page + 1); }
+
+  /**
+   * Rows-per-page changed. Keeps the row the user was looking at on screen rather than dumping
+   * them back on page 1: the first visible row's index is preserved and the page recomputed
+   * around it, so 10→20 while on page 3 (rows 21-30) lands on page 2 (rows 21-40).
+   *
+   * Bound one-way in the template, so `this.pageSize` still holds the OLD size here.
+   */
+  onPageSizeChange(newSize: number): void {
+    const size = Number(newSize);
+    // Guard rather than trust the control: a bad value would divide the pager by zero.
+    if (!Number.isFinite(size) || size <= 0) return;
+
+    const firstVisibleIndex = (this.page - 1) * this.pageSize;
+    this.pageSize = size;
+    this.pageRequested = Math.floor(firstVisibleIndex / size) + 1;
+    this.loadForecast(false);
+  }
+
+  /** Back to the first page — used when the row that matters has floated to the top. */
+  private resetPaging(): void {
+    this.pageRequested = 1;
   }
 
   // ── Visible sub-row types ──────────────────────────────────────────────────
@@ -548,12 +954,16 @@ export class ForecastComponent implements OnInit {
   }
 
   visibleSubRows(row: ForecastRow): SubRow[] {
-    return row.subRows.filter(s => {
+    const visible = row.subRows.filter(s => {
+      // Shown on EVERY row while the toggle is on, not only rows flagged Diff Curr. A row with
+      // no contract figures of its own still has a contract-currency equivalent — it is just the
+      // local value at the line's rate — and hiding it made the toggle look broken on most rows.
+      // See isDerivedContract(): those rows are read-only and never written back.
       if (s.type === 'contract') {
-        return row.differentCurrency && this.toggles.showSourceCurrency;
+        return this.toggles.showSourceCurrency;
       }
       if (s.type === 'contract-actual') {
-        return row.differentCurrency && this.toggles.showSourceCurrency && this.toggles.showActual;
+        return this.toggles.showSourceCurrency && this.toggles.showActual;
       }
       if (s.type === 'local') {
         return true;
@@ -572,6 +982,84 @@ export class ForecastComponent implements OnInit {
       }
       return false; // recharge-actual and recharge-other-scenario are body-invisible, only for totals
     });
+
+    return this.withForecastAfterRecharge(row, visible);
+  }
+
+  // ── Forecast after Recharge ────────────────────────────────────────────────
+  //
+  // A display-only line for rows with the left table's Recharge box ticked. It is NOT part of
+  // `row.subRows`, which is what makes it safe: `saveChanges` serialises the row's own sub-rows,
+  // so a synthesised one can never reach the payload or a Contract/Local column.
+
+  /**
+   * One cached instance per row id.
+   *
+   * `visibleSubRows` is called from the template and therefore runs on every change-detection
+   * pass; building a fresh object each time would hand *ngFor a new identity every pass and tear
+   * the row's DOM down repeatedly — losing focus mid-edit. trackBySubRow keys on `type`, which
+   * covers the list, but the object still needs to be stable for the bindings hanging off it.
+   */
+  private readonly afterRechargeRows = new Map<number, SubRow>();
+
+  private afterRechargeRowFor(row: ForecastRow): SubRow {
+    let sub = this.afterRechargeRows.get(row.id);
+    if (!sub) {
+      sub = {
+        type: 'forecast-after-recharge',
+        label: this.getTypeLabel('forecast-after-recharge'),
+        currency: row.currency,
+        // Read-only so isReadOnlySub() disables the inputs and the comment machinery leaves it be.
+        readOnly: true,
+        values: Array(12).fill(null)
+      } as SubRow;
+      this.afterRechargeRows.set(row.id, sub);
+    }
+    // The row's currency can change under it; the label and currency are display only.
+    sub.currency = row.currency;
+    return sub;
+  }
+
+  /**
+   * Places the line immediately ABOVE Actual, or last when Actual is not on screen.
+   *
+   * Only for rows whose Recharge box is ticked — that checkbox is the entire trigger.
+   */
+  private withForecastAfterRecharge(row: ForecastRow, visible: SubRow[]): SubRow[] {
+    if (!row.rechargeRequired) return visible;
+
+    const line = this.afterRechargeRowFor(row);
+    const at = visible.findIndex(s => s.type === 'actual');
+    if (at < 0) return [...visible, line];
+    return [...visible.slice(0, at), line, ...visible.slice(at)];
+  }
+
+  /** True for the synthesised line — display only, never edited, never saved. */
+  isAfterRechargeRow(sub: SubRow): boolean {
+    return sub.type === 'forecast-after-recharge';
+  }
+
+  /**
+   * TODO (confirmed 2026-09-11, pending a second look): this should become
+   * FORECAST MINUS RECHARGE, not the recharge amount on its own — which is what the line's label,
+   * "Forecast after Recharge", has always implied. It ships as the raw recharge figure because
+   * that is what was asked for while the rule was still being settled.
+   *
+   * When it changes, this is the whole edit:
+   *     const forecast = row.subRows.find(s => s.type === 'local')?.values[mi] ?? 0;
+   *     return forecast - (recharge?.values[mi] ?? 0);
+   * `subTotalFor` already sums whatever this returns, so the row total follows on its own, and
+   * nothing else reads this method.
+   *
+   * The recharge booked against this row for a month, or 0.
+   *
+   * `recharge-actual` is the only recharge figure the backend derives (RechargeAmount off the
+   * posted invoice lines). A month with nothing recharged reads 0 rather than blank, so the line
+   * always shows a full twelve months.
+   */
+  afterRechargeValue(row: ForecastRow, mi: number): number {
+    const recharge = row.subRows.find(s => s.type === 'recharge-actual');
+    return recharge?.values[mi] ?? 0;
   }
 
   // ── Totals ─────────────────────────────────────────────────────────────────
@@ -579,7 +1067,21 @@ export class ForecastComponent implements OnInit {
     return values.reduce((s: number, v) => s + (v ?? 0), 0);
   }
 
+  /** Column totals for the WHOLE filtered set, keyed by sub-row type — see loadForecast. */
+  private serverTotals: { [type: string]: number[] } = {};
+
+  /**
+   * Total for one sub-row type in one month, across every page.
+   *
+   * Served from the backend now. Summing `filteredForecastRows` would produce a footer covering
+   * only the page on screen while looking exactly like a year total — the failure mode that
+   * makes a paged grid with local totals actively misleading. The client-side sum survives as
+   * the fallback for the moment before the first response lands.
+   */
   getTypeColTotal(type: SubRowType, mi: number): number {
+    const fromServer = this.serverTotals[type];
+    if (fromServer) return fromServer[mi] ?? 0;
+
     return this.filteredForecastRows.reduce((t, row) => {
       // For recharge, only sum if row has rechargeRequired
       if (type === 'recharge' && !row.rechargeRequired) return t;
@@ -603,6 +1105,7 @@ export class ForecastComponent implements OnInit {
       case 'contract':                return 'Forecasted in Contract Currency';
       case 'actual':                  return 'Actual';
       case 'contract-actual':         return 'Actual in Contract Currency';
+      case 'forecast-after-recharge':  return 'Forecast after Recharge';
       case 'other-scenario':          return 'Other Scenario';
       case 'recharge':                return 'Forecast';
       case 'recharge-actual':         return 'Actual';
@@ -614,8 +1117,8 @@ export class ForecastComponent implements OnInit {
   // ── Year navigation ────────────────────────────────────────────────────────
   // Forecast rows + their invoice-derived actuals are year-specific, so reload on change.
   // Locks are per year, so they must be refetched alongside the grid.
-  prevYear(): void { this.currentYear--; this.loadForecast(); this.loadPeriods(); }
-  nextYear(): void { this.currentYear++; this.loadForecast(); this.loadPeriods(); }
+  prevYear(): void { this.currentYear--; this.resetLoadedRows(); this.loadForecast(); this.loadPeriods(); }
+  nextYear(): void { this.currentYear++; this.resetLoadedRows(); this.loadForecast(); this.loadPeriods(); }
 
   // ── Row management ─────────────────────────────────────────────────────────
   /** Temp id sequence for unsaved rows (negative → backend treats as insert). */
@@ -630,7 +1133,25 @@ export class ForecastComponent implements OnInit {
       this.snackbar.show('Filters cleared so the new row is visible.', 'info');
     }
 
-    this.forecastRows.push(this.blankRow());
+    this.pushNewRow(this.blankRow());
+  }
+
+  /**
+   * Adds an unsaved row to the grid.
+   *
+   * Registered in `loadedRows` immediately, and that registration is what keeps it alive: a new
+   * row exists only in the browser and belongs to no server page, so any later fetch would
+   * replace the array it was pushed on to. `mergeWithLoaded` re-attaches every unsaved row to
+   * whichever page comes back.
+   *
+   * Deliberately does NOT refetch — page 1 is where unsaved rows show, and a reload here would
+   * be a race against the row that was just added.
+   */
+  private pushNewRow(row: ForecastRow): void {
+    this.forecastRows.push(row);
+    this.loadedRows.set(row.id, row);
+    this.resetPaging();
+    this.revealNewRow();
   }
 
   /** CCM-011: a line added mid-cycle because spend genuinely exceeds its original PAR.
@@ -643,7 +1164,27 @@ export class ForecastComponent implements OnInit {
       this.clearFilters();
       this.snackbar.show('Filters cleared so the new row is visible.', 'info');
     }
-    this.forecastRows.push({ ...this.blankRow(), isOverspendAddition: true });
+    this.pushNewRow({ ...this.blankRow(), isOverspendAddition: true });
+  }
+
+  /**
+   * Scrolls the newly added row into view.
+   *
+   * filteredForecastRows puts it at the TOP of the grid, which is off-screen for anyone who had
+   * scrolled down - the button would look like it did nothing, the same complaint the filter
+   * clearing above already guards against. setTimeout because the row does not exist in the DOM
+   * until Angular has rendered this change; querying for it synchronously finds nothing.
+   */
+  private revealNewRow(): void {
+    setTimeout(() => {
+      // Scoped to .left-table: the first `tr.fc-row-new` in the document belongs to the sticky
+      // drag rail, and scrolling THAT into view moves nothing useful.
+      const el = this.host.nativeElement.querySelector('.left-table tr.fc-row-new');
+      // 'nearest' scrolls the minimum needed, so a user already looking at the top is not moved.
+      // Instant, NOT smooth: adding the row grows the scroller, and that change of scrollHeight
+      // lands mid-animation and cancels a smooth scroll - it measurably left the row off-screen.
+      el?.scrollIntoView({ block: 'nearest' });
+    });
   }
 
   private blankRow(): ForecastRow {
@@ -700,9 +1241,12 @@ export class ForecastComponent implements OnInit {
   }
 
   removeRow(id: number): void {
-    // Local-only until Save, which posts the remaining rows for the year — the backend
-    // soft-deletes whatever is missing from that payload. Keeps Cancel able to undo.
+    // Local-only until Save. The backend no longer infers deletions from absence (it cannot —
+    // this grid only ever holds a page), so a saved row must be NAMED as deleted. Cancel still
+    // undoes everything by reloading.
     this.forecastRows = this.forecastRows.filter(r => r.id !== id);
+    this.loadedRows.delete(id);
+    if (id > 0 && !this.deletedRowIds.includes(id)) this.deletedRowIds.push(id);
   }
 
   // ── Row reordering (drag & drop via detached rail, persisted via Save) ──────
@@ -1012,6 +1556,9 @@ export class ForecastComponent implements OnInit {
     this.commentRow = row;
     // Seed each box from staged-then-saved, so reopening shows what the user last typed.
     this.generalDraft = this.months.map((_, i) => this.generalTextFor(row, i));
+    // Mobile renders this as a sheet below the shell nav, so it needs the offset measured now.
+    // Harmless on desktop, where the modal ignores it.
+    this.panelTopOffset = this.measurePanelTopOffset();
     this.commentModalOpen = true;
   }
 
@@ -1253,9 +1800,14 @@ export class ForecastComponent implements OnInit {
     // Persist the current row order locally so it survives reloads.
     this.writeSavedOrder(this.forecastRows.map(r => r.id));
 
+    // EVERY row loaded this session, not just the page on screen: edits made on page 1 must
+    // still save after paging to page 3. Rows never loaded are simply absent, which is safe
+    // because the request below sends pruneAbsent: false.
+    const toSave = [...new Set([...this.loadedRows.values(), ...this.forecastRows])];
+
     // Stamp each row with the year, its current display order, and the audit login.
     // Read-only Actual sub-rows are ignored server-side (always re-derived from invoices).
-    const payload: ForecastRowPayload[] = this.forecastRows.map((r, i) => ({
+    const payload: ForecastRowPayload[] = toSave.map((r, i) => ({
       ...r,
       year: this.currentYear,
       sortOrder: i,
@@ -1267,7 +1819,13 @@ export class ForecastComponent implements OnInit {
       generalComments: this.generalCommentsFor(r)
     }));
 
-    this.forecastService.bulkSave(payload, this.currentYear).subscribe({
+    // pruneAbsent: false is REQUIRED here. The default contract treats the payload as the
+    // year's complete state and soft-deletes anything missing from it — which, for a grid that
+    // holds one page, would delete every row the user had not paged to. Removals are named
+    // instead.
+    this.forecastService
+      .bulkSave(payload, this.currentYear, { pruneAbsent: false, deletedIds: this.deletedRowIds })
+      .subscribe({
       next: () => {
         this.snackbar.show('Forecast saved.', 'success');
         // Staged comments are now on the server; the reload brings them back as history.
@@ -1278,6 +1836,9 @@ export class ForecastComponent implements OnInit {
         // Keep the original baseline across this reload — saving must not zero the Changes
         // column. The user is still meant to see everything done on top of the original.
         this.preserveBaselineOnNextLoad = true;
+        // Everything in the cache is now on the server; keeping it would re-send saved rows and
+        // pin new rows to their temporary negative ids.
+        this.resetLoadedRows();
         // Reload so new rows pick up their real server ids and actuals refresh.
         this.loadForecast();
       },
@@ -1300,18 +1861,36 @@ export class ForecastComponent implements OnInit {
   }
 
   /**
-   * Resets the chips only. Deliberately does NOT reload: filtering is client-side here
-   * (`filteredForecastRows` is a getter), so a reload would needlessly discard unsaved edits —
-   * which is `cancelChanges`' job, not this one's.
+   * Resets the chips and refetches.
+   *
+   * It used to deliberately NOT reload, because filtering was a client-side getter and a reload
+   * would have thrown away unsaved edits. Both halves of that changed: filtering is server-side
+   * now, so the rows have to be refetched to widen, and `loadedRows` carries edits across the
+   * refetch, so nothing typed is lost.
    */
   clearFilters(): void {
     this.filters = { ...DEFAULT_FILTERS };
+    this.applyFilters();
+  }
+
+  /**
+   * A filter changed: back to page 1 and refetch.
+   *
+   * Page 4 of a narrower result set usually does not exist, and staying there would show an
+   * empty grid that reads like "no matches".
+   */
+  applyFilters(): void {
+    this.resetPaging();
+    this.loadForecast();
   }
 
   cancelChanges(): void {
     this.filters = { ...DEFAULT_FILTERS };
     this.toggles = { ...DEFAULT_TOGGLES };
-    // Discard unsaved edits by re-fetching the last saved state from the backend.
+    // Discard unsaved edits by re-fetching the last saved state from the backend. The cached
+    // rows ARE the unsaved edits, so they go first — otherwise mergeWithLoaded would hand the
+    // very edits being cancelled straight back.
+    this.resetLoadedRows();
     this.loadForecast();
   }
 
@@ -1382,6 +1961,9 @@ export class ForecastComponent implements OnInit {
   }
 
   openRechargeDrill(row: ForecastRow): void {
+    // Mobile renders the drill as a sheet below the shell nav, so it needs the offset now.
+    // Harmless on desktop, where the modal ignores it.
+    this.panelTopOffset = this.measurePanelTopOffset();
     const label = row.internalOrder || row.description || `Row ${row.id}`;
 
     this.drillOpen = true;

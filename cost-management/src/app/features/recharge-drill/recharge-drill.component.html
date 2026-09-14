@@ -1,4 +1,26 @@
-<cm-modal [title]="title" [isOpen]="isOpen" (closed)="closed.emit()">
+<!-- Desktop: the centred modal, unchanged. -->
+<cm-modal *ngIf="!sheet" [title]="title" [isOpen]="isOpen" (closed)="closed.emit()">
+  <ng-container [ngTemplateOutlet]="drillBody"></ng-container>
+</cm-modal>
+
+<!-- Phones: the SAME body in a full-screen pane, matching the row editor and the comments
+     sheet on the Forecast screen. Sits below the shell nav rather than covering it. -->
+<div class="rds-sheet" *ngIf="sheet && isOpen" [style.top.px]="topOffset">
+  <header class="rds-head">
+    <button type="button" class="rds-back" (click)="closed.emit()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6" />
+      </svg>
+      Back
+    </button>
+    <h2 class="rds-title">{{ title }}</h2>
+    <span class="rds-spacer"></span>
+  </header>
+  <ng-container [ngTemplateOutlet]="drillBody"></ng-container>
+</div>
+
+<ng-template #drillBody>
   <div class="rd-body">
 
     <div class="rd-state" *ngIf="loading">
@@ -37,7 +59,7 @@
               <span class="rd-chip" [class.rd-chip--direct]="isDirect(r)">{{ allocationLabel(r) }}</span>
             </td>
             <td>
-              <a class="rd-link" [routerLink]="['/invoice-edit', r.invoiceId]">{{ r.invoiceNumber }}</a>
+              <a class="rd-link" [routerLink]="['/Cost-Management/Invoice-Edit', r.invoiceId]">{{ r.invoiceNumber }}</a>
               <span class="rd-meta">{{ fmtDate(r.invoiceDate) }}</span>
             </td>
             <td class="rd-meta">{{ r.lineNumber != null ? 'Line ' + r.lineNumber : '—' }}</td>
@@ -64,4 +86,4 @@
     </ng-container>
 
   </div>
-</cm-modal>
+</ng-template>

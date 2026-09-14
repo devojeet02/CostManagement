@@ -54,13 +54,32 @@ export class LoaderComponent implements OnInit, OnDestroy {
    */
   @Input() global = false;
 
-  private serviceState: LoaderState = { active: false, message: '' };
+  /**
+   * Global mode only. `true` (default) is the fixed full-screen scrim + card. `false` anchors the
+   * wait to THIS element's container instead: same LoaderService driving it, but drawn as a scoped
+   * cover over the content area rather than a card floating over the whole shell.
+   *
+   * Use it on a screen whose wait belongs to one region — a grid, a dashboard body. The card reads
+   * as a modal popping up, which is right for a blocking action and wrong for "this panel is
+   * fetching". While an anchored loader is mounted the shell's overlay stands down, so callers
+   * keep using loader.track() and get the right presentation for the screen they are on.
+   *
+   * The host container must be a positioned ancestor - see .cm-loader-scoped.
+   */
+  @Input() overlay = true;
+
+  private serviceState: LoaderState = { active: false, message: '', anchored: false };
   private sub?: Subscription;
 
   constructor(private loader: LoaderService) {}
 
+  /** Service-driven, but drawn in place rather than as the shell-wide overlay. */
+  get anchored(): boolean { return this.global && !this.overlay; }
+
   ngOnInit(): void {
     if (!this.global) return;
+
+    if (this.anchored) this.loader.registerAnchor();
 
     this.sub = this.loader.state$.subscribe(state => {
       // Applied on a microtask, not synchronously.
@@ -76,11 +95,15 @@ export class LoaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.anchored) this.loader.releaseAnchor();
     this.sub?.unsubscribe();
   }
 
   get visible(): boolean {
-    return this.global ? this.serviceState.active : this.show;
+    if (!this.global) return this.show;
+    // The shell's overlay yields to any anchored loader, so one show() lights one indicator.
+    if (this.overlay) return this.serviceState.active && !this.serviceState.anchored;
+    return this.serviceState.active;
   }
 
   get text(): string {

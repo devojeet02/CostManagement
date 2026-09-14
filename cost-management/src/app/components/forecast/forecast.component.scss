@@ -394,7 +394,9 @@ select option {
 .row-overspend {
   background: rgba(224, 166, 78, 0.06);
 
-  &.row-hovered { background: rgba(224, 166, 78, 0.12); }
+  &.row-hovered {
+    background: rgba(224, 166, 78, 0.12);
+  }
 }
 
 /* Deliberately small: it has to sit in the 3px of padding under a 24px input inside a
@@ -438,8 +440,10 @@ tr.row-overspend .lc-desc.id-cell {
 
   .overspend-badge {
     position: absolute;
-    left: 6px;          /* flush with the input's left edge (td padding is 3px 6px) */
-    top: 30px;          /* clears the 24px input, which ends at 29px */
+    left: 6px;
+    /* flush with the input's left edge (td padding is 3px 6px) */
+    top: 30px;
+    /* clears the 24px input, which ends at 29px */
   }
 }
 
@@ -1906,9 +1910,38 @@ tfoot tr.total-recharge-group.total-block-first td {
     gap: 8px !important;
   }
 
-  .toggle-item:last-child {
-    grid-column: span 2 !important;
-    /* Let the odd toggle span full width */
+  /* SCOPED to this row. Unscoped it also matched the last toggle in the footer's view popover,
+     which is a different control group entirely - and made that one span two columns. With the
+     year now sitting in the fourth cell there is no odd toggle left to stretch anyway. */
+  .filter-toggles-row>*:last-child:not(.ftr-year) {
+    grid-column: span 2;
+  }
+
+  /* minmax(0, 1fr), not the plain 1fr above: a bare 1fr will not shrink below its content, so
+     "Show Other Scenario" made its column 33px wider than the other and the 2x2 came out ragged.
+     stretch so all four cells share a height whichever labels wrap. */
+  .filter-toggles-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+  }
+
+  /* The year cell: same box as a toggle, with the stepper where the switch would be. */
+  .ftr-year {
+    cursor: default;
+    justify-content: space-between !important;
+  }
+
+  .ftr-year-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    .year-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #f1f5f9;
+      font-variant-numeric: tabular-nums;
+    }
   }
 
   /* Table layout modifications on mobile */
@@ -2010,6 +2043,7 @@ tfoot tr.total-recharge-group.total-block-first td {
     display: block !important;
   }
 }
+
 /* ─── Recharge drill-down button ──────────────────────────────────
    Sits in the existing .lc-act-stack beside the comment button, so it inherits that
    column's sizing and adds no row-height risk. Amber, matching how recharge is coloured
@@ -2032,5 +2066,870 @@ tfoot tr.total-recharge-group.total-block-first td {
     background: rgba(224, 166, 78, 0.14);
     color: #e0a64e;
     border-color: rgba(224, 166, 78, 0.5);
+  }
+}
+
+/* ── Unsaved rows added this session ──────────────────────────────────────────
+   filteredForecastRows floats these to the TOP of the grid so there is somewhere to type; the
+   tint is what marks them as not-yet-saved once they are there. Two colours, one per button, so
+   it is obvious which action produced the row: blue for Add Row, warm for Add Overspend Line.
+
+   ⚠️ SOLID hex, never rgba(). These grids are frozen columns over scrolling ones, and a cell's
+   opaque background is the ONLY thing hiding the month cells sliding underneath it - the same
+   reason .fc-sticky-right and tr.sub-actual both spell out solid values. A translucent tint let
+   the scrolling content show straight through the sticky column. The values below are the old
+   rgba tints already composited over the row base (#0f172a), so they look identical.
+
+   ⚠️ Background ONLY - no border, padding or font-size. The left and right grids are separate
+   <table>s kept in step purely by matching row heights.
+
+   At the END of the file, and .sub-actual spelled out, because tr.row-even.sub-actual td sets
+   its own !important background at higher specificity than a bare tr.fc-row-new td would have. */
+tr.fc-row-new td,
+tr.fc-row-new.sub-actual td {
+  background-color: #142b43 !important;
+}
+
+tr.fc-row-new.row-hovered td,
+tr.fc-row-new.sub-actual.row-hovered td {
+  background-color: #16354f !important;
+}
+
+/* Overspend additions, in this grid's existing amber family. */
+tr.fc-row-new-overspend td,
+tr.fc-row-new-overspend.sub-actual td {
+  background-color: #302e30 !important;
+}
+
+tr.fc-row-new-overspend.row-hovered td,
+tr.fc-row-new-overspend.sub-actual.row-hovered td {
+  background-color: #413933 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PHASE 1 MOBILE — card view (below 480px)
+
+   Every selector here is a .fcm-* class that exists ONLY inside the *ngIf="isCardView"
+   block, so at desktop widths none of it matches anything. That is deliberate: it is the
+   reason this file can gain a mobile layout without the desktop grid being able to move.
+   No existing selector is edited below.
+
+   Sized to stay usable down to a 250px viewport - hence the two nested breakpoints at the
+   end rather than fixed pixel columns.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.fcm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 12px 96px;
+  /* bottom clears the fixed footer + the last card's shadow */
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.fcm-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  min-width: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+/* Same two colours the grid uses for unsaved rows, so the meaning carries across layouts. */
+.fcm-card--new {
+  background: #142b43;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.fcm-card--overspend {
+  background: #302e30;
+  border-color: rgba(224, 166, 78, 0.42);
+}
+
+.fcm-card--new.fcm-card--overspend {
+  background: #302e30;
+}
+
+/* ── Card header: badges, editable description, delete ───────────────────── */
+.fcm-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.fcm-badges {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.fcm-card-title {
+  flex: 1 1 120px;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 9px;
+  outline: none;
+
+  &:focus {
+    border-color: #38bdf8;
+  }
+
+  &::placeholder {
+    color: #64748b;
+    font-weight: 400;
+  }
+}
+
+.fcm-del {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:active {
+    background: rgba(248, 113, 113, 0.22);
+  }
+}
+
+/* ── Field grid ───────────────────────────────────────────────────────────── */
+.fcm-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fcm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  &--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.fcm-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* One rule for every control in the card, so they line up whatever they are. */
+.fcm-field input,
+.fcm-field select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #131b2e;
+  color: #e2e8f0;
+  font-size: 12.5px;
+  outline: none;
+
+  &:focus {
+    border-color: #38bdf8;
+  }
+}
+
+.fcm-field select {
+  appearance: none;
+  padding-right: 20px;
+}
+
+/* The shared lookup brings its own chrome; match it to the plain inputs beside it. */
+.fcm-field ::ng-deep .hs-input-wrap {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #131b2e;
+}
+
+.fcm-field ::ng-deep .hs-input-wrap .hs-input {
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  color: #e2e8f0;
+}
+
+.fcm-check {
+  grid-column: span 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: #cbd5e1;
+  min-width: 0;
+
+  span {
+    min-width: 0;
+  }
+}
+
+/* Edit button in the card header, beside the delete. */
+.fcm-edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Row actions: the desktop grid's recharge drill and comments button, as labelled buttons
+   rather than bare icons — there is room for the word on a card, and an icon-only control on a
+   phone is a guess. */
+.fcm-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.fcm-row-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+/* Matches the grid's red comment button: this row has edited months with no justification and
+   the save is blocked until they are written. */
+.fcm-row-action--required {
+  border-color: rgba(248, 113, 113, 0.6);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.fcm-row-badge {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+.fcm-row-badge--alert {
+  background: #f87171;
+  color: #2a0a0a;
+}
+
+/* Read-only facts: label over value, two per line. A <dl> because that is what this is - a
+   list of terms and their values - and it keeps the card free of form controls. */
+.fcm-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 10px;
+  margin: 0;
+
+  >div {
+    min-width: 0;
+  }
+
+  dt {
+    margin: 0;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 12px;
+    color: #e2e8f0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.fcm-facts-flags {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.fcm-flag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  font-size: 9.5px;
+}
+
+/* ── Row editor sheet ─────────────────────────────────────────────────────────
+   Same construction as the dashboard's filter sheet: fixed, below the shell nav (top comes
+   from the measured offset), its own header and footer with the body scrolling between. */
+.fcm-edit-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  /* over the grid and the footer, under cm-snackbar (3000) */
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;
+  /* opaque: the card list must not read through it */
+}
+
+.fcm-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  flex-shrink: 0;
+}
+
+.fcm-edit-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f7fbff;
+}
+
+.fcm-edit-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #7dd3fc;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Balances the Back button so the title stays centred. */
+.fcm-edit-spacer {
+  width: 56px;
+}
+
+.fcm-edit-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.fcm-edit-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  background: #070f1c;
+  flex-shrink: 0;
+}
+
+.fcm-edit-cancel,
+.fcm-edit-apply {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.fcm-edit-cancel {
+  flex-grow: 0.6;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.fcm-edit-apply {
+  border: none;
+  background: #38bdf8;
+  color: #04263a;
+}
+
+/* ── Sub-row block (Forecast / Actual / …) ────────────────────────────────── */
+.fcm-sub {
+  margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 9px;
+}
+
+.fcm-sub-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.fcm-sub-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #e2e8f0;
+
+  em {
+    font-style: normal;
+    font-weight: 400;
+    color: #94a3b8;
+  }
+}
+
+.fcm-sub-total {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  font-variant-numeric: tabular-nums;
+
+  &.is-negative {
+    color: #f87171;
+  }
+}
+
+/* 12 months, 3 across. Each cell owns its label, so no header row is needed. */
+.fcm-months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.fcm-month {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fcm-month-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.fcm-month input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #131b2e;
+  color: #e2e8f0;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+
+  &:focus {
+    border-color: #38bdf8;
+  }
+
+  &:disabled {
+    background: rgba(255, 255, 255, 0.03);
+    color: #64748b;
+  }
+
+  &.is-negative {
+    color: #f87171;
+  }
+}
+
+/* Locked and needs-a-comment reuse the grid's own colours so the states read the same. */
+.fcm-month.month-locked input {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.fcm-month.cell-needs-comment input {
+  border-color: rgba(248, 113, 113, 0.65);
+}
+
+/* The comment flags are absolutely placed by the grid's own rules; re-anchor them here. */
+.fcm-month .cell-flag {
+  position: absolute;
+  top: 12px;
+  right: 2px;
+}
+
+/* Clears the fixed footer at EVERY mobile width, so the last card - or the last table row
+   between 481 and 768px - is never sitting underneath it. The card list adds its own bottom
+   padding too; this covers the table layout, which has none of its own. */
+.fcm-has-footer .scroll-area {
+  padding-bottom: 76px;
+  box-sizing: border-box;
+}
+
+/* ── PHASE 2 MOBILE: view options in the footer ───────────────────────────────
+   Everything here lives inside the *ngIf="isMobileView" footer, so none of it matches at
+   desktop widths. */
+
+.fcm-opts {
+  position: relative;
+  /* the popover below is absolute against this */
+  flex: 0 0 auto;
+}
+
+.fcm-opts-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 38px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  cursor: pointer;
+
+  &.open {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.12);
+    color: #7dd3fc;
+  }
+}
+
+/* How many views are on, without opening the panel. */
+.fcm-opts-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #38bdf8;
+  color: #04263a;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+/* Opens UPWARD - the footer is pinned to the bottom of the viewport, so a downward panel would
+   be off screen. Left-aligned to the button, which sits at the left edge of the footer. */
+.fcm-opts-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10;
+  min-width: 232px;
+  max-width: 78vw;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0f172a;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+.fcm-opts-title {
+  margin: 0 0 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+/* Stacked list: label on the left, switch pushed to the right edge. */
+.fcm-opts-pop .toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 7px 0;
+  cursor: pointer;
+
+  +.toggle-item {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+}
+
+.fcm-opts-pop .toggle-label {
+  font-size: 12.5px;
+  color: #e2e8f0;
+}
+
+/* ── Fixed footer: Cancel / Save ──────────────────────────────────────────── */
+.fcm-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  /* under cm-snackbar (3000) and every dialog */
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(8, 13, 25, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(6px);
+
+  /* .btn-cancel / .btn-save keep their own colours from the toolbar rules above - only the
+     box is restated, so the buttons stay visually identical to the desktop pair. */
+  .btn-cancel,
+  .btn-save {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .btn-cancel {
+    flex-grow: 0.6;
+  }
+}
+
+/* ── Very narrow phones (down to 250px) ───────────────────────────────────── */
+@media (max-width: 340px) {
+  .fcm-months {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fcm-list {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .fcm-card {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 288px) {
+  .fcm-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fcm-check {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ─── Pager ────────────────────────────────────────────────────────────────
+   Same layout and behaviour as the Invoice View pager, but written in THIS screen's palette:
+   Forecast uses hardcoded slate values rather than the shell's theme custom properties, and
+   mixing the two would leave the pager a slightly different grey from the grid above it. */
+.fc-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0px 32px 0;
+  padding: 10px 14px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.fc-pager-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.fc-pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.fc-pager-size-label,
+.fc-pager-summary {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* Keeps the native dropdown arrow deliberately. Drawing one with background-image would need a
+   hover rule, and the `background` shorthand there resets background-image/-position — the bug
+   that made this screen's other select arrows slide about. Only background-COLOR animates. */
+.fc-pager-size-select {
+  height: 26px;
+  padding: 0 4px 0 8px;
+  background-color: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(56, 189, 248, 0.5);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #38bdf8;
+  }
+
+  option {
+    background: #0b0f19;
+    color: #cbd5e1;
+  }
+}
+
+.fc-pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fc-pager-btn,
+.fc-pager-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #e2e8f0;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  svg {
+    display: block;
+  }
+}
+
+.fc-pager-num.active {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #0b0f19;
+}
+
+.fc-pager-gap {
+  padding: 0 2px;
+  color: #475569;
+  font-size: 12px;
+}
+
+/* Phone: the grid's own gutters shrink to 16px, so the pager follows, and the two halves stack
+   rather than squeezing the page numbers. */
+@media (max-width: 480px) {
+  .fc-pager {
+    margin: 10px 16px 0 !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .fc-pager-left {
+    justify-content: space-between !important;
+  }
+
+  .fc-pager-controls {
+    justify-content: center !important;
+  }
+}
+/* ─── Forecast after Recharge ──────────────────────────────────────────────
+   A display-only line above Actual on rows with the Recharge box ticked. Green so it reads as a
+   derived figure rather than something typed — the same reasoning behind the blue contract rows,
+   which is the convention this screen already uses for "not entered here". */
+tr.sub-after-recharge {
+  .sub-label-text,
+  .sub-label-curr {
+    color: #34d399;
+  }
+
+  .value-cell input,
+  .sub-total {
+    color: #34d399;
   }
 }

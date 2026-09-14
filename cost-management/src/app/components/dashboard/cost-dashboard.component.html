@@ -8,9 +8,13 @@
        SAMPLE dataset at construction, so without this the dashboard flashed invented figures —
        real-looking spend, vendors and alerts — before the live numbers replaced them. Showing
        fabricated money, however briefly, is worse than showing a spinner. -->
-  <div class="dashboard-first-load" *ngIf="!hasLoadedOnce">
-    <cm-loader [show]="true" message="Loading cost data…" size="lg"></cm-loader>
-  </div>
+  <!-- Anchored, and mounted unconditionally rather than inside the !hasLoadedOnce gate: it must
+       stay registered for the screen's whole life, or a later refetch (year or filter change)
+       would find no anchor and fall back to the shell's overlay card. -->
+  <cm-loader [global]="true" [overlay]="false" size="lg"></cm-loader>
+
+  <!-- Reserves the height the spinner needs before any content exists. -->
+  <div class="dashboard-first-load" *ngIf="!hasLoadedOnce"></div>
 
   <ng-container *ngIf="hasLoadedOnce">
   <!-- Year + Clear on their own row: the six filter chips already fill a line, and mixing a
@@ -51,7 +55,7 @@
 
     <!-- Only the working filters can be "active" — clearing a placeholder would be
          meaningless, and offering it implies they do something. -->
-    <button class="btn-clear-filters" *ngIf="hasActiveFilters" (click)="clearDashboardFilters()"
+    <button class="btn-clear-filters" *ngIf="hasActiveFilters && !isMobileView" (click)="clearDashboardFilters()"
       cmTooltip="Clear Department, Vendor, Scenario, Site, Category and Currency"
       cmTooltipPosition="bottom">
       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -63,7 +67,9 @@
     </button>
   </div>
 
-  <div class="dashboard-filter-row">
+  <!-- All NINE filters in ONE row (the Site / Category / Currency trio used to sit in a second
+       `.secondary` row below). Hidden on phones, where they move into the filters panel. -->
+  <div class="dashboard-filter-row" *ngIf="!isMobileView">
     <label *ngFor="let group of filterGroups" class="filter-chip">
       <!-- trackBy for the same reason as the Site chip below: these lists are rebuilt on every
            refetch, and recreating the <option> nodes drops the current selection. -->
@@ -72,11 +78,9 @@
           [value]="option.value">{{ option.label }}</option>
       </select>
     </label>
-  </div>
 
-  <!-- Second filter row: Site and Currency. Both narrow the figures server-side, unlike the
-       Region / Country / Entity placeholders above. -->
-  <div class="dashboard-filter-row secondary">
+    <!-- Site and Currency narrow the figures server-side, unlike the Region / Country / Entity
+         placeholders above. -->
     <label class="filter-chip">
       <!-- trackBy so a refetch cannot recreate the <option> nodes and drop the selection. -->
       <select [ngModel]="selectedSite" (ngModelChange)="onSiteChange($event)">
@@ -124,10 +128,127 @@
       </div>
     </div>
 
-    <!-- The counterpart to the mixed-currency warning: say so when the figures ARE coherent. -->
-    <span class="currency-state" *ngIf="isSingleCurrency">
-      Totals are in {{ singleCurrencyCode }} only.
-    </span>
+  </div>
+
+  <!-- Moved OUT of the filter row by the merge: it is a status message, not a filter, and in the
+       auto-fit grid it would take a whole chip-sized cell of its own. -->
+  <span class="currency-state" *ngIf="isSingleCurrency && !isMobileView">
+    Totals are in {{ singleCurrencyCode }} only.
+  </span>
+
+  <!-- ══ MOBILE: the nine filters live behind this button ══════════════════════════════ -->
+  <div class="dmf-bar" *ngIf="isMobileView">
+    <button type="button" class="dmf-open" (click)="openFiltersPanel()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+      </svg>
+      <span>Filters</span>
+      <span class="dmf-count" *ngIf="appliedFilterCount">{{ appliedFilterCount }}</span>
+    </button>
+
+    <!-- The SAME button as the desktop toolbar's, moved here on mobile - not a second one.
+         Reusing .btn-clear-filters keeps its purple styling and its tooltip identical. -->
+    <button class="btn-clear-filters" *ngIf="hasActiveFilters" (click)="clearDashboardFilters()"
+      cmTooltip="Clear Department, Vendor, Scenario, Site, Category and Currency"
+      cmTooltipPosition="bottom">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+      Clear filters
+    </button>
+  </div>
+
+  <!-- What is actually applied, so the dashboard still says what it is showing once the chips
+       are hidden behind the button. -->
+  <div class="dmf-applied" *ngIf="isMobileView && appliedFilterCount">
+    <span class="dmf-applied-chip" *ngFor="let chip of appliedFilterChips">{{ chip }}</span>
+  </div>
+
+  <span class="dmf-currency-state" *ngIf="isMobileView && isSingleCurrency">
+    Totals are in {{ singleCurrencyCode }} only.
+  </span>
+
+  <!-- ══ MOBILE FILTERS PANEL ═══════════════════════════════════════════════════════════
+       Every control below binds to a DRAFT, so nothing refetches while the user is choosing.
+       Back drops the drafts; Apply commits them and refetches once. Rendered only on phones,
+       so none of this exists in the desktop DOM. -->
+  <div class="dmf-panel" #dmfPanel *ngIf="isMobileView && filtersPanelOpen" [style.top.px]="panelTopOffset">
+    <header class="dmf-panel-head">
+      <button type="button" class="dmf-back" (click)="closeFiltersPanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        Back
+      </button>
+      <h2 class="dmf-panel-title">Filters</h2>
+      <button type="button" class="dmf-panel-clear" (click)="clearDraftFilters()">Clear all</button>
+    </header>
+
+    <div class="dmf-panel-body">
+      <label class="dmf-field" *ngFor="let group of filterGroups">
+        <span class="dmf-field-label">{{ group.key }}</span>
+        <select [ngModel]="draftFilters[group.key]" (ngModelChange)="onDraftFilterChange(group.key, $event)">
+          <option *ngFor="let option of group.options; trackBy: trackByOptionValue"
+            [value]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="dmf-field">
+        <span class="dmf-field-label">Site</span>
+        <select [(ngModel)]="draftSite">
+          <option *ngFor="let option of siteOptions; trackBy: trackByOptionValue"
+            [value]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="dmf-field">
+        <span class="dmf-field-label">Category</span>
+        <select [(ngModel)]="draftCategory">
+          <option *ngFor="let option of categoryOptions; trackBy: trackByOptionValue"
+            [value]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <!-- Keeps the .currency-multiselect class so the existing document:click handler still
+           closes it on an outside tap. -->
+      <div class="dmf-field">
+        <span class="dmf-field-label">Currency</span>
+        <div class="currency-multiselect dmf-currency" [class.open]="currencyMenuOpen">
+          <button type="button" class="currency-trigger" (click)="toggleCurrencyMenu()">
+            <span>{{ draftCurrencyLabel }}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          <div class="currency-menu" *ngIf="currencyMenuOpen">
+            <button type="button" class="currency-item all" (click)="clearDraftCurrencies()">
+              <span class="tick" [class.on]="draftCurrencies.length === 0">&#10003;</span>
+              All currencies
+            </button>
+            <button type="button" class="currency-item"
+              *ngFor="let option of currencyOptions; trackBy: trackByOptionValue"
+              (click)="toggleDraftCurrency(option.value)">
+              <span class="tick" [class.on]="isDraftCurrencySelected(option.value)">&#10003;</span>
+              {{ option.label }}
+            </button>
+            <p class="currency-note" *ngIf="currencyOptions.length === 0">
+              No site currencies in this year's data.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="dmf-panel-foot">
+      <button type="button" class="dmf-btn-back" (click)="closeFiltersPanel()">Back</button>
+      <button type="button" class="dmf-btn-apply" (click)="applyFiltersPanel()">Apply filters</button>
+    </footer>
   </div>
 
   <div class="kpi-grid">
@@ -429,14 +550,67 @@
         </div>
         ── end disabled export button ── -->
       </header>
-      <div class="department-legend">
+      <!-- MOBILE ONLY: both toggles share one row. They were in different parents (the key sits
+           in the card, the departments toggle inside .department-layout), which is why they could
+           not simply be flexed together - this wrapper is what puts them on a line. Neither is
+           rendered on desktop, where the legend and the summary are both always open. -->
+      <div class="dep-controls" *ngIf="isMobileView">
+      <button type="button" class="dep-legend-toggle"
+        [class.open]="departmentLegendOpen"
+        [attr.aria-expanded]="departmentLegendOpen"
+        [attr.aria-label]="departmentLegendOpen ? 'Hide chart key' : 'Show chart key'"
+        (click)="toggleDepartmentLegend()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" /><line x1="12" y1="11" x2="12" y2="16" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <span>Key</span>
+        <svg class="dep-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      <button type="button" class="dep-toggle"
+        [class.open]="departmentPanelOpen"
+        [attr.aria-expanded]="departmentPanelOpen"
+        (click)="toggleDepartmentPanel()">
+        <svg class="dep-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
+          <line x1="8" y1="18" x2="21" y2="18" /><circle cx="3.5" cy="6" r="1.5" fill="currentColor" />
+          <circle cx="3.5" cy="12" r="1.5" fill="currentColor" /><circle cx="3.5" cy="18" r="1.5" fill="currentColor" />
+        </svg>
+        <span class="dep-toggle-text">{{ data.departmentName }}</span>
+        <svg class="dep-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+        <!-- INSIDE .dep-controls on purpose: it is absolutely positioned against it. As a sibling
+             it resolved against a far ancestor instead and landed ~1600px down the page. -->
+        <div class="department-legend dep-legend-pop" *ngIf="departmentLegendOpen">
+          <span *ngFor="let item of data.departmentLegend" [class]="'department-legend-item ' + item.style">
+            <i [style.background-color]="item.color" [style.border-color]="item.color"></i>
+            {{ item.label }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Desktop keeps its own copy in normal flow, exactly where it always was. -->
+      <div class="department-legend" *ngIf="!isMobileView">
         <span *ngFor="let item of data.departmentLegend" [class]="'department-legend-item ' + item.style">
           <i [style.background-color]="item.color" [style.border-color]="item.color"></i>
           {{ item.label }}
         </span>
       </div>
       <div class="department-layout">
-        <aside class="department-summary">
+        <aside class="department-summary" *ngIf="!isMobileView || departmentPanelOpen">
           <span>Department</span>
           <strong>{{ data.departmentName }}</strong>
           <p>{{ data.departmentDescription }}</p>
@@ -467,7 +641,12 @@
             <line class="department-axis-line" [attr.x1]="departmentChartPadding.left" [attr.x2]="departmentChartWidth - departmentChartPadding.right" [attr.y1]="departmentChartHeight - departmentChartPadding.bottom" [attr.y2]="departmentChartHeight - departmentChartPadding.bottom"></line>
             <line class="department-axis-line" [attr.x1]="departmentChartPadding.left" [attr.x2]="departmentChartPadding.left" [attr.y1]="departmentChartPadding.top" [attr.y2]="departmentChartHeight - departmentChartPadding.bottom"></line>
 
-            <g *ngFor="let tower of data.departments; let i = index" class="department-bar-group" (mouseenter)="setHoveredDepartment(tower)" (mouseleave)="clearHoveredDepartment()">
+            <!-- (click) alongside (mouseenter): a phone fires no hover, so without it the folded
+                 tooltip would be unreachable. On desktop it is a no-op - mouseenter has already
+                 set the same department by the time any click lands. -->
+            <g *ngFor="let tower of data.departments; let i = index" class="department-bar-group"
+              (mouseenter)="setHoveredDepartment(tower)" (mouseleave)="clearHoveredDepartment()"
+              (click)="setHoveredDepartment(tower)">
               <line
                 class="department-baseline"
                 [attr.x1]="getDepartmentBarX(i)"
@@ -504,13 +683,20 @@
               <text class="department-variance-label" [attr.x]="getDepartmentX(i)" [attr.y]="getDepartmentY(tower.actual) - 7" [attr.fill]="getDepartmentVarianceColor(tower)">
                 {{ getDepartmentVarianceLabel(tower) }}
               </text>
-              <text class="department-x-label" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 38">{{ tower.name }}</text>
-              <text class="department-x-subtitle" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 23">{{ tower.subtitle }}</text>
-              <text class="department-x-fy" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 4">{{ tower.fiscalLabel }}</text>
+              <!-- Mobile: 45 degrees, anchored at the end so the text tucks down-left of its bar
+                   instead of overrunning the neighbour. transform is null on desktop, which
+                   leaves the element exactly as it was. -->
+              <text class="department-x-label" [attr.x]="getDepartmentX(i)"
+                [attr.y]="departmentChartHeight - (isMobileView ? 46 : 38)"
+                [attr.transform]="isMobileView ? 'rotate(-45 ' + getDepartmentX(i) + ' ' + (departmentChartHeight - 46) + ')' : null">{{ tower.name }}</text>
+              <!-- The subtitle and FY lines are dropped on mobile: rotated they would cross both
+                   the name above them and each other. -->
+              <text class="department-x-subtitle" *ngIf="!isMobileView" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 23">{{ tower.subtitle }}</text>
+              <text class="department-x-fy" *ngIf="!isMobileView" [attr.x]="getDepartmentX(i)" [attr.y]="departmentChartHeight - 4">{{ tower.fiscalLabel }}</text>
             </g>
 
             <g *ngIf="hoveredDepartment" class="department-tooltip" [attr.transform]="'translate(' + getDepartmentTooltipX(hoveredDepartment) + ' ' + getDepartmentTooltipY(hoveredDepartment) + ')'">
-              <rect width="230" height="132" rx="8"></rect>
+              <rect width="230" [attr.height]="isMobileView ? 172 : 132" rx="8"></rect>
               <text x="12" y="20">{{ hoveredDepartment.name }}</text>
               <text x="12" y="42">Forecast</text>
               <text x="218" y="42" text-anchor="end" [style.fill]="hoveredDepartment.baselineColor">{{ formatChartMoney(hoveredDepartment.forecast) }}</text>
@@ -522,6 +708,13 @@
               <text x="218" y="99" text-anchor="end" [style.fill]="getDepartmentVarianceColor(hoveredDepartment)">{{ getDepartmentVarianceLabel(hoveredDepartment) }}</text>
               <text x="12" y="118">Drill</text>
               <text x="218" y="118" text-anchor="end" class="department-tooltip-link">{{ hoveredDepartment.drillLabel }}</text>
+
+              <!-- MOBILE: the two x-axis lines that had to come off the axis to rotate the name
+                   45 degrees. Appended at the bottom so every y above stays as it was. -->
+              <ng-container *ngIf="isMobileView">
+                <text class="department-tooltip-caption" x="12" y="139">{{ hoveredDepartment.subtitle }}</text>
+                <text class="department-tooltip-caption" x="12" y="157">{{ hoveredDepartment.fiscalLabel }}</text>
+              </ng-container>
             </g>
           </svg>
         </div>
@@ -530,7 +723,37 @@
 
     <div class="bottom-grid">
     <article class="dashboard-card mini-panel">
-      <h2>Internal Recharge</h2>
+      <div class="panel-head">
+        <h2>Internal Recharge</h2>
+        <div class="rch-controls" *ngIf="isMobileView">
+        <button type="button" class="dep-legend-toggle"
+          [class.open]="rechargeLegendOpen"
+          [attr.aria-expanded]="rechargeLegendOpen"
+          [attr.aria-label]="rechargeLegendOpen ? 'Hide key' : 'Show key'"
+          (click)="toggleRechargeLegend()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" /><line x1="12" y1="11" x2="12" y2="16" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span>Key</span>
+          <svg class="dep-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+          <!-- Child of .rch-controls, its positioned ancestor. -->
+          <div class="recharge-legend rch-legend-pop" *ngIf="rechargeLegendOpen">
+            <div *ngFor="let slice of data.recharge.slices">
+              <span class="legend-swatch" [style.background-color]="slice.color"></span>
+              <span>{{ slice.label }}</span>
+              <strong>{{ slice.value }}%</strong>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="recharge-layout">
         <div class="donut">
           <svg viewBox="0 0 120 120" class="donut-svg" aria-label="Recharge distribution">
@@ -557,7 +780,7 @@
             <span>Total Allocated</span>
           </div>
         </div>
-        <div class="recharge-legend">
+        <div class="recharge-legend" *ngIf="!isMobileView">
           <div *ngFor="let slice of data.recharge.slices">
             <span class="legend-swatch" [style.background-color]="slice.color"></span>
             <span>{{ slice.label }}</span>
@@ -567,9 +790,44 @@
       </div>
     </article>
     <article class="dashboard-card mini-panel category-panel">
-      <h2>Spend by Category</h2>
+      <!-- The wrapper puts the heading and the Key pill on one line on mobile. On desktop it is
+           an unstyled block containing only the h2, so the panel renders exactly as before
+           (.mini-panel h2 is a descendant selector, so it still matches). -->
+      <div class="panel-head">
+        <h2>Spend by Category</h2>
+        <div class="cat-controls" *ngIf="isMobileView">
+        <button type="button" class="dep-legend-toggle"
+          [class.open]="categoryLegendOpen"
+          [attr.aria-expanded]="categoryLegendOpen"
+          [attr.aria-label]="categoryLegendOpen ? 'Hide category key' : 'Show category key'"
+          (click)="toggleCategoryLegend()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" /><line x1="12" y1="11" x2="12" y2="16" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span>Key</span>
+          <svg class="dep-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+        <!-- Child of .cat-controls, which is the positioned ancestor it anchors to. -->
+        <div class="category-legend cat-legend-pop" *ngIf="categoryLegendOpen">
+          <div *ngFor="let category of data.categories">
+            <span class="legend-swatch" [style.background-color]="category.color"></span>
+            <span>{{ category.label }}</span>
+            <strong>{{ category.amount }}</strong>
+          </div>
+        </div>
+        </div>
+      </div>
       <p class="more-note" *ngIf="categoriesMoreNote">{{ categoriesMoreNote }}</p>
-      <div class="category-legend">
+
+      <!-- Desktop keeps its own copy in normal flow, unchanged. -->
+      <div class="category-legend" *ngIf="!isMobileView">
         <div *ngFor="let category of data.categories">
           <span class="legend-swatch" [style.background-color]="category.color"></span>
           <span>{{ category.label }}</span>

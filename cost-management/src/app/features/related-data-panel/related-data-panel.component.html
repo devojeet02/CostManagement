@@ -5,7 +5,24 @@
     <div class="rdp-heading">
       <h3 class="rdp-title">Related Forecast and Actual Data</h3>
       <div class="rdp-meta">
-        <span class="rdp-chip rdp-chip--year">{{ year }}</span>
+        <!-- A <span>, NOT a <label>: the global `.dark-version label` rule sets its own colour
+             and outranks `.rdp-chip--year`, which silently turned the blue year chip white. -->
+        <span class="rdp-chip rdp-chip--year rdp-chip--pick" *ngIf="availableYears.length > 1"
+          [class.rdp-chip--shifted]="isViewingOtherYear"
+          [cmTooltip]="isViewingOtherYear
+            ? 'Showing another year. The invoice itself is unchanged.'
+            : 'Show the actuals and forecast recorded for a different year.'">
+          <select class="rdp-year-select" [ngModel]="effectiveYear"
+            (ngModelChange)="onYearChange($event)" name="rdp-year">
+            <option *ngFor="let y of availableYears; trackBy: trackMonth" [ngValue]="y">{{ y }}</option>
+          </select>
+          <svg class="rdp-chip-caret" xmlns="http://www.w3.org/2000/svg" width="9" height="9"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+        <span class="rdp-chip rdp-chip--year" *ngIf="availableYears.length <= 1">{{ effectiveYear }}</span>
         <span class="rdp-chip" *ngIf="panel?.scenario">{{ panel?.scenario }}</span>
         <span class="rdp-chip" *ngIf="panel?.currency">{{ panel?.currency }}</span>
       </div>
@@ -21,7 +38,7 @@
       </label>
       <span class="rdp-single-context" *ngIf="contexts.length === 1">{{ selectedLabel }}</span>
 
-      <button type="button" class="rdp-refresh" title="Refresh" (click)="refresh()" [disabled]="isLoading">
+      <button type="button" class="rdp-refresh" cmTooltip="Refresh" (click)="refresh()" [disabled]="isLoading">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 4 23 10 17 10" />
@@ -29,6 +46,82 @@
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
         </svg>
       </button>
+    </div>
+  </div>
+
+  <!-- ─── Parameters this panel is reporting on (collapsible) ───────────
+       A sibling block inserted between the header and the states — no existing div is
+       touched. Sits OUTSIDE the load-state *ngIf chain on purpose: these are the invoice's
+       own values, so they are worth reading while the figures are still loading, and they
+       are what explains an empty result. -->
+  <div class="rdp-params" [class.rdp-params--open]="paramsOpen">
+    <button type="button" class="rdp-params-toggle" (click)="toggleParams()"
+      [attr.aria-expanded]="paramsOpen">
+      <svg class="rdp-params-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+      <span class="rdp-params-title">Parameters</span>
+      <span class="rdp-params-note">
+        {{ paramLines.length }} line{{ paramLines.length === 1 ? '' : 's' }}
+      </span>
+    </button>
+
+    <div class="rdp-params-body" *ngIf="paramsOpen">
+
+      <!-- Invoice-level: the same three the panel keys its query on, plus Supplier. -->
+      <dl class="rdp-params-invoice">
+        <div><dt>Site</dt><dd>{{ paramLabel(site) }}</dd></div>
+        <div><dt>Team</dt><dd>{{ paramLabel(team) }}</dd></div>
+        <div><dt>Supplier</dt><dd>{{ paramLabel(supplier) }}</dd></div>
+      </dl>
+
+      <!-- Line-level. Scrolls inside its own container so a long description can never make
+           the panel scroll sideways. -->
+      <div class="rdp-params-table-wrap">
+        <table class="rdp-params-table">
+          <thead>
+            <tr>
+              <th class="rdp-pp-line">Line</th>
+              <th class="rdp-pp-account">Account</th>
+              <th>Internal Order</th>
+              <th>Spend Type</th>
+              <th>Spend Layer</th>
+              <th>Category</th>
+              <th>System</th>
+              <th class="rdp-pp-desc">Item Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- A cell shows the line's own value; where the line is still blank and its
+                 internal order has a known coding, the forecast line's value stands in, dimmed.
+                 Nothing is written back to the invoice - see paramCell(). -->
+            <tr *ngFor="let l of paramLines; trackBy: trackParamLine">
+              <td class="rdp-pp-line">{{ l.line }}</td>
+              <td class="rdp-pp-account" [class.rdp-pp-from-io]="isInherited(l, 'account')"
+                [cmTooltip]="paramLabel(paramCell(l, 'account'))">{{ paramLabel(paramCell(l, 'account')) }}</td>
+              <td class="rdp-pp-io" [cmTooltip]="internalOrderHint(l)">{{ paramText(l.internalOrder) }}</td>
+              <td [class.rdp-pp-from-io]="isInherited(l, 'spendType')">{{ paramText(paramCell(l, 'spendType')) }}</td>
+              <td [class.rdp-pp-from-io]="isInherited(l, 'spendLayer')">{{ paramText(paramCell(l, 'spendLayer')) }}</td>
+              <td [class.rdp-pp-from-io]="isInherited(l, 'category')">{{ paramText(paramCell(l, 'category')) }}</td>
+              <td [class.rdp-pp-from-io]="isInherited(l, 'system')">{{ paramText(paramCell(l, 'system')) }}</td>
+              <td class="rdp-pp-desc" [class.rdp-pp-from-io]="isInherited(l, 'description')"
+                [cmTooltip]="paramText(paramCell(l, 'description'))">{{ paramText(paramCell(l, 'description')) }}</td>
+            </tr>
+            <tr *ngIf="paramLines.length === 0">
+              <td class="rdp-params-empty" colspan="8">No invoice lines yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Only appears when something is actually standing in, so the dimmed cells are never
+           left unexplained. -->
+      <p class="rdp-params-legend" *ngIf="hasInheritedValues">
+        <span class="rdp-pp-from-io">Dimmed</span> values are not on this invoice — they are the
+        coding the internal order's forecast line was saved with, shown for reference only.
+      </p>
     </div>
   </div>
 
@@ -50,7 +143,7 @@
   </div>
 
   <!-- ─── The grid ──────────────────────────────────────────────────────── -->
-  <div class="rdp-table-wrap" *ngIf="hasParameters && !isLoading && !loadError && panel">
+  <div class="rdp-table-wrap" *ngIf="hasParameters && !isLoading && !loadError && panel && !hasNoFigures">
     <table class="rdp-table">
       <thead>
         <tr>
@@ -107,7 +200,7 @@
     totals that mean something are each row's year total, which is what these are (and what
     the Total column repeats alongside each row).
   -->
-  <div class="rdp-summary" *ngIf="hasParameters && !isLoading && !loadError && panel">
+  <div class="rdp-summary" *ngIf="hasParameters && !isLoading && !loadError && panel && !hasNoFigures">
     <span class="rdp-summary-item">
       Total Actuals <strong>{{ panel.actualTotal | number:'1.2-2' }}</strong>
     </span>
@@ -126,6 +219,16 @@
     No related actuals or forecast for these parameters.
   </div>
 
+  <!-- Nothing recorded for the year on show. A well-formed response of twelve nulls would
+       otherwise render as a full grid of em-dashes and 0.00s and read as real data. -->
+  <div class="rdp-state" *ngIf="hasParameters && !isLoading && !loadError && panel && hasNoFigures">
+    Nothing was recorded for <strong>{{ effectiveYear }}</strong> against these parameters — no
+    posted invoices and no forecast.
+    <button type="button" class="rdp-link" *ngIf="isViewingOtherYear" (click)="onYearChange(year)">
+      Back to {{ year }}
+    </button>
+  </div>
+
 </div>
 
 <!--
@@ -136,7 +239,7 @@
 -->
 <div class="rdp-popover" *ngIf="popover" [style.top.px]="popover.top" [style.left.px]="popover.left">
   <div class="rdp-pop-head">
-    {{ months[popover.month] }} {{ year }} · {{ popover.totalRows }} invoice line{{ popover.totalRows > 1 ? 's' : '' }}
+    {{ months[popover.month] }} {{ effectiveYear }} · {{ popover.totalRows }} invoice line{{ popover.totalRows > 1 ? 's' : '' }}
   </div>
 
   <div class="rdp-pop-row" *ngFor="let d of popover.rows; trackBy: trackDetail">

@@ -85,6 +85,33 @@ export interface InvoiceUploadResult {
 }
 
 /** Row shape from the invoice list endpoint. */
+/**
+ * One row of the Invoice Change History panel: a change EVENT with its invoice already attached.
+ *
+ * Denormalised deliberately — the panel prints the supplier/amount/site line beside every event,
+ * and fetching that per invoice is the 1 + N the paging exists to remove.
+ */
+export interface InvoiceHistoryEntry {
+  timestamp: string;
+  user: string;
+  invoiceId: number;
+  invNumber: string | null;
+  supplier: string | null;
+  currency: string | null;
+  invAmount: number;
+  site: string | null;
+  /** What happened — the changed field, or "Created" for the opening event. */
+  action: string | null;
+}
+
+/** GET /api/v1/invoices/history response. */
+export interface PagedInvoiceHistory {
+  total: number;
+  page: number;
+  pageSize: number;
+  items: InvoiceHistoryEntry[];
+}
+
 export interface InvoiceListItem {
   id: number;
   supplier: string;
@@ -385,6 +412,49 @@ export class InvoiceService {
       i.supplier === supplier &&
       i.id !== excludeId)[0];
     return of((hit ? JSON.parse(JSON.stringify(hit)) : null) as InvoiceDetail | null).pipe(delay(160));
+  }
+
+  /**
+   * Mock of GET /api/v1/invoices/history — one page of the change feed across EVERY invoice,
+   * newest first.
+   *
+   * Built from the mock invoice store so the feed grows with it, and deliberately gives each
+   * invoice several events: the panel auto-loads the next page when the reader reaches the foot
+   * of the list, and a single-page feed would never exercise that.
+   */
+  historyPaged(page: number, pageSize: number): Observable<PagedInvoiceHistory> {
+    const actions = ['Created', 'Invoice Amount', 'File Uploaded', 'Budgeted'];
+    const events: InvoiceHistoryEntry[] = [];
+
+    this.invoices.forEach((inv: any, idx: number) => {
+      const base = new Date(inv.invoiceDate || '2026-07-01T09:00:00Z').getTime();
+      actions.forEach((action, a) => {
+        // Spread the events apart so the ordering below is stable and readable.
+        const when = new Date(base + (idx * 4 + a) * 36e5).toISOString();
+        events.push({
+          timestamp: when,
+          user: inv.lastUpdatedBy || 'Devojeet Modak',
+          invoiceId: inv.id,
+          invNumber: inv.invNumber,
+          supplier: inv.supplierName || inv.supplier,
+          currency: inv.currency,
+          invAmount: inv.invAmount,
+          site: inv.site,
+          action
+        });
+      });
+    });
+
+    events.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+    const size = pageSize > 0 ? pageSize : 10;
+    const current = page > 0 ? page : 1;
+    return of({
+      total: events.length,
+      page: current,
+      pageSize: size,
+      items: events.slice((current - 1) * size, current * size)
+    }).pipe(delay(220));
   }
 
   getHistory(id: number): Observable<ChangeLog[]> {

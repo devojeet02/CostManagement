@@ -154,13 +154,18 @@ export class MasterDataService {
 
   private store: { [path: string]: LookupItemDto[] } = {
     sites: [
-      { id: 1, code: 'uk', name: 'UK' },
-      { id: 2, code: 'amsterdam', name: 'Amsterdam' },
-      { id: 3, code: 'france', name: 'France' },
-      { id: 4, code: 'usa', name: 'USA' },
-      { id: 5, code: 'bradford', name: 'Bradford' },
-      { id: 6, code: 'london-hq', name: 'London HQ' },
-      { id: 7, code: 'manchester', name: 'Manchester' },
+      // currencyId is NOT decoration: Invoice Upload offers only sites that have one, because a
+      // site with no currency cannot price an invoice (it also drives the Site Currency AUTO
+      // field). Leave it off and the Site lookup renders empty with no error anywhere.
+      // Dublin deliberately has none — it is a recharge target only, which is what keeps the
+      // 'All Sites' recharge list distinguishable from the processing-site list.
+      { id: 1, code: 'uk', name: 'UK', currencyId: 1 },
+      { id: 2, code: 'amsterdam', name: 'Amsterdam', currencyId: 2 },
+      { id: 3, code: 'france', name: 'France', currencyId: 2 },
+      { id: 4, code: 'usa', name: 'USA', currencyId: 3 },
+      { id: 5, code: 'bradford', name: 'Bradford', currencyId: 1 },
+      { id: 6, code: 'london-hq', name: 'London HQ', currencyId: 1 },
+      { id: 7, code: 'manchester', name: 'Manchester', currencyId: 1 },
       { id: 8, code: 'dublin', name: 'Dublin' },
     ],
     teams: [

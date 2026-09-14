@@ -30,13 +30,25 @@
   </div>
 
   <!-- ── Split grid ── -->
-  <div class="table-outer-wrapper">
+  <div class="table-outer-wrapper" [class.is-loading]="isLoadingRows">
+
+    <!-- Driven by LoaderService (see loadCostRows), but anchored: drawn over this wrapper rather
+         than as the shell's overlay card, which read as a modal popping up over the grid. -->
+    <cm-loader [global]="true" [overlay]="false" size="lg"></cm-loader>
+
     <div class="table-scroll-container">
       <div class="grid-split-container">
 
         <!-- Left fixed pane: metadata columns -->
         <div class="metadata-pane" #metadataPane>
           <table class="cost-table metadata-table">
+            <!-- table-layout:fixed reads column widths from the first row, and that row is a single
+                 colspan=8 banner - so without this colgroup the widths below are ignored and every
+                 column comes out equal. Presentation only; no cells were added or removed. -->
+            <colgroup>
+              <col class="col-1" /><col class="col-2" /><col class="col-3" /><col class="col-4" />
+              <col class="col-5" /><col class="col-6" /><col class="col-7" /><col class="col-8" />
+            </colgroup>
             <thead>
               <tr class="header-super">
                 <th class="super-header-cell super-header-title" colspan="8">Cost Center Metadata</th>
@@ -213,8 +225,13 @@
 </div>
 
 <!-- ── Prepare Scenario modal (RFP §8.1) ── -->
-<div class="modal-overlay" *ngIf="showAddScenarioModal" (click)="closeAddScenario()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
+<!-- The overlay closes on a click of the BACKDROP ITSELF, tested by target === currentTarget,
+     rather than by having the card swallow clicks with stopPropagation(). A click the card
+     swallowed never reached document, and cm-hierarchy-select closes its dropdown from a
+     document:click listener - so the Scenario Type dropdown stayed open when you clicked
+     elsewhere in the modal. -->
+<div class="modal-overlay" *ngIf="showAddScenarioModal" (click)="onModalBackdropClick($event)">
+  <div class="modal-card">
     <div class="modal-header">
       <h3>Prepare Reporting Scenario</h3>
       <button class="close-btn" (click)="closeAddScenario()">&#10005;</button>
@@ -228,7 +245,14 @@
 
       <div class="field-group">
         <label class="field-label">Scenario Type</label>
-        <input type="text" class="field-input" [(ngModel)]="newScenarioType" placeholder="e.g. Forecast, Budget, Actual" />
+        <!-- allowCustom: this stays a free-text field (it is saved as the scenario's name), the
+             dropdown just offers the types already in use. Without it the shared control would
+             only commit a value picked from the list and discard anything typed. -->
+        <cm-hierarchy-select class="field-select"
+          [(ngModel)]="newScenarioType"
+          [groups]="scenarioTypeGroups"
+          [allowCustom]="true"
+          placeholder="e.g. Forecast, Budget, Actual"></cm-hierarchy-select>
       </div>
 
       <div class="field-group">
