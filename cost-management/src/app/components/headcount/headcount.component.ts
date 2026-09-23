@@ -12,6 +12,7 @@ import { HeadcountService, HeadcountRowPayload } from '../../services/headcount.
 import { MasterDataService, LookupItemDto } from '../../services/master-data.service';
 import { UserService, UserDto } from '../../services/user.service';
 import { SnackbarService } from '../../features/snackbar/snackbar.service';
+import { PeriodService } from '../../services/period.service';
 
 @Component({
   selector: 'cm-headcount',
@@ -28,12 +29,71 @@ export class HeadcountComponent implements OnInit {
     private masterDataService: MasterDataService,
     private userService: UserService,
     private snackbar: SnackbarService,
+    private periodService: PeriodService,
     private host: ElementRef<HTMLElement>
   ) {}
+
+  /** Closed months, keyed by YEAR then month index 0-11. ⚠️ Keyed by year, unlike Forecast's flat array, because this grid shows TWO years at once - a month closed in 2025 must not grey out the 2026 band above it. Presentation only; the API is what actually refuses the save. */
+  private lockedMonthsByYear = new Map<number, boolean[]>();
+  private lockedByByYear = new Map<number, (string | null)[]>();
+
+  /** Loads the open/closed state for every year on screen. Both bands are fetched because either can be the one being edited, and de-duplicated so the common case of both chips on the same year costs one request. */
+  private loadPeriods(): void {
+    const years = Array.from(new Set([this.filters.scenarioYear, this.filters.otherScenarioYear])).filter(y => !!y);
+
+    for (const year of years) {
+      this.periodService.list(year).subscribe({
+        next: periods => {
+          const locked = new Array(12).fill(false);
+          const by: (string | null)[] = new Array(12).fill(null);
+          for (const p of periods || []) {
+            const idx = (p.month || 0) - 1;          // the API counts months 1-12
+            if (idx < 0 || idx > 11) continue;
+            locked[idx] = p.isOpen === false;
+            by[idx] = p.lastUpdatedBy || null;
+          }
+          this.lockedMonthsByYear.set(year, locked);
+          this.lockedByByYear.set(year, by);
+        },
+        // Leave the year editable rather than locking the grid on a failed lookup: a lock nobody asked for is worse than a missing one.
+        error: err => {
+          this.lockedMonthsByYear.delete(year);
+          this.lockedByByYear.delete(year);
+          console.error(`Failed to load period locks for ${year}`, err);
+        }
+      });
+    }
+  }
+
+  /** True when that month (0-11) is closed for editing in the given year. */
+  isMonthLocked(year: number, monthIndex: number): boolean {
+    const locked = this.lockedMonthsByYear.get(year);
+    return !!locked && locked[monthIndex] === true;
+  }
+
+  /** Header state, keyed to the PRIMARY year: one header row sits above both bands and cannot show two states at once. The body cells carry their own band's year. */
+  isHeaderMonthLocked(monthIndex: number): boolean {
+    return this.isMonthLocked(this.filters.scenarioYear, monthIndex);
+  }
+
+  /** Tooltip naming the YEAR explicitly, because two are on screen and "Jan is closed" would be ambiguous. */
+  monthLockTitle(year: number, monthIndex: number): string {
+    if (!this.isMonthLocked(year, monthIndex)) return '';
+    const byYear = this.lockedByByYear.get(year);
+    const who = byYear ? byYear[monthIndex] : null;
+    return `${this.months[monthIndex]} ${year} is closed for editing. Headcount for this month is locked.`
+      + (who ? ` Closed by ${who}.` : '')
+      + ' Reopen it on the Period Management screen to edit this month.';
+  }
+
+  headerMonthLockTitle(monthIndex: number): string {
+    return this.monthLockTitle(this.filters.scenarioYear, monthIndex);
+  }
 
   ngOnInit(): void {
     this.loadHeadcount();
     this.loadDropdownData();
+    this.loadPeriods();
   }
 
   /**
@@ -463,10 +523,11 @@ export class HeadcountComponent implements OnInit {
     this.pageRequested = 1;
   }
 
-  /** A filter or year changed: back to page 1 and refetch, since both are applied server-side. */
+  /** A filter or year changed: back to page 1 and refetch, since both are applied server-side. The period locks follow the year chips, so they are refreshed here too. */
   applyFilters(): void {
     this.resetPaging();
     this.loadHeadcount();
+    this.loadPeriods();
   }
 
   /** Which year a given sub-row reads: primary → scenarioYear, other → otherScenarioYear. */

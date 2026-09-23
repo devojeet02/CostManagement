@@ -32,7 +32,6 @@
   padding: 0 28px 40px;
 }
 
-// ── Page header ──────────────────────────────────────────────
 .page-header {
   display: flex;
   align-items: flex-end;
@@ -56,14 +55,12 @@
   margin: 0;
 }
 
-// ── Sections grid ─────────────────────────────────────────────
 .sections-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 18px;
 }
 
-// ── Section card ──────────────────────────────────────────────
 .section-card {
   background: var(--bg-secondary);
   border-radius: 12px;
@@ -154,7 +151,6 @@
   }
 }
 
-// ── Table ─────────────────────────────────────────────────────
 .table-wrap {
   overflow-x: auto;
   overflow-y: auto;
@@ -228,7 +224,6 @@
   }
 }
 
-// ── Action buttons ────────────────────────────────────────────
 .action-btn {
   display: inline-flex;
   align-items: center;
@@ -273,7 +268,6 @@
   }
 }
 
-// ── Empty state ───────────────────────────────────────────────
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -298,18 +292,19 @@
   }
 }
 
-// ── Modal overlay ─────────────────────────────────────────────
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
+  z-index: 2000;
+  backdrop-filter: blur(3px);
   animation: fadeIn 0.15s ease;
 }
+
+/* NOTE  Portalled to <body> (see panelOverlay), so it dims the sidenav and top bar too rather than just the routed content. 2000 matches cm-modal and clears the shell's sidenav (1200) and navbar (1020) - the z-index only works BECAUSE of the move; inside the routed content's stacking context it counted for nothing */
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -332,7 +327,6 @@
   to   { transform: translateY(0);    opacity: 1; }
 }
 
-// ── Modal header ──────────────────────────────────────────────
 .modal-header {
   display: flex;
   align-items: flex-start;
@@ -376,7 +370,6 @@
   }
 }
 
-// ── Modal body ────────────────────────────────────────────────
 .modal-body {
   padding: 20px;
   display: flex;
@@ -440,7 +433,6 @@
   color: #e53e3e;
 }
 
-// ── Modal footer ──────────────────────────────────────────────
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -477,4 +469,72 @@
 
   &:hover { opacity: 0.88; transform: translateY(-1px); }
   &:active { transform: translateY(0); }
+}
+.region-admin {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.region-admin-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent-color);
+  cursor: pointer;
+  text-align: left;
+
+  &:hover { text-decoration: underline; }
+}
+
+.region-form {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-hover);
+}
+
+.region-form-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.region-form-row {
+  display: flex;
+  gap: 8px;
+
+  .region-code { flex: 0 0 34%; }
+  .region-name { flex: 1 1 auto; }
+}
+
+.region-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+
+  button {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
+
+  .btn-primary {
+    background: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    color: #fff;
+
+    &:disabled { opacity: 0.6; cursor: not-allowed; }
+  }
 }

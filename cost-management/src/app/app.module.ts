@@ -26,12 +26,15 @@ import { LoaderComponent } from './features/loader/loader.component';
 import { TooltipDirective } from './features/tooltip/tooltip.directive';
 import { CmModalComponent } from './features/cm-modal/cm-modal.component';
 import { ScenarioManagementComponent } from './components/scenario-management/scenario-management.component';
+import { ScenarioManagementLegacyComponent } from './components/scenario-management-legacy/scenario-management-legacy.component';
 import { AdminCostManagementComponent } from './components/admin-cost-management/admin-cost-management.component';
 import { PeriodManagementComponent } from './components/period-management/period-management.component';
 import { AuditLogComponent } from './components/audit-log/audit-log.component';
 import { BudgetPlannerComponent } from './components/budget-planner/budget-planner.component';
 import { ConfirmDialogComponent } from './features/confirm-dialog/confirm-dialog.component';
 import { CmHierarchySelectComponent } from './features/cm-hierarchy-select/cm-hierarchy-select.component';
+import { RegionCountriesComponent } from './features/region-countries/region-countries.component';
+import { ForecastAuditComponent } from './components/forecast-audit/forecast-audit.component';
 import { ForecastCellCommentComponent } from './features/forecast-cell-comment/forecast-cell-comment.component';
 import { ForecastCommentsModalComponent } from './features/forecast-comments-modal/forecast-comments-modal.component';
 import { RechargeDrillComponent } from './features/recharge-drill/recharge-drill.component';
@@ -68,12 +71,15 @@ import { InvoiceEditComponent } from './components/invoice-edit/invoice-edit.com
     TooltipDirective,
     CmModalComponent,
     ScenarioManagementComponent,
+    ScenarioManagementLegacyComponent,
     AdminCostManagementComponent,
     PeriodManagementComponent,
     AuditLogComponent,
     BudgetPlannerComponent,
     ConfirmDialogComponent,
     CmHierarchySelectComponent,
+    RegionCountriesComponent,
+    ForecastAuditComponent,
     ForecastCellCommentComponent,
     ForecastCommentsModalComponent,
     RechargeDrillComponent,

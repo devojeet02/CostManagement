@@ -285,6 +285,6 @@ export class InvoiceEditComponent extends InvoiceUploadComponent implements OnIn
   }
 
   private goToList(): void {
-    this.router.navigate(['/Cost-Management/Invoice-View']);
+    this.router.navigate(['/invoice-view']);
   }
 }

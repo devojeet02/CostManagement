@@ -81,7 +81,11 @@
     </ng-container>
     </ng-container>
 
-    <div class="hs-empty" *ngIf="hasNoResults">No results for "{{ searchText }}"</div>
+    <div class="hs-empty" *ngIf="hasNoResults">
+      No results for "{{ searchText }}"
+      <button type="button" class="hs-empty-action" *ngIf="showEmptyAction"
+        (mousedown)="$event.preventDefault()" (click)="runEmptyAction()">{{ emptyActionLabel }}</button>
+    </div>
 
   </div>
 </div>

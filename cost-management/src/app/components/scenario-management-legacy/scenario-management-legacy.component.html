@@ -24,52 +24,6 @@
       </div>
     </div>
 
-    <div class="control-actions">
-      <!-- CCM-047: Column Picker -->
-      <div class="dropdown-anchor">
-        <button class="btn-secondary" (click)="toggleColumnPicker()">
-          Columns <span class="btn-count">({{ visibleScenarioIds.size }}/{{ scenarios.length }})</span>
-        </button>
-        <div class="dropdown-panel" *ngIf="showColumnPicker">
-          <div class="dropdown-panel-title">Show columns</div>
-          <label class="dropdown-check-row" *ngFor="let scenario of scenarios">
-            <input type="checkbox" [checked]="isColumnVisible(scenario.id)" (change)="toggleColumnVisibility(scenario.id)" />
-            {{ scenario.displayName }}
-          </label>
-        </div>
-      </div>
-
-      <!-- CCM-048: Variance Column Builder -->
-      <div class="dropdown-anchor">
-        <button class="btn-secondary" (click)="toggleVarianceBuilder()">
-          Variance Columns <span class="btn-count">({{ varianceCols.length }})</span>
-        </button>
-        <div class="dropdown-panel dropdown-panel-wide" *ngIf="showVarianceBuilder">
-          <div class="dropdown-panel-title">Add variance column</div>
-          <div class="variance-builder-row">
-            <select class="form-select" [(ngModel)]="newVarianceLeft">
-              <option value="">Column A…</option>
-              <option *ngFor="let s of scenarios" [value]="s.id">{{ s.displayName }}</option>
-            </select>
-            <span class="variance-builder-minus">&minus;</span>
-            <select class="form-select" [(ngModel)]="newVarianceRight">
-              <option value="">Column B…</option>
-              <option *ngFor="let s of scenarios" [value]="s.id">{{ s.displayName }}</option>
-            </select>
-            <button class="btn-secondary btn-small" (click)="addVarianceColumn()">Add</button>
-          </div>
-          <div class="dropdown-panel-title" *ngIf="varianceCols.length > 0">Existing</div>
-          <div class="variance-existing-row" *ngFor="let vCol of varianceCols">
-            <span>{{ vCol.label }}</span>
-            <button class="btn-remove-chip" title="Remove" (click)="removeVarianceColumn(vCol.id)">&#10005;</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- CCM-049 AC#4 -->
-      <button class="btn-secondary" (click)="resetToDefault()">Reset to Default</button>
-    </div>
-
     <button class="btn-add-scenario" (click)="openAddScenario()">
       <span class="btn-icon">&#43;</span> Prepare Scenario
     </button>
@@ -78,7 +32,8 @@
   <!-- ── Split grid ── -->
   <div class="table-outer-wrapper" [class.is-loading]="isLoadingRows">
 
-    <!-- Driven by LoaderService (see loadCostRows), but anchored: drawn over this wrapper rather than as the shell's overlay card, which read as a modal popping up over the grid. -->
+    <!-- Driven by LoaderService (see loadCostRows), but anchored: drawn over this wrapper rather
+         than as the shell's overlay card, which read as a modal popping up over the grid. -->
     <cm-loader [global]="true" [overlay]="false" size="lg"></cm-loader>
 
     <div class="table-scroll-container">
@@ -87,7 +42,9 @@
         <!-- Left fixed pane: metadata columns -->
         <div class="metadata-pane" #metadataPane>
           <table class="cost-table metadata-table">
-            <!-- table-layout:fixed reads column widths from the first row, and that row is a single colspan=8 banner - so without this colgroup the widths below are ignored and every column comes out equal. Presentation only; no cells were added or removed. -->
+            <!-- table-layout:fixed reads column widths from the first row, and that row is a single
+                 colspan=8 banner - so without this colgroup the widths below are ignored and every
+                 column comes out equal. Presentation only; no cells were added or removed. -->
             <colgroup>
               <col class="col-1" /><col class="col-2" /><col class="col-3" /><col class="col-4" />
               <col class="col-5" /><col class="col-6" /><col class="col-7" /><col class="col-8" />
@@ -158,13 +115,6 @@
                 <td class="col-7"></td>
                 <td class="col-8"></td>
               </tr>
-              <!-- CCM-051: label row for the matching Cumulative Variance row in the scenarios-pane. -->
-              <tr class="total-row cumvar-row"
-                  [class.row-hovered]="hoveredRowId === 'CUMVAR'"
-                  (mouseenter)="hoveredRowId = 'CUMVAR'"
-                  (mouseleave)="hoveredRowId = null">
-                <td class="col-1" colspan="8">Cumulative Variance</td>
-              </tr>
             </tfoot>
           </table>
         </div>
@@ -174,19 +124,20 @@
           <table class="cost-table scenarios-table">
             <thead>
               <tr class="header-super">
-                <th [attr.colspan]="visibleScenarios.length" class="scenarios-header-span">Forecast / Actual Scenarios</th>
+                <th [attr.colspan]="scenarios.length" class="scenarios-header-span">Forecast / Actual Scenarios</th>
                 <th [attr.colspan]="varianceCols.length" class="variance-header-span">Variance</th>
               </tr>
               <tr class="header-sub">
-                <th *ngFor="let scenario of visibleScenarios"
+                <th *ngFor="let scenario of scenarios; let i = index"
                     class="scenario-header-cell"
                     draggable="true"
-                    (dragstart)="onDragStart($event, scenario)"
-                    (dragover)="onDragOver($event, scenario)"
-                    (drop)="onDrop($event, scenario)"
+                    (dragstart)="onDragStart($event, i)"
+                    (dragover)="onDragOver($event, i)"
+                    (drop)="onDrop($event, i)"
                     (dragend)="onDragEnd()"
-                    [class.dragging]="draggedScenarioId === scenario.id"
-                    [class.drag-over]="dragOverScenarioId === scenario.id">
+                    [class.dragging]="draggedColIndex === i"
+                    [class.drag-over-left]="dragOverColIndex === i && draggedColIndex !== null && draggedColIndex > i"
+                    [class.drag-over-right]="dragOverColIndex === i && draggedColIndex !== null && draggedColIndex < i">
                   <div class="header-drag-content">
                     <div class="drag-indicator">
                       <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
@@ -206,7 +157,6 @@
                 </th>
                 <th *ngFor="let vCol of varianceCols" class="variance-header-cell">
                   <div class="variance-header-content">
-                    <button class="btn-remove-variance" title="Remove this variance column" (click)="removeVarianceColumn(vCol.id)">&#10005;</button>
                     <span class="variance-title">Variance</span>
                     <span class="variance-formula">{{ vCol.label }}</span>
                   </div>
@@ -219,7 +169,7 @@
                     [class.row-hovered]="hoveredRowId === row.id"
                     (mouseenter)="hoveredRowId = row.id"
                     (mouseleave)="hoveredRowId = null">
-                  <td *ngFor="let scenario of visibleScenarios" class="number-cell font-bold parent-value-cell">
+                  <td *ngFor="let scenario of scenarios" class="number-cell font-bold parent-value-cell">
                     {{ getRowValue(row, scenario.id) / 1000 | number:'1.0-0' }}k
                   </td>
                   <td *ngFor="let vCol of varianceCols" class="variance-cell parent-value-cell">
@@ -234,7 +184,7 @@
                       [class.row-hovered]="hoveredRowId === child.id"
                       (mouseenter)="hoveredRowId = child.id"
                       (mouseleave)="hoveredRowId = null">
-                    <td *ngFor="let scenario of visibleScenarios" class="number-cell">
+                    <td *ngFor="let scenario of scenarios" class="number-cell">
                       {{ getRowValue(child, scenario.id) / 1000 | number:'1.0-0' }}k
                     </td>
                     <td *ngFor="let vCol of varianceCols" class="variance-cell">
@@ -246,16 +196,16 @@
                 </ng-container>
               </ng-container>
               <tr *ngIf="filteredCostRows.length === 0" class="no-rows-row">
-                <td [attr.colspan]="visibleScenarios.length + varianceCols.length" class="no-rows-cell">No rows to show</td>
+                <td [attr.colspan]="scenarios.length + varianceCols.length" class="no-rows-cell">No rows to show</td>
               </tr>
-              <tr class="spacer-row"><td [attr.colspan]="visibleScenarios.length + varianceCols.length"></td></tr>
+              <tr class="spacer-row"><td [attr.colspan]="scenarios.length + varianceCols.length"></td></tr>
             </tbody>
             <tfoot>
               <tr class="total-row font-bold"
                   [class.row-hovered]="hoveredRowId === 'TOTAL'"
                   (mouseenter)="hoveredRowId = 'TOTAL'"
                   (mouseleave)="hoveredRowId = null">
-                <td *ngFor="let scenario of visibleScenarios" class="number-cell total-val">
+                <td *ngFor="let scenario of scenarios" class="number-cell total-val">
                   {{ getColumnTotal(scenario.id) / 1000 | number:'1.0-0' }}k
                 </td>
                 <td *ngFor="let vCol of varianceCols" class="variance-cell total-val">
@@ -263,23 +213,6 @@
                     <span [class]="getVarianceTotalBadgeClass(vCol)">{{ getFormattedVarianceTotal(vCol) }}</span>
                   </div>
                 </td>
-              </tr>
-              <!-- CCM-051: Cumulative Variance — CumVar(M) = CumVar(M-1) + [Forecast(M) - Actual(M)], resets every January. One cell per Forecast/Budget scenario, 12 month-badges each; Actual columns have nothing to compare themselves against, so they render blank. -->
-              <tr class="total-row cumvar-row"
-                  [class.row-hovered]="hoveredRowId === 'CUMVAR'"
-                  (mouseenter)="hoveredRowId = 'CUMVAR'"
-                  (mouseleave)="hoveredRowId = null">
-                <td *ngFor="let scenario of visibleScenarios" class="cumvar-cell">
-                  <div class="cumvar-months" *ngIf="hasCumulativeVariance(scenario)">
-                    <span class="cumvar-month-badge"
-                      *ngFor="let month of getCumulativeVarianceTotal(scenario.id); let mi = index"
-                      [class]="getCumVarBadgeClass(month)"
-                      [title]="monthLabels[mi] + ': ' + getFormattedCumVar(month) + 'k'">
-                      {{ getFormattedCumVar(month) }}
-                    </span>
-                  </div>
-                </td>
-                <td *ngIf="varianceCols.length > 0" [attr.colspan]="varianceCols.length"></td>
               </tr>
             </tfoot>
           </table>
@@ -292,8 +225,12 @@
 </div>
 
 <!-- ── Prepare Scenario modal (RFP §8.1) ── -->
-<!-- The overlay closes on a click of the BACKDROP ITSELF, tested by target === currentTarget, rather than by having the card swallow clicks with stopPropagation(). A click the card swallowed never reached document, and cm-hierarchy-select closes its dropdown from a document:click listener - so the Scenario Type dropdown stayed open when you clicked elsewhere in the modal. -->
-<div class="modal-overlay" #scenarioOverlay *ngIf="showAddScenarioModal" (click)="onModalBackdropClick($event)">
+<!-- The overlay closes on a click of the BACKDROP ITSELF, tested by target === currentTarget,
+     rather than by having the card swallow clicks with stopPropagation(). A click the card
+     swallowed never reached document, and cm-hierarchy-select closes its dropdown from a
+     document:click listener - so the Scenario Type dropdown stayed open when you clicked
+     elsewhere in the modal. -->
+<div class="modal-overlay" *ngIf="showAddScenarioModal" (click)="onModalBackdropClick($event)">
   <div class="modal-card">
     <div class="modal-header">
       <h3>Prepare Reporting Scenario</h3>
@@ -308,7 +245,9 @@
 
       <div class="field-group">
         <label class="field-label">Scenario Type</label>
-        <!-- allowCustom: this stays a free-text field (it is saved as the scenario's name), the dropdown just offers the types already in use. Without it the shared control would only commit a value picked from the list and discard anything typed. -->
+        <!-- allowCustom: this stays a free-text field (it is saved as the scenario's name), the
+             dropdown just offers the types already in use. Without it the shared control would
+             only commit a value picked from the list and discard anything typed. -->
         <cm-hierarchy-select class="field-select"
           [(ngModel)]="newScenarioType"
           [groups]="scenarioTypeGroups"

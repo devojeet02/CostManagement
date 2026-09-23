@@ -19,7 +19,7 @@
         <div class="header-divider"></div>
         <button class="btn-cancel" id="btn-invoice-cancel" title="Cancel">Cancel</button>
         <button class="btn-save" id="btn-invoice-save" title="Save" (click)="onSave()">Save</button>
-        <button class="btn-back" routerLink="/Cost-Management/Invoice-View" title="Back to Invoice View">
+        <button class="btn-back" routerLink="/invoice-view" title="Back to Invoice View">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"></polyline>
@@ -735,7 +735,7 @@
 </div>
 
 <!-- ─── Invoice Change History Modal ──────────────────────────── -->
-<cm-modal title="Invoice Change History" [isOpen]="isHistoryOpen" (closed)="isHistoryOpen = false">
+<cm-modal [attachToBody]="true" title="Invoice Change History" [isOpen]="isHistoryOpen" (closed)="isHistoryOpen = false">
 
   <div class="history-timeline" *ngIf="changeHistory.length > 0; else noHistory">
     <div class="history-entry" *ngFor="let entry of visibleHistory">

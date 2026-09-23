@@ -214,6 +214,12 @@ greppable and prevent confusion when copying markup between them.
   called in the constructor (after field initializers) and at the end of
   `cancelChanges()` so cancel reverts to the *last saved* layout, not the factory-mock
   order.
+- **Period locks (RFP §8.2)** — a month closed on Period Management is amber down the whole
+  column, padlocked in the header and disabled in the cells, exactly as on Forecast.
+  ⚠️ Keyed by YEAR, unlike Forecast's flat array, because this grid shows two years at once: a
+  month closed in 2025 must not grey out the 2026 band sitting above it. `loadPeriods()` runs on
+  init and on every `applyFilters()`, so both year chips keep their own state. Presentation only
+  — production's API is what actually refuses the save.
 - **TOTAL HEADCOUNT** footer sums presence per month/scenario, with inline variance colour
   on the primary row vs Budget (red = over budget, green = on/under).
 - **Toolbar layout**: the in-page header has **no Back button** (commented out), the
@@ -316,6 +322,28 @@ The Actual/RFC comparison grid. Budget rows are labelled with their team name an
 budget is booked to its own busiest account — otherwise identical line descriptions collapse
 into one row and totals silently under-report.
 
+Four pieces of the RFP's "Cost Centre Comparison View" live here, and all four are demoable:
+
+- **Columns picker (CCM-047)** — tick which scenario columns are shown. At least one must stay
+  visible: every `*ngFor` colspan in the template assumes the list is non-empty.
+- **Variance builder (CCM-048)** — add a comparison between *any* two financial columns
+  (`Column A − Column B`), remove any of them, and each carries its own labelled header. The
+  pairs are not fixed and not derived; the two seeded ones are only an out-of-the-box default.
+- **Saved layout (CCM-049)** — visible columns, their drag order, the variance pairs and the
+  Site/Team filters are saved per user and restored on return, with **Reset to Default** to go
+  back. Backed by `UserPreferenceService`, which in this build writes `localStorage` rather than
+  memory: a layout that forgot itself on reload would demo as broken. `configJson` is opaque to
+  the service exactly as it is to the API — the screen owns the shape.
+- **Cumulative Variance row (CCM-051)** — twelve month badges under each Forecast/Budget column,
+  `CumVar(M) = CumVar(M-1) + (Forecast(M) − Actual(M))`, restarting every January. Red = running
+  ahead of forecast. **Actual columns carry none** and render blank: they have nothing to compare
+  themselves against, and inventing a series would read as real data.
+
+⚠️ The mock must supply **every dimension the grid can group by** — account, spend type, spend
+layer, category, system, supplier, internal order. The earlier seed carried only account and item
+description, so the other columns were dashes and grouping by any of them collapsed every row
+into one "—" bucket.
+
 ### Invoice View / Upload / Edit (`components/invoice-*/`)
 List, entry and edit, with duplicate detection (invoice number + supplier), the related-data
 panel, and the recharge drill. PDF viewing is the one unavailable feature — see "Showcase
@@ -323,6 +351,15 @@ Build".
 
 **Invoice Change History** loads a page at a time (`historyPaged()`) and appends as you reach
 the bottom, showing "Loading more…" with a spinner rather than a button.
+
+### Forecast Audit (`components/forecast-audit/`) — `/forecast-audit`
+The forecast change log, reached from the **Audit Log** button on the Forecast toolbar (not from
+the side-nav — same as production). Read-only: filters for year, scenario, internal order and
+user, and one card per SAVE showing every field that save altered, before → after.
+
+⚠️ One event carries MANY changes. The backend stores a row per changed field and regroups them
+on read, so an edit touching four months is one event with four `changes` — not four events.
+`ForecastService.history()` filters over the whole set and pages server-side, like the grids.
 
 ### Related Data panel (`features/related-data-panel/`)
 Shared by Invoice Upload and Edit — `InvoiceEditComponent extends InvoiceUploadComponent`, so
@@ -346,6 +383,34 @@ columns and spans the full page width, so hiding the preview column does not mov
 
 ---
 
+## Site Org Hierarchy (Admin → Master Data)
+
+The **Site** section carries **Region** and **Country**, both searchable `cm-hierarchy-select`
+dropdowns over the seeded ISO 3166-1 list (196 countries, 3 regions). Country cascades off
+Region, and the Site grid prints both names.
+
+Regions are **user-maintainable** from the Region control itself; countries are not, because a
+fixed ISO list is exactly what prevents spelling drift:
+
+- **Add** — typing a region that does not exist offers *"+ Add this as a new region"* in the
+  dropdown's empty state, which opens the form with the name prefilled.
+- **Rename** — for typos.
+- **Manage countries** (`features/region-countries/`) — a dialog with two tabs, *In this region*
+  and *Other regions*, so the countries filed elsewhere can be BROWSED rather than guessed at.
+  Tick and move them across.
+- **Delete** — inside that same dialog, always behind `cm-confirm-dialog`. A region still holding
+  countries or sites cannot go: the dialog says what is in the way and offers to open the country
+  list instead.
+
+⚠️ **The country decides the region.** `applyHierarchy()` in the mock derives a site's `regionId`
+from its chosen country and ignores whatever `regionId` was sent — the same rule the API enforces,
+so the denormalised copy cannot drift. Moving a country therefore also **re-points every site
+bound to it**, which `reassignCountries()` reports as `sitesResynced` and the dialog surfaces.
+
+The mock enforces the rest of the rules too, because they are the demo: a duplicate region code
+is refused, and so is deleting a region still in use — both shaped like the API's error body
+(`{ error: { error: '…' } }`), which is what the screens read for their message.
+
 ## Global Form Components
 
 ### `<app-hierarchy-select>`
@@ -357,11 +422,18 @@ columns and spans the full page width, so hiding the preview column does not mov
   (e.g., SAP Internal Order lookup).
 - `bindValue: 'label' | 'value'` — what to emit on select (default `'label'`).
 - `placeholder`, `disabled`, `minChars`.
+- `emptyActionLabel` + `(emptyAction)` — offers an action when a search matches nothing and emits
+  the text that found it nothing, so the host can prefill a form with it. Used for
+  *"+ Add this as a new region"*; left empty the empty state stays plain text, which is right for
+  a closed catalogue like Country.
 
 Notable behavior:
 - Dropdown uses `position: fixed` with dynamic coordinates so it escapes any scroll/overflow
   ancestor (works inside scrollable containers without clipping).
 - An in-dropdown **"Clear selection"** row appears whenever a value is set, emitting `''`.
+- ⚠️ Outside-click detection checks the HOST **and the panel**: the dropdown is re-parented to
+  `<body>` while open, so testing the host alone counts a click on an option as "outside" and
+  closes the list before the selection lands.
 
 Currently used on **Invoice Upload** (supplier, site, team, currency, account, internal
 order, recharge sites) and on **Forecast** filter chips. When embedding inside a styled
@@ -382,7 +454,7 @@ Renders from a **data array**, not hardcoded markup — `groups: { title, items 
 |---|---|
 | Overview | Dashboard (`/`) |
 | Cost Management | Invoice View, Invoice Upload, Forecast, Headcount, Budget Planner *(new)* |
-| Administration | Scenario Management, Master Data, Period Management, Audit Log |
+| Administration | Scenario Management, **Scenario Mgmt v1**, Master Data, Period Management, Audit Log |
 
 - **Collapsible** via `collapsed` — collapsed shows icons only, labels hidden.
 - Icons are **inline SVG** selected by an `*ngSwitch` on `item.icon`, so there are no asset
@@ -396,6 +468,22 @@ at two *external* Vercel deployments (`cost-center-theta`, `cost-management-admi
 matching buttons on the old home page are gone.
 
 ---
+
+## Frozen reference screens (`*-legacy`)
+
+`components/scenario-management-legacy/` is a verbatim copy of Scenario Management as it stood
+before the CCM-047/048/049/051 port, routed at `/scenario-management-legacy` and listed in the
+rail as **Scenario Mgmt v1**. It exists so the current screen can be compared against what it
+replaced — no Columns picker, no variance builder, no saved layout, no Cumulative Variance row.
+
+Both screens read the **same mock service**, so the figures are identical and only the UI differs,
+which is the whole point of keeping it.
+
+**Rules for a frozen copy:** it is a snapshot, not a maintained screen — never "fix" it, and never
+let it import from the live screen. It renames its component class, selector, template and style
+paths, drops `export` from its interfaces (the live copy exports the same names), and inlines any
+constant that has since been removed from the shared files, so the two can drift apart safely.
+Delete the whole folder, its route, its declaration and its rail entry when the comparison is done.
 
 ## Showcase Build — the Mock Data Layer
 
@@ -453,6 +541,7 @@ renders blank**. This bit three times during the port:
 | Audit Log | `entityName` / `changedBy` / … | `timestamp` / `user` / `actionType` / `module` / `recordAffected` / `oldValue` / `newValue` | 8 rows of empty cells |
 | Forecast | `itemDescription` | `description` | empty Item Desc column — **and** the Related Data panel had no description to inherit |
 | Internal-order type-ahead | `{ label, options }` | `SelectGroup` = `{ group, items }` | six matches returned, dropdown rendered empty, so the panel's internal-order auto-fill had nothing to fill from |
+| Forecast Audit | `actionTaken` / `oldStatus` / `newStatus` / `changedBy` / `changedDate` | `ForecastChangeLog` = `timestamp` / `user` / `internalOrder` / `description` / `scenario` / `site` / `team` / `account` / `year` / `changes[]` | every card rendered as dashes the moment the screen was ported — the mock had been written for a shape nothing read |
 
 **Rule:** a green build proves nothing here. After touching a mock, *open the page*. If a
 field shows as `-`, `0.00`, or blank, check the name against the interface before anything
@@ -488,7 +577,7 @@ Two related traps in the same family:
 |---|---|
 | `cost-dashboard` | the dashboard — spend by cost type / vendor / team, budget trend |
 | `source-of-change` | the Source of Change report |
-| `cost-center-dashboard` | Scenario Management's Actual/RFC comparison grid |
+| `cost-center-dashboard` | Scenario Management's Actual/RFC comparison grid, incl. CCM-051 cumulative variance |
 | `budget` | Budget Planner (spread / save / approve / reopen) |
 | `forecast` | Forecast grid + change history |
 | `invoice` | Invoice View / Upload / Edit, duplicates, related data |
@@ -496,7 +585,8 @@ Two related traps in the same family:
 | `internal-order` | the IO type-ahead |
 | `headcount` | the Headcount grid — paged list, bulk save, year-aware totals |
 | `user` | the Employee lookup on Headcount (stands in for User & Access Management) |
-| `master-data` | sites, teams, accounts, suppliers, currencies |
+| `user-preference` | CCM-049 saved screen layouts — the only mock that writes `localStorage` rather than memory |
+| `master-data` | sites, teams, accounts, suppliers, currencies, **regions + the 196-country ISO list** |
 | `period` | Period Management |
 | `audit-log` | Audit Log |
 | `theme` | the only service that is NOT a mock — real behaviour |
@@ -523,6 +613,23 @@ screen from production → use the `cm-` one. Do not attempt to merge the pairs 
 checking every existing usage first.
 
 ---
+
+## ⚠️ Modals must dim the WHOLE window
+
+Every `<cm-modal>` passes `[attachToBody]="true"`, and `confirm-dialog` / `pdf-viewer` portal
+their own overlay to `<body>`.
+
+This is **not** a z-index problem and raising one does not fix it: the app shell is a flex row
+whose content column confines the routed screen, so an overlay rendered inside a page is compared
+only with its siblings there — never with the side-nav. The rail stayed bright and clickable over
+a full-viewport scrim, and the card looked see-through because the dim layer was painted under it.
+
+Moving the node to `<body>` escapes every ancestor at once. The theme custom properties are copied
+onto the element at move time, because `<body>` does not inherit them and the card would otherwise
+render transparent.
+
+**Rule:** a new modal gets `[attachToBody]="true"` when it is added, not when someone notices the
+sidenav showing through.
 
 ## ⚠️ Global Tooltip (`features/tooltip/`)
 
@@ -557,7 +664,8 @@ Defined in `app-routing.module.ts`:
 |---|---|
 | `''` | **Dashboard** (the landing route) |
 | `invoice-view` · `invoice-upload` · `invoice-edit/:id` | Invoice screens |
-| `forecast` · `headcount` · `budget-planner` · `scenario-management` | Cost Management |
+| `forecast` · `forecast-audit` · `headcount` · `budget-planner` · `scenario-management` | Cost Management |
+| `scenario-management-legacy` | The Scenario Management screen as it was BEFORE the variance work — a frozen reference, see below |
 | `admin` | redirects → `admin/master-data` |
 | `admin/master-data` · `admin/periods` · `admin/audit-log` | Administration |
 | `**` | redirects → `''` |
@@ -571,8 +679,13 @@ Ten links carried over from production still pointed at its route prefix
 like a working button that "just went to the dashboard" — including *Upload Invoice* on the
 Invoice View screen. They were only found by clicking through.
 
-**Rule:** after porting a screen, grep it for `/Cost-Management` and click every navigation
-control. A link that lands on the dashboard is a broken link until proven otherwise.
+⚠️ **They came back.** The next sync re-copied those components from production and restored
+all ten, *Upload Invoice* included. This is not a one-off mistake to be fixed once: a link is
+re-imported with every component that carries it, so the sweep belongs in the sync itself.
+
+**Rule:** after porting or re-syncing ANY screen, grep the whole tree for `/Cost-Management`
+(it should return 0) and click every navigation control. A link that lands on the dashboard is
+a broken link until proven otherwise.
 
 ---
 
@@ -855,7 +968,9 @@ Deliberate, and worth knowing before demoing:
   rebuilding that grid as a plain table. Undecided — do not assume the screen is simply
   missing by accident.
 - **PDF view/download is unavailable** — no storage. `getPdf()` throws on purpose.
-- **State resets on reload.** Everything is in memory.
+- **State resets on reload.** Everything is in memory — except the three things a demo would look
+  broken without: Headcount row order and comments, and the Scenario Management saved layout,
+  which use `localStorage`.
 - **No authentication.** Production sits behind the Performance Hub shell; there is no
   sign-in here and `lastUpdatedBy` values are seeded names.
 - **Figures are illustrative.** Plausible, internally consistent, and not Crown's real spend.

@@ -38,7 +38,7 @@
               <td>
                 <!-- Straight to the invoice, so the drill ends somewhere useful rather than
                      leaving the user to search for the number by hand. -->
-                <a class="vd-link" [routerLink]="['/Cost-Management/Invoice-Edit', r.invoiceId]">
+                <a class="vd-link" [routerLink]="['/invoice-edit', r.invoiceId]">
                   {{ r.invoiceNumber || '—' }}
                 </a>
                 <span class="vd-meta">{{ fmtDate(r.invoiceDate) }}</span>

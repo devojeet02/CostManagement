@@ -2256,3 +2256,39 @@ tr.hc-row-new.hc-row-hovered td {
     justify-content: center !important;
   }
 }
+
+/* Period locks (RFP 8.2) - a month closed on Period Management is read-only here: amber down the
+   whole column, a padlock in the header and the inputs disabled, so it is visible BEFORE anything
+   is typed rather than only as an error on save. */
+$hc-locked-month-colour: #f59e0b;
+
+th.hc-month.month-locked {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  color: $hc-locked-month-colour !important;
+  cursor: help;
+}
+
+td.hc-month.month-locked {
+  background-color: rgba(245, 158, 11, 0.07) !important;
+  cursor: not-allowed;
+
+  input[type="text"]:disabled {
+    color: $hc-locked-month-colour;
+    opacity: 1;
+    cursor: not-allowed;
+    background: transparent;
+  }
+}
+
+tr.hc-row-even td.hc-month.month-locked,
+tr.hc-row-odd td.hc-month.month-locked,
+tr.hc-row-new td.hc-month.month-locked,
+tr.hc-row-hovered td.hc-month.month-locked {
+  background-color: rgba(245, 158, 11, 0.10) !important;
+}
+
+.month-lock-icon {
+  margin-left: 3px;
+  vertical-align: -1px;
+  opacity: 0.9;
+}

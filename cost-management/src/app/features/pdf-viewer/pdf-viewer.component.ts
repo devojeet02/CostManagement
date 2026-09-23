@@ -1,31 +1,54 @@
 import {
-  Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, HostListener
+  Component, ElementRef, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges,
+  HostListener, ViewChild
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { InvoiceService } from '../../services/invoice.service';
 
-/**
- * Shared invoice-PDF preview overlay.
- *
- * Opened by click (never hover) from any screen that can name an invoice id — currently the
- * Invoice View list. Kept in `features/` alongside cm-modal / cm-snackbar because it is
- * screen-agnostic: it takes an id and renders whatever the backend has filed under it.
- *
- * It deliberately does NOT reuse cm-modal. A PDF needs a near-full-viewport frame with the
- * body owning its own height, whereas cm-modal sizes itself to its projected content and
- * scrolls it — an iframe inside that collapses to nothing. The overlay/close/Escape/backdrop
- * behaviour is mirrored so it still feels like the rest of the module.
- *
- * The PDF is fetched as a Blob and shown through an object URL, so the three states
- * (loading / loaded / unavailable) are all observable. Every object URL is revoked before the
- * next one is created and on destroy — otherwise each open would leak the whole file.
- */
+/** Shared invoice-PDF preview overlay. Opened by click (never hover) from any screen that can name an invoice id — currently the Invoice View list. Kept in `features/` alongside cm-modal / cm-snackbar because it is screen-agnostic: it takes an id and renders whatever the backend has filed under it. It deliberately does NOT reuse cm-modal. A PDF needs a near-full-viewport frame with the body owning its own height, whereas cm-modal sizes itself to its projected content and scrolls it — an iframe inside that collapses to nothing. The overlay/close/Escape/backdrop behaviour is mirrored so it still feels like the rest of the module. The PDF is fetched as a Blob and shown through an object URL, so the three states (loading / loaded / unavailable) are all observable. Every object URL is revoked before the next one is created and on destroy — otherwise each open would leak the whole file. */
 @Component({
   selector: 'cm-pdf-viewer',
   templateUrl: './pdf-viewer.component.html',
   styleUrls: ['./pdf-viewer.component.scss']
 })
 export class PdfViewerComponent implements OnChanges, OnDestroy {
+
+  /** Theme custom properties the overlay's styles read. Copied on at move time: moving the node to <body> severs the inheritance from `.cm-root` and the card renders transparent. */
+  private static readonly THEME_VARS = [
+    '--bg-secondary', '--bg-hover', '--bg-primary', '--border-color',
+    '--text-heading', '--text-primary', '--text-muted',
+    '--accent-color', '--transition-speed',
+  ];
+
+  /** The overlay once moved, so it can be returned before Angular tears it down. */
+  private movedOverlay: HTMLElement | null = null;
+
+  /** Portals the overlay to <body> so it dims the WHOLE window, sidenav and top bar included. ⚠️ NOT a z-index problem — see cm-modal's `attachToBody` for why raising one cannot work. */
+  @ViewChild('pdfOverlay')
+  set pdfOverlay(ref: ElementRef<HTMLElement> | undefined) {
+    const el = ref?.nativeElement;
+    if (el && el.parentElement !== document.body) {
+      const inherited = getComputedStyle(this.hostEl.nativeElement);
+      for (const name of PdfViewerComponent.THEME_VARS) {
+        const value = inherited.getPropertyValue(name).trim();
+        if (value) el.style.setProperty(name, value);
+      }
+      document.body.appendChild(el);
+      this.movedOverlay = el;
+    } else if (!el) {
+      this.movedOverlay = null;
+    }
+  }
+
+  /** ⚠️ Put the node back before *ngIf drops it (Angular asks the RECORDED parent), and on destroy, or it is stranded on <body>. */
+  private restoreOverlay(): void {
+    const el = this.movedOverlay;
+    if (el && el.parentElement === document.body) {
+      this.hostEl.nativeElement.appendChild(el);
+    }
+    this.movedOverlay = null;
+  }
+
   /** Drives visibility. The parent owns this flag. */
   @Input() isOpen = false;
 
@@ -50,7 +73,8 @@ export class PdfViewerComponent implements OnChanges, OnDestroy {
 
   constructor(
     private invoiceService: InvoiceService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private hostEl: ElementRef<HTMLElement>
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -124,6 +148,7 @@ export class PdfViewerComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.restoreOverlay();
     this.release();
   }
 }

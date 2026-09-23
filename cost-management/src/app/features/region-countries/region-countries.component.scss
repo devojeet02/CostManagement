@@ -1,0 +1,169 @@
+.rc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rc-intro {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.rc-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent-color);
+}
+
+.rc-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.rc-tab {
+  padding: 7px 12px;
+  font-size: 12px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover { color: var(--text-primary); }
+}
+
+.rc-tab--active {
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
+}
+
+.rc-search {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+
+  &::placeholder { color: var(--text-muted); }
+  &:focus { outline: none; border-color: var(--accent-color); }
+}
+
+.rc-state {
+  padding: 18px 0;
+}
+
+.rc-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 3px;
+    &:hover { background: rgba(148, 163, 184, 0.55); }
+  }
+}
+
+.rc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+
+  &:last-child { border-bottom: 0; }
+  &:hover { background-color: var(--bg-hover); }
+
+  input[type="checkbox"] { cursor: pointer; }
+}
+
+.rc-row--here {
+  cursor: default;
+  color: var(--text-muted);
+
+  input[type="checkbox"] { cursor: not-allowed; }
+  &:hover { background-color: transparent; }
+}
+
+.rc-name { flex: 1 1 auto; }
+
+.rc-region {
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.rc-region--here {
+  background-color: rgba(34, 211, 238, 0.14);
+  color: var(--accent-color);
+}
+
+.rc-empty,
+.rc-error {
+  margin: 0;
+  padding: 14px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* NOTE  Every colour comes from the module's theme variables. cm-modal copies these onto the overlay before portalling it to <body>, so they resolve there too — see modal.component.ts THEME_VARS  ·  Capped height so the modal never grows past the viewport on a long result set; the list scrolls inside itself instead  ·  .rc-list: Slim bar, matching the Forecast and Headcount grids. ⚠️ ::-webkit-scrollbar ONLY — `scrollbar-width: thin` makes Chrome ignore these rules entirely and use its own */
+
+.rc-error {
+  padding: 0;
+  text-align: left;
+  color: #f87171;
+}
+
+.rc-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rc-spacer {
+  flex: 1 1 auto;
+}
+
+.rc-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.rc-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.rc-btn--danger {
+  background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #f87171;
+
+  &:hover { background-color: rgba(248, 113, 113, 0.1); }
+}
+
+.rc-btn--primary {
+  background: var(--accent-color);
+  border: 1px solid var(--accent-color);
+  color: #fff;
+
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
+}

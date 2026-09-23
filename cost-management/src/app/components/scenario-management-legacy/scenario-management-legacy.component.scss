@@ -35,6 +35,7 @@ select option {
   color: var(--text-primary);
 }
 
+/* ── Page header ─────────────────────────────────────────────── */
 .page-header {
   padding: 20px 32px 16px;
   border-bottom: 1px solid var(--border-color);
@@ -54,6 +55,7 @@ select option {
   }
 }
 
+/* ── Control bar ─────────────────────────────────────────────── */
 .control-bar {
   display: flex;
   align-items: center;
@@ -125,122 +127,7 @@ select option {
 
 .btn-icon { font-size: 14px; font-weight: 700; }
 
-.control-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-}
-
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 7px 14px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: border-color 0.15s, background-color 0.15s;
-  white-space: nowrap;
-
-  &:hover { border-color: var(--border-active); background: var(--bg-hover); }
-}
-
-.btn-small { padding: 5px 10px; border-radius: 6px; }
-
-.btn-count { color: var(--text-muted); font-weight: 400; }
-
-.dropdown-anchor { position: relative; }
-
-.dropdown-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 20;
-  min-width: 220px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  padding: 10px;
-}
-
-.dropdown-panel-wide { min-width: 380px; }
-
-.dropdown-panel-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin: 4px 0 6px;
-}
-
-.dropdown-check-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 4px;
-  font-size: 12px;
-  color: var(--text-primary);
-  cursor: pointer;
-  border-radius: 4px;
-
-  &:hover { background: var(--bg-hover); }
-
-  input[type="checkbox"] { accent-color: var(--accent-color); }
-}
-
-.variance-builder-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-
-  .form-select { flex: 1; min-width: 0; }
-}
-
-.variance-builder-minus { color: var(--text-muted); font-size: 13px; }
-
-.variance-existing-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 4px;
-  font-size: 12px;
-  color: var(--text-primary);
-  border-top: 1px solid var(--border-color);
-}
-
-.btn-remove-chip {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 10px;
-  padding: 2px 4px;
-
-  &:hover { color: var(--unfavorable-text); }
-}
-
-.btn-remove-variance {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 9px;
-  padding: 0;
-  position: absolute;
-  top: 4px;
-  right: 6px;
-
-  &:hover { color: var(--unfavorable-text); }
-}
-
+/* ── Split grid ──────────────────────────────────────────────── */
 .table-outer-wrapper {
   flex: 1;
   overflow: hidden;
@@ -248,14 +135,20 @@ select option {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* The anchored <cm-loader> covers this wrapper, so it must be the positioned ancestor -
+     otherwise it escapes to the viewport and becomes a full-page cover again. */
   position: relative;
 }
 
-/* NOTE  .table-outer-wrapper: The anchored <cm-loader> covers this wrapper, so it must be the positioned ancestor - otherwise it escapes to the viewport and becomes a full-page cover again */
-
+/* display:none, NOT *ngIf: setupScrollSync() binds scroll listeners to the two pane elements
+   once in ngAfterViewInit. Destroying and recreating them on every filter change would drop
+   those listeners and silently break the vertical sync between the panes. */
 .table-outer-wrapper.is-loading .table-scroll-container { display: none; }
 
 .table-scroll-container {
+  /* flex: 0 1 auto (not 1) so a short grid retracts to its own height instead of leaving a tall
+     empty card below the last row. It still shrinks to the space available when rows are many,
+     and the panes below take over the scrolling exactly as before. */
   flex: 0 1 auto;
   overflow: hidden;
   min-height: 0;
@@ -275,7 +168,13 @@ select option {
 }
 
 .metadata-pane {
+  /* 930px = the col-1..col-8 widths below (927px) plus the divider. flex-grow 0, so spare width
+     goes to the scenarios side rather than inflating these columns. */
   flex: 0 1 930px;
+  /* Free to shrink: the columns below carry no min-width, so the table shrinks WITH the pane and
+     its right edge - which is where the teal divider lives - is never clipped away by the
+     overflow-x: hidden below. Columns compress and headers may ellipsise once the viewport is
+     genuinely too narrow; that is the intended trade, the divider stays visible either way. */
   min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -286,6 +185,8 @@ select option {
 }
 
 .scenarios-pane {
+  /* grow 2 vs the metadata pane's 1: the scenario figures are the point of the screen, so spare
+     width favours them and the metadata side stays the narrower of the two. */
   flex: 2 1 auto;
   min-width: 0;
   overflow: auto;
@@ -301,8 +202,13 @@ select option {
   table-layout: fixed;
 }
 
+/* The teal divider sits on the TABLE, not the pane: the pane is stretched to the full container
+   height, so a border there hangs below the last row when the grid is short. box-sizing is
+   border-box globally, so the 2px stays inside the 700px and does not shift the split. */
 .metadata-table { width: 100%; border-right: 2px solid var(--border-active); }
 
+/* min-width (not width: max-content) so the columns spread across a wide screen instead of
+   leaving dead space, while still overflowing into a horizontal scroll when scenarios are many. */
 .scenarios-table { width: max-content; min-width: 100%; }
 
 .spacer-row, .spacer-row td {
@@ -356,9 +262,23 @@ select option {
 .col-5 { width: 9.493%; }
 .col-6 { width: 9.709%; }
 .col-7 { width: 11.866%; }
+/* auto, not a fixed px: a fixed table layout hands surplus width out EQUALLY, which gave Spend
+   Type the same 141px as Item Description and left the descriptions ellipsised. With col-1..7
+   pinned, the one free-text column absorbs all the spare room instead — and is the first to give
+   it back when the viewport narrows. */
+/* Widths are PERCENTAGES, not px. table-layout:fixed treats a px colgroup width as a floor, so
+   the table stayed 927px wide however narrow its pane got - it just overflowed and had its right
+   edge, teal divider and all, cut off by overflow-x: hidden. Percentages scale with the pane, so
+   the divider is always on screen and columns compress instead. The px each one works out to at
+   full width is in the comment beside it. */
 
+/* 21.6% = 200px at full width: enough that the "Item Description" HEADER never ellipsises there (the rule
+   above puts text-overflow on every th and td), capped so this column cannot eat width the
+   scenario figures can use. Row values longer than it still ellipsise, which is intended - each
+   one carries its full text in a title tooltip. */
 .col-8 { width: 21.575%; }
 
+/* ── Scenario / variance headers ─────────────────────────────── */
 .scenario-header-cell {
   min-width: 110px;
   width: 110px;
@@ -391,8 +311,6 @@ select option {
   gap: 4px;
 }
 
-/* NOTE  display:none, NOT *ngIf: setupScrollSync() binds scroll listeners to the two pane elements once in ngAfterViewInit. Destroying and recreating them on every filter change would drop those listeners and silently break the vertical sync between the panes  ·  .metadata-pane: Free to shrink: the columns below carry no min-width, so the table shrinks WITH the pane and its right edge - which is where the teal divider lives - is never clipped away by the overflow-x: hidden below. Columns compress and headers may ellipsise once the viewport is genuinely too narrow; that is the intended trade, the divider stays visible either way  ·  The teal divider sits on the TABLE, not the pane: the pane is stretched to the full container height, so a border there hangs below the last row when the grid is short. box-sizing is border-box globally, so the 2px stays inside the 700px and does not shift the split  ·  21.6% = 200px at full width: enough that the "Item Description" HEADER never ellipsises there (the rule above puts text-overflow on every th and td), capped so this column cannot eat width the scenario figures can use. Row values longer than it still ellipsise, which is intended - each one carries its full text in a title tooltip */
-
 .lock-icon { color: var(--text-subtle); }
 .scenario-year { font-size: 9px; color: var(--text-muted); }
 
@@ -404,13 +322,15 @@ select option {
   background: rgba(10, 17, 32, 0.6);
 }
 
-.variance-header-content { position: relative; display: flex; flex-direction: column; align-items: center; }
+.variance-header-content { display: flex; flex-direction: column; align-items: center; }
 .variance-title { color: var(--favorable-text); font-weight: 600; font-size: 10px; text-transform: uppercase; }
 .variance-formula { font-size: 9px; color: var(--text-muted); }
 
-.drag-over { outline: 2px solid var(--accent-color) !important; outline-offset: -2px; }
+.drag-over-left { border-left: 2px solid var(--accent-color) !important; }
+.drag-over-right { border-right: 2px solid var(--accent-color) !important; }
 .dragging { opacity: 0.35; background: var(--bg-hover) !important; }
 
+/* ── Body rows ───────────────────────────────────────────────── */
 .cost-table th, .cost-table td {
   border-bottom: 1px solid var(--border-color);
   text-align: center;
@@ -428,6 +348,9 @@ select option {
 .child-row { background: var(--bg-card); height: 38px; }
 .child-row-indent { border-right: 1px solid var(--border-color); }
 
+/* No max-width: the cell follows its column, so widening the pane actually reveals the text.
+   nowrap + ellipsis stay as a safety net for genuinely long values — wrapping would change row
+   height and break the row-for-row alignment between the two panes. */
 .truncate-text { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .number-cell {
@@ -465,33 +388,6 @@ select option {
   &.unfavorable { background: var(--unfavorable-bg); color: var(--unfavorable-text); }
 }
 
-.cumvar-row { background: #0a1424 !important; height: 32px; }
-.cumvar-row td { border-top: 1px solid rgba(255, 255, 255, 0.08); }
-
-.cumvar-cell { padding: 4px 6px !important; vertical-align: middle; }
-
-.cumvar-months {
-  display: flex;
-  gap: 2px;
-  justify-content: center;
-  flex-wrap: nowrap;
-}
-
-.cumvar-month-badge {
-  display: inline-block;
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 8px;
-  font-weight: 700;
-  min-width: 20px;
-  text-align: center;
-  cursor: default;
-
-  &.favorable { background: var(--favorable-bg); color: var(--favorable-text); }
-  &.unfavorable { background: var(--unfavorable-bg); color: var(--unfavorable-text); }
-}
-
 .total-row { background: #0a1424 !important; height: 38px; }
 .total-row td {
   border-top: 2px solid var(--border-active) !important;
@@ -510,6 +406,7 @@ select option {
   font-size: 12px;
 }
 
+/* ── Prepare Scenario modal ──────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -517,8 +414,8 @@ select option {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
-  backdrop-filter: blur(3px);
+  z-index: 1000;
+  backdrop-filter: blur(2px);
 }
 
 .modal-card {
@@ -530,8 +427,6 @@ select option {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
-
-/* NOTE  No max-width: the cell follows its column, so widening the pane actually reveals the text. nowrap + ellipsis stay as a safety net for genuinely long values — wrapping would change row height and break the row-for-row alignment between the two panes  ·  .modal-overlay: Portalled to <body> (see scenarioOverlay), so it dims the sidenav and top bar too. 2000 matches cm-modal and clears the shell's sidenav (1200) and navbar (1020) - the z-index only works BECAUSE of the move; inside the routed content's stacking context it counted for nothing */
 
 .modal-header {
   display: flex;
@@ -593,13 +488,17 @@ select option {
   &:focus { border-color: var(--border-active); }
 }
 
+/* The Scenario Type combo is the shared cm-hierarchy-select, whose own styling is tuned for the
+   Forecast filter bar - transparent, square-cornered, 35px tall. Repaint it as one of this
+   modal's fields so it sits beside the other three. ::ng-deep because the elements it styles
+   belong to the child component's template. */
 .field-select {
   display: block;
   width: 100%;
 
   ::ng-deep .hs-input-wrap {
     box-sizing: border-box;
-    height: 41px;
+    height: 41px;                 /* = .field-input: 9px padding + 13px text + 1.5px borders */
     padding: 0 12px;
     border-radius: 8px;
     border: 1.5px solid var(--border-color);
@@ -608,6 +507,9 @@ select option {
     &.open { border-color: var(--border-active); }
   }
 
+  /* MUST stay nested under .hs-input-wrap: hierarchy-select emits its own
+     `.hs-input-wrap[_ngcontent] .hs-input[_ngcontent]` at (0,4,0), and a flatter override loses
+     to it - the same trap documented in forecast.component.scss. */
   ::ng-deep .hs-input-wrap .hs-input {
     height: 100%;
     padding: 0;
@@ -658,6 +560,7 @@ select option {
   &:hover { opacity: 0.88; }
 }
 
+/* ── Responsive: collapse metadata pane on narrow screens ─────── */
 @media (max-width: 900px) {
   .metadata-pane, .metadata-table {
     flex: 0 0 150px !important;
@@ -667,7 +570,7 @@ select option {
 
   .col-2, .col-3, .col-4, .col-5, .col-6, .col-7, .col-8 { display: none; }
 
+  /* Account is the only column left, so it takes the whole table rather than the 15.1% it
+     holds at full width. */
   .col-1 { width: 100% !important; }
 }
-
-/* NOTE  .field-select: MUST stay nested under .hs-input-wrap: hierarchy-select emits its own `.hs-input-wrap[_ngcontent] .hs-input[_ngcontent]` at (0,4,0), and a flatter override loses to it - the same trap documented in forecast.component.scss */

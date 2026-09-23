@@ -1,0 +1,201 @@
+<div class="audit-page">
+  <div class="scroll-area">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <h2 class="page-title">Forecast Audit Log</h2>
+      <div class="header-right">
+        <button class="btn-cancel" title="Reload the log" (click)="load()" [disabled]="loading">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          Refresh
+        </button>
+        <button class="btn-back" routerLink="/forecast" title="Back to Forecast">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          Back
+        </button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-bar-head">
+        <span class="filter-bar-title">Filters</span>
+        <span class="filter-active-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }} active</span>
+        <button class="btn-clear-filters" *ngIf="hasActiveFilters" (click)="clearFilters()" title="Clear all filters">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+          Clear filters
+        </button>
+      </div>
+
+      <div class="filter-chips-row">
+        <div class="filter-chip" [class.filter-chip--active]="filters.year != null">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Year</span>
+            <input type="number" class="chip-input" placeholder="All Years" name="filter-year" id="filter-year"
+                   [(ngModel)]="filters.year" (ngModelChange)="onFilterTyped()" autocomplete="new-password" />
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.scenario">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Scenario</span>
+            <cm-hierarchy-select [(ngModel)]="filters.scenario" (ngModelChange)="onFilterChanged()"
+              [groups]="scenarioGroups" bindValue="value" placeholder="All Scenarios"
+              name="filter-scenario"></cm-hierarchy-select>
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.internalOrder">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Internal Order</span>
+            <cm-hierarchy-select [(ngModel)]="filters.internalOrder" (ngModelChange)="onFilterChanged()"
+              [searchFn]="searchInternalOrders" [bindValue]="'value'" placeholder="Search Internal Orders…"
+              name="filter-io"></cm-hierarchy-select>
+          </div>
+        </div>
+
+        <div class="filter-chip" [class.filter-chip--active]="!!filters.user">
+          <span class="chip-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </span>
+          <div class="chip-body">
+            <span class="chip-label">Changed By</span>
+            <input type="text" class="chip-input" placeholder="Anyone" name="filter-user" id="filter-user"
+                   [(ngModel)]="filters.user" (ngModelChange)="onFilterTyped()" autocomplete="new-password" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-layout">
+      <div class="list-card">
+
+        <div class="list-card-header">
+          <h3 class="section-title">Change History</h3>
+          <span class="row-count" *ngIf="!loading && !loadError && total > 0">
+            {{ total }} event{{ total === 1 ? '' : 's' }}
+          </span>
+        </div>
+
+        <div class="state-block" *ngIf="loading">
+          <cm-loader message="Loading audit log…"></cm-loader>
+        </div>
+
+        <!-- Failed -->
+        <div class="state-block" *ngIf="!loading && loadError">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="state-icon">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span class="state-title">Could not load the audit log</span>
+          <span class="state-hint">The Cost Center service did not respond.</span>
+          <button class="btn-retry" (click)="load()">Try again</button>
+        </div>
+
+        <!-- Empty: filtered -->
+        <div class="state-block" *ngIf="!loading && !loadError && total === 0 && hasActiveFilters">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="state-icon">
+            <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span class="state-title">No changes match these filters</span>
+          <span class="state-hint">Try a different year, scenario, internal order or user.</span>
+          <button class="btn-retry" (click)="clearFilters()">Clear filters</button>
+        </div>
+
+        <!-- Empty: nothing logged -->
+        <div class="state-block" *ngIf="!loading && !loadError && total === 0 && !hasActiveFilters">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="state-icon">
+            <path d="M12 8v4l3 3" /><circle cx="12" cy="12" r="10" />
+          </svg>
+          <span class="state-title">No forecast changes recorded yet</span>
+          <span class="state-hint">
+            Edits to the Forecast grid appear here as soon as they are saved. Only real changes
+            are logged — re-saving without editing records nothing.
+          </span>
+          <button class="btn-retry" routerLink="/forecast">Go to Forecast</button>
+        </div>
+
+        <!-- The log. One block per EVENT; a save touching four months is one event with four rows. -->
+        <ng-container *ngIf="!loading && !loadError && total > 0">
+          <div class="event-list">
+            <div class="event" *ngFor="let e of events; trackBy: trackByIndex">
+              <div class="event-head">
+                <div class="event-when">
+                  <span class="event-time">{{ fmtTimestamp(e.timestamp) }}</span>
+                  <span class="event-user">{{ e.user || 'system' }}</span>
+                </div>
+                <div class="event-row">
+                  <span class="event-row-label">{{ rowLabel(e) }}</span>
+                  <span class="event-row-context">{{ contextLabel(e) }} · {{ e.year }}</span>
+                </div>
+                <span class="event-count">
+                  {{ e.changes.length }} field{{ e.changes.length === 1 ? '' : 's' }}
+                </span>
+              </div>
+
+              <div class="change-list">
+                <div class="change" *ngFor="let c of e.changes; trackBy: trackByIndex">
+                  <span class="change-field">{{ c.field }}</span>
+                  <span class="change-from">{{ fmtValue(c.from) }}</span>
+                  <span class="change-arrow">→</span>
+                  <span class="change-to">{{ fmtValue(c.to) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pager">
+            <div class="pager-left">
+              <label class="pager-size">
+                <span class="pager-size-label">Rows per page</span>
+                <select class="pager-size-select" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)"
+                        [disabled]="loading" name="page-size" id="page-size" autocomplete="new-password">
+                  <option *ngFor="let n of pageSizeOptions; trackBy: trackByIndex" [ngValue]="n">{{ n }}</option>
+                </select>
+              </label>
+              <span class="pager-summary">Showing {{ rangeStart }}–{{ rangeEnd }} of {{ total }}</span>
+            </div>
+
+            <div class="pager-controls">
+              <button class="pager-btn" (click)="prevPage()" [disabled]="!canPrev" title="Previous page">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <span class="pager-page">Page {{ page }} of {{ totalPages }}</span>
+              <button class="pager-btn" (click)="nextPage()" [disabled]="!canNext" title="Next page">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </ng-container>
+
+      </div>
+    </div>
+  </div>
+</div>

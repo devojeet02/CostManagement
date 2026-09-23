@@ -3,8 +3,10 @@ import { RouterModule, Routes } from '@angular/router';
 import { CostDashboardComponent } from './components/dashboard/cost-dashboard.component';
 import { InvoiceUploadComponent } from './components/invoice-upload/invoice-upload.component';
 import { ForecastComponent } from './components/forecast/forecast.component';
+import { ForecastAuditComponent } from './components/forecast-audit/forecast-audit.component';
 import { HeadcountComponent } from './components/headcount/headcount.component';
 import { ScenarioManagementComponent } from './components/scenario-management/scenario-management.component';
+import { ScenarioManagementLegacyComponent } from './components/scenario-management-legacy/scenario-management-legacy.component';
 import { AdminCostManagementComponent } from './components/admin-cost-management/admin-cost-management.component';
 import { PeriodManagementComponent } from './components/period-management/period-management.component';
 import { AuditLogComponent } from './components/audit-log/audit-log.component';
@@ -26,9 +28,12 @@ const routes: Routes = [
   { path: 'invoice-upload', component: InvoiceUploadComponent },
   { path: 'invoice-edit/:id', component: InvoiceEditComponent },
   { path: 'forecast', component: ForecastComponent },
+  { path: 'forecast-audit', component: ForecastAuditComponent },
   { path: 'headcount', component: HeadcountComponent },
   { path: 'budget-planner', component: BudgetPlannerComponent },
   { path: 'scenario-management', component: ScenarioManagementComponent },
+  // Frozen snapshot of the screen before the variance work, for side-by-side comparison.
+  { path: 'scenario-management-legacy', component: ScenarioManagementLegacyComponent },
   // Admin is a small section rather than a single screen, so it gets its own child routes.
   { path: 'admin', redirectTo: 'admin/master-data', pathMatch: 'full' },
   { path: 'admin/master-data', component: AdminCostManagementComponent },

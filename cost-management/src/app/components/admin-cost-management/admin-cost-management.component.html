@@ -37,6 +37,8 @@
                   <th>Name</th>
                   <th *ngIf="section.hasCode">{{ section.codeLabel }}</th>
                   <th *ngIf="section.hasCurrency">Currency</th>
+                  <th *ngIf="section.hasHierarchy">Region</th>
+                  <th *ngIf="section.hasHierarchy">Country</th>
                   <th *ngIf="section.hasSpendLayer">Spend Layer</th>
                   <th class="col-actions" *ngIf="!section.readOnly"></th>
                 </tr>
@@ -51,6 +53,8 @@
                   <td class="cell-name">{{ item.name }}</td>
                   <td *ngIf="section.hasCode" class="cell-code">{{ item.code }}</td>
                   <td *ngIf="section.hasCurrency" class="cell-code">{{ currencyName(item.currencyId) }}</td>
+                  <td *ngIf="section.hasHierarchy" class="cell-code">{{ regionLabel(item) }}</td>
+                  <td *ngIf="section.hasHierarchy" class="cell-code">{{ countryLabel(item) }}</td>
                   <td *ngIf="section.hasSpendLayer" class="cell-code">{{ spendLayerName(item.spendLayerId) }}</td>
                   <td class="col-actions" *ngIf="!section.readOnly">
                     <button class="action-btn edit-btn"
@@ -92,8 +96,9 @@
 </div>
 
 <!-- ── Modal overlay ── -->
-<div class="modal-overlay" *ngIf="panelOpen" (click)="closePanel()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
+<!-- Closes on the BACKDROP only, tested via event.target === event.currentTarget. The card must NOT stopPropagation: cm-hierarchy-select closes from a document:click listener, so swallowing clicks here left its dropdown open for every click inside the panel. -->
+<div class="modal-overlay" #panelOverlay *ngIf="panelOpen" (click)="onOverlayClick($event)">
+  <div class="modal-card">
 
     <div class="modal-header">
       <div>
@@ -137,6 +142,55 @@
         </select>
       </div>
 
+      <!-- Region -> Country cascade. Both optional: a site can be saved with neither, which is what keeps every pre-existing site valid and lets someone add a site before its location is known. Picking a Region narrows the Country list; picking a Country adopts its Region, so the two boxes always agree with what the server will store. -->
+      <div class="field-group" *ngIf="activeSection?.hasHierarchy">
+        <label class="field-label">Region
+          <span class="optional-tag">optional</span>
+        </label>
+        <!-- ⚠️ [groups] is bound BEFORE [ngModel] deliberately. Angular applies inputs in template order, and the control resolves its displayed label against `groups` inside writeValue - with ngModel first, a value written in the same pass as a groups change resolves against the OLD list, so a renamed region kept showing its old name. -->
+        <cm-hierarchy-select #regionSelect emptyActionLabel="+ Add this as a new region"
+          (emptyAction)="openRegionForm('add', $event)" [groups]="regionGroups"
+          [ngModel]="regionIdStr" (ngModelChange)="onRegionSelected($event)"
+          bindValue="value" name="site-region"
+          placeholder="Search region…"></cm-hierarchy-select>
+
+        <!-- Region is the ONLY hierarchy level that can be added or renamed here. Countries are a seeded ISO list: letting them be edited invites exactly the spelling drift their codes exist to prevent, so that control stays read-only. -->
+        <div class="region-admin" *ngIf="!regionFormOpen">
+          <button type="button" class="region-admin-link" (click)="openRegionForm('add')">+ Add region</button>
+          <button type="button" class="region-admin-link" *ngIf="editItem.regionId"
+            (click)="openRegionForm('edit')">Rename “{{ selectedRegionName }}”</button>
+          <button type="button" class="region-admin-link" *ngIf="editItem.regionId"
+            (click)="countryPickerOpen = true">Manage countries</button>
+        </div>
+
+        <div class="region-form" *ngIf="regionFormOpen">
+          <p class="region-form-title">{{ regionFormMode === 'add' ? 'New region' : 'Rename region' }}</p>
+          <div class="region-form-row">
+            <input class="field-input region-code" [(ngModel)]="regionForm.code" name="region-code"
+              placeholder="Code, e.g. LATAM" maxlength="20" autocomplete="off" />
+            <input class="field-input region-name" [(ngModel)]="regionForm.name" name="region-name"
+              placeholder="Name, e.g. Latin America" maxlength="100" autocomplete="off" />
+          </div>
+          <span class="error-msg" *ngIf="regionError">{{ regionError }}</span>
+          <div class="region-form-actions">
+            <button type="button" class="btn-ghost" (click)="cancelRegionForm()">Cancel</button>
+            <button type="button" class="btn-primary" [disabled]="regionSaving" (click)="saveRegion()">
+              {{ regionSaving ? 'Saving…' : (regionFormMode === 'add' ? 'Add' : 'Save') }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group" *ngIf="activeSection?.hasHierarchy">
+        <label class="field-label">Country
+          <span class="optional-tag">optional</span>
+        </label>
+        <cm-hierarchy-select [groups]="countryGroups"
+          [ngModel]="countryIdStr" (ngModelChange)="onCountrySelected($event)"
+          bindValue="value" name="site-country"
+          placeholder="Search country…"></cm-hierarchy-select>
+      </div>
+
       <div class="field-group" [class.has-error]="spendLayerError" *ngIf="activeSection?.hasSpendLayer">
         <label class="field-label">Spend Layer <span class="required">*</span></label>
         <select
@@ -160,3 +214,9 @@
 
   </div>
 </div>
+
+<!-- Its own component, opened from the Region control. Self-contained: it loads its own lists and reports back only when something moved, so this screen refetches once and only if needed. -->
+<cm-region-countries [isOpen]="countryPickerOpen" [regionId]="editItem.regionId ?? null"
+  [regionName]="selectedRegionName" [siteCount]="sitesInSelectedRegion"
+  (closed)="countryPickerOpen = false" (changed)="onRegionCountriesChanged()"
+  (deleted)="onRegionDeleted()"></cm-region-countries>

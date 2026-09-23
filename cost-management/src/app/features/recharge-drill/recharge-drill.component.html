@@ -1,5 +1,5 @@
 <!-- Desktop: the centred modal, unchanged. -->
-<cm-modal *ngIf="!sheet" [title]="title" [isOpen]="isOpen" (closed)="closed.emit()">
+<cm-modal [attachToBody]="true" *ngIf="!sheet" [title]="title" [isOpen]="isOpen" (closed)="closed.emit()">
   <ng-container [ngTemplateOutlet]="drillBody"></ng-container>
 </cm-modal>
 
@@ -59,7 +59,7 @@
               <span class="rd-chip" [class.rd-chip--direct]="isDirect(r)">{{ allocationLabel(r) }}</span>
             </td>
             <td>
-              <a class="rd-link" [routerLink]="['/Cost-Management/Invoice-Edit', r.invoiceId]">{{ r.invoiceNumber }}</a>
+              <a class="rd-link" [routerLink]="['/invoice-edit', r.invoiceId]">{{ r.invoiceNumber }}</a>
               <span class="rd-meta">{{ fmtDate(r.invoiceDate) }}</span>
             </td>
             <td class="rd-meta">{{ r.lineNumber != null ? 'Line ' + r.lineNumber : '—' }}</td>

@@ -1,5 +1,5 @@
 import {
-  Component, forwardRef, Input, HostListener, ElementRef, OnDestroy,
+  Component, forwardRef, Input, Output, EventEmitter, HostListener, ElementRef, OnDestroy,
   AfterViewChecked, ViewChild
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -69,6 +69,12 @@ export class CmHierarchySelectComponent implements ControlValueAccessor, OnDestr
    * the panel is re-parented to <body>, so a host's descendant selector no longer reaches it.
    */
   @Input() dropdownMinWidth?: number;
+
+  /** Offers an action when a search matches nothing — e.g. "+ Add this as a new region", which opens the Add form prefilled with what was typed. Left empty the empty state stays plain text. */
+  @Input() emptyActionLabel = '';
+
+  /** Emits the text that found nothing, so the host can prefill its form with it. */
+  @Output() emptyAction = new EventEmitter<string>();
 
   searchText = '';
   isOpen = false;
@@ -326,10 +332,27 @@ export class CmHierarchySelectComponent implements ControlValueAccessor, OnDestr
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event): void {
-    if (!this.el.nativeElement.contains(event.target as Node)) {
+    // ⚠️ The panel is portalled to <body> while open, so el.nativeElement no longer contains it - testing the host alone treats a click on an OPTION as an outside click and closes before the selection lands.
+    const target = event.target as Node;
+    const inHost = this.el.nativeElement.contains(target);
+    const inPanel = !!this.dropdownEl?.nativeElement?.contains(target);
+    if (!inHost && !inPanel) {
       this.searchText = this.selectedLabel;
       this.closeDropdown();
     }
+  }
+
+  /** Only offered once something has actually been typed: with an empty box "no results" means the catalogue itself is empty, and adding is not the answer to that. */
+  get showEmptyAction(): boolean {
+    return !!this.emptyActionLabel && this.searchText.trim().length > 0;
+  }
+
+  /** Hands the unmatched text to the host, putting the box back to the current selection first: the text now lives in the form that is about to open. */
+  runEmptyAction(): void {
+    const text = this.searchText.trim();
+    this.searchText = this.selectedLabel;
+    this.closeDropdown();
+    this.emptyAction.emit(text);
   }
 
   ngOnDestroy(): void {

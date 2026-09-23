@@ -383,28 +383,65 @@ export class ForecastService {
   }
 
   history(page = 1, pageSize = 25, filters?: ForecastHistoryFilters): Observable<PagedForecastHistory> {
-    const items = [
-      this.change(1, 1, 'Jun Forecast', '78,000', '88,100', '2026-07-27T16:02:00Z'),
-      this.change(2, 1, 'Jul Forecast', '80,000', '82,400', '2026-07-27T16:03:00Z'),
-      this.change(3, 2, 'Apr Forecast', '7,000', '7,560', '2026-06-14T10:20:00Z'),
-    ];
-    return of({ items, total: items.length, page, pageSize } as unknown as PagedForecastHistory)
-      .pipe(delay(200));
+    // Filtering happens HERE, over the whole set - never over the page the caller happens to hold,
+    // which would silently ignore every other page.
+    let items = this.changeLog.slice();
+    if (filters) {
+      if (filters.year) items = items.filter(e => e.year === Number(filters.year));
+      if (filters.scenario) items = items.filter(e => e.scenario === filters.scenario);
+      if (filters.internalOrder) items = items.filter(e => e.internalOrder === filters.internalOrder);
+      if (filters.user) items = items.filter(e => (e.user || '').toLowerCase().indexOf(String(filters.user).toLowerCase()) >= 0);
+    }
+    const total = items.length;
+    const start = (page - 1) * pageSize;
+    return of({ items: items.slice(start, start + pageSize), total, page, pageSize }).pipe(delay(200));
   }
 
   historyForLine(forecastDataId: number): Observable<ForecastChangeLog[]> {
-    return of([
-      this.change(1, forecastDataId, 'Jun Forecast', '78,000', '88,100', '2026-07-27T16:02:00Z'),
-    ]).pipe(delay(180));
+    return of(this.changeLog.filter(e => e.forecastDataId === forecastDataId)).pipe(delay(180));
   }
 
-  private change(id: number, lineId: number, field: string, oldValue: string,
-                 newValue: string, when: string): ForecastChangeLog {
-    return {
-      id, forecastDataId: lineId, actionTaken: field,
-      oldStatus: oldValue, newStatus: newValue,
-      changedBy: 'Devojeet Modak', changedDate: when,
-      remarks: 'Adjusted during the RFC1 cycle.',
-    } as unknown as ForecastChangeLog;
-  }
+  /**
+   * One entry per SAVE, with every field that save altered - the backend stores a row per changed
+   * field and regroups them on read, so an edit touching four months is ONE event with four
+   * `changes`, not four events. The screen renders `changes` as a list and assumes exactly that.
+   */
+  private changeLog: ForecastChangeLog[] = [
+    {
+      timestamp: '2026-07-27T16:02:00Z', user: 'Devojeet Modak', forecastDataId: 1,
+      internalOrder: 'IO1', description: 'SAP Licence Renewal', scenario: 'RFC1',
+      site: 'london-hq', team: 'Infrastructure', account: 'gl-6100', year: 2026,
+      changes: [
+        { field: 'Jun Forecast', from: '78,000', to: '88,100' },
+        { field: 'Jul Forecast', from: '80,000', to: '82,400' },
+      ],
+    },
+    {
+      timestamp: '2026-07-14T09:41:00Z', user: 'Priya Raman', forecastDataId: 2,
+      internalOrder: 'IO2', description: 'Azure Consumption', scenario: 'RFC1',
+      site: 'uk', team: 'Applications', account: 'gl-6200', year: 2026,
+      changes: [
+        { field: 'Apr Forecast', from: '7,000', to: '7,560' },
+        { field: 'May Forecast', from: '7,000', to: '7,560' },
+        { field: 'Supplier', from: 'MSFT Azure', to: 'MSFT Azure (EA)' },
+      ],
+    },
+    {
+      timestamp: '2026-06-30T17:18:00Z', user: 'Devojeet Modak', forecastDataId: 3,
+      internalOrder: 'IO3', description: 'Integration Platform', scenario: 'Budget',
+      site: 'amsterdam', team: 'Model & Processes', account: 'gl-6300', year: 2026,
+      changes: [
+        { field: 'Recharge', from: 'No', to: 'Yes' },
+      ],
+    },
+    {
+      timestamp: '2026-06-14T10:20:00Z', user: 'Aisha Khan', forecastDataId: 2,
+      internalOrder: 'IO2', description: 'Azure Consumption', scenario: 'Budget',
+      site: 'uk', team: 'Applications', account: 'gl-6200', year: 2025,
+      changes: [
+        { field: 'Dec Forecast', from: '6,400', to: '6,900' },
+        { field: 'Item Description', from: 'Azure', to: 'Azure Consumption' },
+      ],
+    },
+  ];
 }

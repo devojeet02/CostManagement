@@ -224,6 +224,21 @@
 }
 
 /* ─── Empty state ───────────────────────────────────────────────── */
+/* Sits under the "no results" line, so the dead end offers a way forward. */
+.hs-empty-action {
+  display: block;
+  margin: 6px auto 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--accent-color);
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+}
+
 .hs-empty {
   padding: 12px;
   font-size: 12px;

@@ -1,0 +1,68 @@
+<!-- attachToBody: the shell's stacking context otherwise clips this and paints over its header — see cm-modal. -->
+<cm-modal [title]="'Countries in ' + regionName" [isOpen]="isOpen" [attachToBody]="true"
+  cardWidth="min(560px, calc(100vw - 48px))" (closed)="close()">
+  <div class="rc-body">
+
+    <p class="rc-intro">
+      Countries in <strong>{{ regionName }}</strong> are on the first tab; everything filed under
+      another region is on the second, ready to be ticked and moved across.
+      <!-- Stated up front because it is the surprising part, and it is not undoable from this panel. -->
+      <span class="rc-note">Any site using a moved country moves with it.</span>
+    </p>
+
+    <!-- Two tabs rather than one searchable list: the countries NOT in this region are the ones a user comes here to find, and they cannot be browsed if they only appear once something is typed. -->
+    <div class="rc-tabs" role="tablist">
+      <button type="button" class="rc-tab" role="tab" [class.rc-tab--active]="tab === 'here'"
+        [attr.aria-selected]="tab === 'here'" (click)="setTab('here')">
+        In this region ({{ inThisRegion.length }})
+      </button>
+      <button type="button" class="rc-tab" role="tab" [class.rc-tab--active]="tab === 'other'"
+        [attr.aria-selected]="tab === 'other'" (click)="setTab('other')">
+        Other regions ({{ elsewhere.length }})
+      </button>
+    </div>
+
+    <input class="rc-search" [(ngModel)]="search" name="rc-search" autocomplete="off"
+      [placeholder]="searchPlaceholder" />
+
+    <div class="rc-state" *ngIf="loading">
+      <cm-loader [show]="true" message="Loading countries…"></cm-loader>
+    </div>
+
+    <div class="rc-list" *ngIf="!loading">
+      <label class="rc-row" *ngFor="let c of results; trackBy: trackById" [class.rc-row--here]="isHere(c)">
+        <input type="checkbox" [disabled]="isHere(c)" [checked]="isPicked(c.id)" (change)="toggle(c.id)" />
+        <span class="rc-name">{{ c.name }}</span>
+        <span class="rc-region" [class.rc-region--here]="isHere(c)">
+          {{ isHere(c) ? 'here' : regionNameById(c.regionId) }}
+        </span>
+      </label>
+
+      <p class="rc-empty" *ngIf="!results.length && search">No countries match “{{ search }}”.</p>
+      <p class="rc-empty" *ngIf="!results.length && !search && tab === 'here'">
+        No countries are in this region yet — pick some from <strong>Other regions</strong>.
+      </p>
+      <p class="rc-empty" *ngIf="!results.length && !search && tab === 'other'">
+        Every country is already in this region.
+      </p>
+    </div>
+
+    <p class="rc-error" *ngIf="error">{{ error }}</p>
+
+    <div class="rc-actions">
+      <!-- Deleting the region lives here rather than beside the Region control: this panel is the one place that shows what is still in it, which is what decides whether it can go. -->
+      <button type="button" class="rc-btn rc-btn--danger" (click)="openDelete()">Delete this region</button>
+      <span class="rc-spacer"></span>
+      <button type="button" class="rc-btn rc-btn--ghost" (click)="close()">Close</button>
+      <button type="button" class="rc-btn rc-btn--primary" [disabled]="!picked.length || saving" (click)="move()">
+        {{ saving ? 'Moving…' : 'Move ' + picked.length + ' here' }}
+      </button>
+    </div>
+  </div>
+</cm-modal>
+
+<!-- The wording is built in openDelete(), because it says something different depending on whether anything still belongs to the region. -->
+<cm-confirm-dialog [isOpen]="deleteOpen" [title]="deleteTitle" [message]="deleteMessage"
+  [detail]="deleteDetail" [confirmLabel]="deleteConfirmLabel" [cancelLabel]="deleteCancelLabel"
+  [variant]="deleteBlocked ? 'primary' : 'danger'"
+  (confirmed)="confirmDelete()" (cancelled)="deleteOpen = false"></cm-confirm-dialog>

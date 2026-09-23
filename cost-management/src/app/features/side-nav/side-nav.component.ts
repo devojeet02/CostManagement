@@ -47,6 +47,8 @@ export class SideNavComponent {
       title: 'Administration',
       items: [
         { label: 'Scenario Management', route: '/scenario-management', icon: 'layers' },
+        // Frozen pre-variance copy of the screen above, kept routable for side-by-side review.
+        { label: 'Sc Mgmt v1(dummy)', route: '/scenario-management-legacy', icon: 'layers' },
         { label: 'Master Data', route: '/admin/master-data', icon: 'shield' },
         { label: 'Period Management', route: '/admin/periods', icon: 'calendar' },
         { label: 'Audit Log', route: '/admin/audit-log', icon: 'list' },

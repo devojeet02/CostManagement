@@ -1,4 +1,4 @@
-<div class="confirm-overlay" *ngIf="isOpen" (click)="onCancel()">
+<div class="confirm-overlay" #confirmOverlay *ngIf="isOpen" (click)="onCancel()">
   <div class="confirm-card" (click)="$event.stopPropagation()" role="alertdialog" aria-modal="true">
 
     <div class="confirm-head">

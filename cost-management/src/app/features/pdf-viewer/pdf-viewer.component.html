@@ -1,5 +1,5 @@
 <!-- Click-away: the backdrop closes, the card stops the bubble so clicks inside don't. -->
-<div class="pdf-overlay" *ngIf="isOpen" (click)="close()">
+<div class="pdf-overlay" #pdfOverlay *ngIf="isOpen" (click)="close()">
   <div class="pdf-card" (click)="$event.stopPropagation()">
 
     <div class="pdf-header">
@@ -32,7 +32,6 @@
 
     <div class="pdf-body">
 
-      <!-- Loading -->
       <div class="pdf-state" *ngIf="loading">
         <div class="pdf-spinner"></div>
         <span class="pdf-state-title">Loading invoice PDF…</span>
