@@ -96,6 +96,9 @@ export interface PagedForecastHistory {
   items: ForecastChangeLog[];
 }
 
+/** The year the seeded rows belong to. Any other year starts empty, as it would server-side. */
+const SEED_YEAR = 2026;
+
 /** Optional per-row seed flags — the toggles and checkboxes the Forecast grid reacts to. */
 interface SeedExtras {
   type?: 'OPEX' | 'CAPEX';
@@ -252,6 +255,10 @@ export class ForecastService {
 
     return {
       id,
+      // Forecast rows are YEAR-SPECIFIC in production - the header carries ForecastYear, and a
+      // year nobody has forecast simply has no rows. Every seeded row is 2026; switch the grid
+      // to 2027 and it correctly shows its empty state.
+      year: SEED_YEAR,
       internalOrder: io,
       // ForecastRow calls this `description` ("Item Desc" column). It was seeded as
       // `itemDescription`, which the `as unknown as ForecastRow` cast below happily accepted —
@@ -277,14 +284,25 @@ export class ForecastService {
   }
 
   /**
-   * Every read goes through here: seed on first use, then raise any unbudgeted rows and lay the
-   * invoice-derived actuals over the top. Both steps are idempotent, so repeated reads are safe.
+   * Every read goes through here: seed on first use, narrow to the year asked for, then raise any
+   * unbudgeted rows and lay the invoice-derived actuals over the top. Both steps are idempotent,
+   * so repeated reads are safe.
+   *
+   * The whole store spans every year; only this year's rows are ever returned. A year nobody has
+   * forecast comes back EMPTY, which is what production does and what the grid's
+   * "No forecast saved for {{ year }}" state is for.
    */
   private store(year: number): ForecastRow[] {
     if (!this.rows) this.rows = this.seed();
-    this.ensureUnbudgetedLines(year);
-    this.applyDerivedActuals(year);
-    return this.rows;
+    const ofYear = (this.rows as any[]).filter(r => this.yearOf(r) === year);
+    this.ensureUnbudgetedLines(year, ofYear);
+    this.applyDerivedActuals(year, ofYear);
+    return ofYear as unknown as ForecastRow[];
+  }
+
+  /** A row saved before the year was tracked belongs to the seeded year, not to none of them. */
+  private yearOf(row: any): number {
+    return row.year == null ? SEED_YEAR : row.year;
   }
 
   /**
@@ -322,10 +340,10 @@ export class ForecastService {
    * cell is a master-data lookup rather than a text box: a typo used to produce permanently
    * blank actuals with nothing on screen to explain it.
    */
-  private applyDerivedActuals(year: number): void {
+  private applyDerivedActuals(year: number, ofYear: any[]): void {
     this.captureSeededActuals();
 
-    const rows = this.rows as any[];
+    const rows = ofYear;
     const orders = rows.map(r => r.internalOrder).filter(io => !!io);
     const actuals = this.invoices.actualsFor(year, orders);
 
@@ -384,8 +402,8 @@ export class ForecastService {
    * (scenario + site + team + account + year) plus the line's order. Re-reading must not pile up
    * duplicates, hence the existence check rather than a blind push.
    */
-  private ensureUnbudgetedLines(year: number): void {
-    const rows = this.rows as any[];
+  private ensureUnbudgetedLines(year: number, ofYear: any[]): void {
+    const rows = ofYear;
 
     this.invoices.unbudgetedLines(year).forEach(line => {
       const exists = rows.some(r =>
@@ -395,8 +413,9 @@ export class ForecastService {
         (!r.account || !line.account || r.account === line.account));
       if (exists) return;
 
-      rows.push({
+      const raised = {
         id: this.nextUnbudgetedId++,
+        year,
         internalOrder: line.internalOrder,
         par: line.par,
         spendType: line.spendType,
@@ -417,7 +436,10 @@ export class ForecastService {
         rechargeRequired: line.rechargeRequired,
         isUnbudgeted: true,
         subRows: buildDefaultSubRows(line.currency, line.currency),
-      } as unknown as ForecastRow);
+      } as unknown as ForecastRow;
+
+      rows.push(raised);
+      (this.rows as any[]).push(raised);
     });
   }
 
@@ -447,13 +469,13 @@ export class ForecastService {
    * happen to be loaded would quietly ignore every other page.
    */
   listPaged(year: number, page: number, pageSize: number, filters?: ForecastPageFilters): Observable<PagedForecast> {
-    this.store(year);
+    const ofYear = this.store(year) as unknown as any[];
 
     const f: any = filters || {};
     // NULL-LENIENT, matching the real repo query: a row with no value for a dimension is KEPT.
     // Filtering strictly would silently drop every half-coded line the moment a filter is used.
     const keep = (r: any, key: string) => !f[key] || !r[key] || r[key] === f[key];
-    const all = (this.rows as any[]).filter(r =>
+    const all = ofYear.filter(r =>
       keep(r, 'site') && keep(r, 'team') && keep(r, 'account') && keep(r, 'scenario') &&
       keep(r, 'category') && keep(r, 'supplier') && keep(r, 'currency'));
 
@@ -518,8 +540,11 @@ export class ForecastService {
   }
 
   bulkSave(rows: ForecastRowPayload[], year: number, options?: BulkSaveOptions): Observable<boolean> {
+    // The year comes off the payload when it is there and off the argument otherwise, so a row
+    // added on the 2027 grid is stored as 2027 and stops showing up under 2026.
     const clone = (r: any) => ({
       ...r,
+      year: r.year == null ? year : r.year,
       subRows: (r.subRows || []).map((sr: any) => ({ ...sr, values: (sr.values || []).slice() })),
     });
 
@@ -537,9 +562,12 @@ export class ForecastService {
       return of(true).pipe(delay(320));
     }
 
-    // Original contract: the payload IS the whole year, so the mock replaces wholesale.
+    // Original contract: the payload IS the whole year — so the replace is scoped to that year.
+    // Replacing the entire store would delete every other year's rows along with it.
     if (rows && rows.length) {
-      this.rows = rows.map(clone) as unknown as ForecastRow[];
+      if (!this.rows) this.rows = this.seed();
+      const otherYears = (this.rows as any[]).filter(r => this.yearOf(r) !== year);
+      this.rows = otherYears.concat(rows.map(clone)) as unknown as ForecastRow[];
     }
     return of(true).pipe(delay(320));
   }

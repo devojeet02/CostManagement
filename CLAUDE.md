@@ -525,6 +525,20 @@ paths, drops `export` from its interfaces (the live copy exports the same names)
 constant that has since been removed from the shared files, so the two can drift apart safely.
 Delete the whole folder, its route, its declaration and its rail entry when the comparison is done.
 
+## Forecast rows are year-specific
+
+The store spans every year and a read returns only the year asked for, because production keys
+the forecast header on `ForecastYear`. Seeded rows are all **2026** (`SEED_YEAR`), so switching
+the grid to 2027 correctly shows its own empty state, "No forecast saved for 2027" — nothing has
+been forecast there yet. Adding a row on that grid and saving stores it as 2027 and leaves 2026
+alone; `bulkSave`'s wholesale branch replaces only the rows of the year it was given, never the
+whole store.
+
+Invoice-derived actuals follow the same line: a 2026 invoice never writes onto a 2027 row, and an
+unbudgeted invoice raises its row in the year of its invoice date.
+
+---
+
 ## Forecast actuals are DERIVED from the invoice mock
 
 The one place two mock services talk to each other, and the only cross-screen causality in the
