@@ -35,6 +35,7 @@ src/app/
 │   ├── side-nav/      ← the app rail — always visible, owns the theme toggle
 │   ├── theme-toggle/  ← light/dark toggle button (lives inside SideNav)
 │   ├── tooltip/       ← [cmTooltip] directive + GLOBAL tooltip.css (see below)
+│   ├── pdf-loupe/     ← hover magnifier for the invoice preview (see "Invoice document zoom")
 │   ├── cm-*/          ← components ported from the production repo (see "Showcase Build")
 │   ├── app-header/    ← RETIRED from the shell, kept in the tree
 │   └── top-nav/       ← RETIRED, replaced by side-nav; kept in the tree
@@ -346,11 +347,50 @@ into one "—" bucket.
 
 ### Invoice View / Upload / Edit (`components/invoice-*/`)
 List, entry and edit, with duplicate detection (invoice number + supplier), the related-data
-panel, and the recharge drill. PDF viewing is the one unavailable feature — see "Showcase
-Build".
+panel, and the recharge drill. Fetching a *stored* PDF is the one unavailable feature — see
+"Showcase Build" — but a PDF picked in the browser previews and zooms for real, because the
+object URL never leaves the page.
 
 **Invoice Change History** loads a page at a time (`historyPaged()`) and appends as you reach
 the bottom, showing "Loading more…" with a spinner rather than a button.
+
+#### Invoice document zoom (drag rail, focus mode, hover magnifier)
+
+Three features on the document panel, all ported from production and all driven from
+`InvoiceUploadComponent`. **Edit gets them for free**: it extends Upload and already lists the
+Upload stylesheet in its `styleUrls`, so only its own template needed the markup and its
+constructor the one new dependency (`ElementRef`). Anything added to Upload's class from here
+lands on Edit — which is the whole reason the two screens cannot drift.
+
+1. **Drag rail** (`.split-rail`) between the form and the preview, rendered only while a PDF is
+   loaded (`isRailActive`) — a handle that resizes an empty panel reads as broken. It writes
+   `previewWidth` onto the column, clamped to 400px … 60% of the row. Four things that each cost
+   a debugging pass in production and are preserved here:
+   - measure from the ROW's right edge (`rect.right - clientX`), not the viewport's;
+   - `.preview-column { min-width: 0 }`, or the flex item refuses to shrink below its own
+     min-content width (~395px) and silently ignores the dragged value;
+   - `.content-layout.rail-dragging .preview-column { transition: none }`, or the column's
+     0.35s collapse transition restarts on every pointer move and trails the cursor;
+   - `pointer-events: none` on the iframe during a drag, or it swallows the pointer and the
+     drag dies the moment the cursor crosses the preview.
+2. **Focus mode** — the crosshair in the Invoice Document header folds **Invoice Change
+   History** and **User & Processed Date** into square chips on the right, moving the document
+   up by ~220px. `isHistoryChipped` / `isStampChipped` are separate: the crosshair moves both, a
+   chip restores only its own. Both panels keep their markup behind an `*ngIf`, so the history
+   modal and the stamp values behave exactly as before once back. Removing the file resets it.
+3. **Hover to zoom** — the star beside the remove cross turns on a mode: pointing at the
+   document reflects the area under the pointer, enlarged, in `features/pdf-loupe/`.
+   ⚠️ It renders a SECOND copy of the PDF rather than magnifying the first. The preview is a
+   browser PDF viewer inside an iframe: the page cannot read its pixels and never sees a pointer
+   event over it, so a canvas loupe is not available. The loupe sizes a second iframe to
+   `frame × zoom` (2.2) behind a clipping window, and a transparent `.pdf-hover-catcher` over
+   the frame supplies the coordinates — which is also why this is a MODE: while the catcher is
+   up, the viewer's own scroll and text selection are unreachable.
+
+The frame carries `aspect-ratio: 1 / 1.414` with the iframe on `position: absolute; inset: 0`
+(a percentage height will not re-resolve against a parent sized by `aspect-ratio`), and the URL
+carries `#view=FitH` so the page fits the frame's width. Both URLs are built in one place,
+`setPdfPreviewUrls()`.
 
 ### Forecast Audit (`components/forecast-audit/`) — `/forecast-audit`
 The forecast change log, reached from the **Audit Log** button on the Forecast toolbar (not from
@@ -653,6 +693,37 @@ Two consequences worth remembering:
   transparent. If you inspect the wrong node it will look unstyled even when it is fine.
 - The bubble is **light on Crown's dark UI** by design; a dark bubble on a dark screen reads
   poorly. A `ttp-dark` variant is kept for light contexts.
+
+---
+
+## ⚠️ Container queries are NOT scoped by the Angular 14 shim
+
+The invoice form grid drops from three columns to two on the width of its **column**, not the
+window — the column's width depends on the drag rail and the Hide Preview toggle as well as the
+viewport, so a viewport breakpoint misses half the cases (it forced two columns at 917px, where
+three fit comfortably).
+
+`.form-column` is therefore `container-type: inline-size`, and the breakpoint is a
+`@container invoice-form (max-width: 560px)` rule. **Angular 14's emulated-encapsulation shim
+does not know `@container`**, so it leaves the selectors inside it unscoped while rewriting
+everything outside:
+
+```css
+.form-grid.cols-3[_ngcontent-fen-c64] { grid-template-columns: repeat(3, 1fr); }   /* (0,3,0) */
+@container invoice-form (max-width: 560px) {
+  .form-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }                     /* (0,2,0) */
+}
+```
+
+The base rule wins on specificity and the breakpoint does nothing at all — it compiles, it ships,
+and the fields just overlap. The declarations inside the `@container` block carry `!important`
+for that reason. `@media` and `@supports` blocks ARE scoped normally; this is specific to
+`@container`. Angular 15 (the production repo) scopes it correctly, which is why the same SCSS
+needs no `!important` there.
+
+**Rule:** after adding any `@container` rule, check the computed style in the browser rather than
+trusting the build — `getComputedStyle(el).gridTemplateColumns` at a width that should have
+triggered it.
 
 ---
 
@@ -967,7 +1038,10 @@ Deliberate, and worth knowing before demoing:
   dependency of this project. Adding it for one screen is a real cost; the alternative is
   rebuilding that grid as a plain table. Undecided — do not assume the screen is simply
   missing by accident.
-- **PDF view/download is unavailable** — no storage. `getPdf()` throws on purpose.
+- **Stored PDFs are unavailable** — no storage. `getPdf()` throws on purpose, so opening an
+  existing invoice shows the file-name chip and an empty panel. A PDF picked in the browser
+  is fully live: it previews, drags, folds and magnifies, because its object URL never
+  leaves the page. Demo the zoom features by picking a file on Upload, not by opening a row.
 - **State resets on reload.** Everything is in memory — except the three things a demo would look
   broken without: Headcount row order and comments, and the Scenario Management saved layout,
   which use `localStorage`.

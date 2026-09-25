@@ -1,0 +1,54 @@
+.loupe-panel {
+  position: fixed;
+  /* Set by the host; custom properties inherit through the component boundary, which a caller's rule could not under view encapsulation. */
+  left: var(--loupe-left, 0);
+  top: var(--loupe-top, 0);
+  z-index: 1400;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.loupe-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.loupe-level {
+  color: var(--text-primary);
+}
+
+.loupe-window {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+/* The copy's size arrives as custom properties rather than as width/height bindings, because
+   the production build of this screen has to beat a global `iframe { height: ... !important }`
+   rule in its own styles.css and an author !important beats a plain inline value. There is no
+   such rule here; the shape is kept identical so the two stay comparable. */
+.loupe-window .loupe-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  transform-origin: 0 0;
+  width: var(--loupe-w, 100%) !important;
+  height: var(--loupe-h, 100%) !important;
+}

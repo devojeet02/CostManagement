@@ -1,0 +1,15 @@
+<div class="loupe-panel" *ngIf="visible" [style.width.px]="panelWidth" [style.height.px]="panelHeight">
+
+  <div class="loupe-head">
+    <span class="loupe-title">Zoom</span>
+    <span class="loupe-level">{{ zoom * 100 | number:'1.0-0' }}%</span>
+  </div>
+
+  <!-- The copy's size travels as custom properties - see the stylesheet. -->
+  <div class="loupe-window">
+    <iframe class="loupe-frame" [src]="src"
+      [style.--loupe-w]="innerWidth + 'px'"
+      [style.--loupe-h]="innerHeight + 'px'"
+      [style.transform]="'translate(' + offsetX + 'px, ' + offsetY + 'px)'"></iframe>
+  </div>
+</div>

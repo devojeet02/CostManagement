@@ -40,6 +40,7 @@ import { ForecastCommentsModalComponent } from './features/forecast-comments-mod
 import { RechargeDrillComponent } from './features/recharge-drill/recharge-drill.component';
 import { CmDatePickerComponent } from './features/cm-date-picker/cm-date-picker.component';
 import { PdfViewerComponent } from './features/pdf-viewer/pdf-viewer.component';
+import { PdfLoupeComponent } from './features/pdf-loupe/pdf-loupe.component';
 import { RelatedDataPanelComponent } from './features/related-data-panel/related-data-panel.component';
 import { DuplicateInvoiceAlertComponent } from './features/duplicate-invoice-alert/duplicate-invoice-alert.component';
 import { InvoiceViewComponent } from './components/invoice-view/invoice-view.component';
@@ -79,6 +80,7 @@ import { InvoiceEditComponent } from './components/invoice-edit/invoice-edit.com
     ConfirmDialogComponent,
     CmHierarchySelectComponent,
     RegionCountriesComponent,
+    PdfLoupeComponent,
     ForecastAuditComponent,
     ForecastCellCommentComponent,
     ForecastCommentsModalComponent,

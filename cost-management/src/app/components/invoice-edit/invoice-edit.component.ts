@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
 import { of } from 'rxjs';
@@ -49,10 +49,11 @@ export class InvoiceEditComponent extends InvoiceUploadComponent implements OnIn
     ioService: InternalOrderService,
     invoiceService: InvoiceService,
     masterDataService: MasterDataService,
+    host: ElementRef<HTMLElement>,
     private route: ActivatedRoute,
     private router: Router
   ) {
-    super(sanitizer, snackbar, ioService, invoiceService, masterDataService);
+    super(sanitizer, snackbar, ioService, invoiceService, masterDataService, host);
   }
 
   /** Never flag the invoice this screen is editing as a duplicate of itself. */
@@ -141,7 +142,9 @@ export class InvoiceEditComponent extends InvoiceUploadComponent implements OnIn
 
         this.revokeUrl();
         this.objectUrl = URL.createObjectURL(blob);
-        this.uploadedFileUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+        // The same builder the Upload screen uses, or the stored PDF would open unfitted
+        // and the magnifier would have nothing to show.
+        this.setPdfPreviewUrls(this.objectUrl);
       },
       // Non-fatal on purpose: the invoice is perfectly editable without its preview, so a
       // missing blob or a storage outage must not become a load error or a snackbar. The

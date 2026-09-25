@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { NgModel } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Observable, Subject, Subscription, forkJoin, of } from 'rxjs';
@@ -26,6 +26,167 @@ interface RechargeAllocation {
   styleUrls: ['./invoice-upload.component.scss']
 })
 export class InvoiceUploadComponent implements OnInit, OnDestroy {
+
+  /* ── Draggable split ───────────────────────────────
+     The rail sits between the form and the preview and exists ONLY while a PDF is loaded: a
+     handle that resizes an empty panel reads as broken, so it goes with the file and the column
+     returns to its stylesheet width. */
+
+  /** Preview column width in px while the rail is in use; the default matches the stylesheet's 450px. */
+  previewWidth = 450;
+
+  private readonly DEFAULT_PREVIEW_WIDTH = 450;
+
+  /**
+   * The column's own content (the stamp chips and the history button) does not fit below about
+   * 395px, so the floor sits just above that rather than fighting the layout.
+   */
+  private readonly MIN_PREVIEW_WIDTH = 400;
+
+  /** The form is the primary surface: the preview never takes more than 60% of the row. */
+  private readonly MAX_PREVIEW_RATIO = 0.6;
+
+  isRailDragging = false;
+
+  /** Where the grip sits along the rail, in px from its top — it follows the pointer. */
+  railGripY = 0;
+
+  /* ── Hover to zoom ────────────────────────────────
+     ⚠️ An iframe swallows every pointer event, so a transparent catcher over the frame is the
+     only way to know where the pointer is — and it is why this is a MODE rather than always-on:
+     while the catcher is up, the viewer's own scroll and text selection are unreachable. */
+  isHoverZoom = false;
+
+  /** The same document as the preview, minus the viewer chrome — see setPdfPreviewUrls(). */
+  loupeFileUrl: SafeResourceUrl | null = null;
+
+  /** Pointer position over the document, normalised 0..1 — null whenever the pointer is away. */
+  hoverPoint: { x: number; y: number } | null = null;
+
+  /** The document frame's on-screen size, so the loupe can keep the page's proportions. */
+  hoverFrame: { w: number; h: number } | null = null;
+
+  /** Where the loupe sits, in viewport coordinates: LEFT of the preview column, tracking the pointer vertically. */
+  loupeLeft = 0;
+  loupeTop = 0;
+
+  readonly loupeWidth = 360;
+  readonly loupeHeight = 460;
+
+  toggleHoverZoom(): void {
+    this.isHoverZoom = !this.isHoverZoom;
+    if (!this.isHoverZoom) this.hoverPoint = null;
+  }
+
+  onDocHover(event: MouseEvent): void {
+    if (!this.isHoverZoom) return;
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    this.hoverFrame = { w: Math.round(rect.width), h: Math.round(rect.height) };
+    this.hoverPoint = {
+      x: Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1),
+      y: Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1),
+    };
+
+    // Left of the document, centred on the pointer, clamped so the panel is never half off-screen.
+    this.loupeLeft = Math.max(rect.left - this.loupeWidth - 16, 12);
+    this.loupeTop = Math.min(
+      Math.max(event.clientY - this.loupeHeight / 2, 12),
+      Math.max(window.innerHeight - this.loupeHeight - 12, 12)
+    );
+  }
+
+  onDocHoverLeave(): void {
+    this.hoverPoint = null;
+  }
+
+  /* ── Document focus mode ───────────────────────────
+     The two panels above the PDF fold into chips when the document is what matters. Each half is
+     tracked separately: the crosshair moves both, a chip moves only its own. */
+  isHistoryChipped = false;
+  isStampChipped = false;
+
+  /** True while either panel is folded away — the crosshair reads as "on". */
+  get isDocFocus(): boolean {
+    return this.isHistoryChipped || this.isStampChipped;
+  }
+
+  /** Crosshair: folds both panels away, or brings both back if anything is folded. */
+  toggleDocFocus(): void {
+    const collapse = !this.isDocFocus;
+    this.isHistoryChipped = collapse;
+    this.isStampChipped = collapse;
+  }
+
+  /** The panels only fold with a document on screen; without one there is nothing to make room for. */
+  private resetDocFocus(): void {
+    this.isHistoryChipped = false;
+    this.isStampChipped = false;
+    this.isHoverZoom = false;
+    this.hoverPoint = null;
+  }
+
+  /** Keeps the grip (and its tooltip) under the hand rather than at the centre of a full-height rail. */
+  onRailHover(event: MouseEvent): void {
+    if (this.isRailDragging) return;
+    const rail = event.currentTarget as HTMLElement;
+    const grip = rail.firstElementChild as HTMLElement | null;
+    const rect = rail.getBoundingClientRect();
+    // Measured, not hardcoded: the grip grows on hover, and a fixed half-height sits off-centre
+    // in whichever state it is not.
+    const half = (grip ? grip.offsetHeight : 46) / 2;
+    this.railGripY = Math.round(Math.min(Math.max(event.clientY - rect.top - half, 8), rect.height - half * 2 - 8));
+  }
+
+  /** True only when there is something to resize — drives both the rail and the inline width. */
+  get isRailActive(): boolean {
+    return !!this.uploadedFileName && !this.isPreviewCollapsed;
+  }
+
+  startRailDrag(event: MouseEvent): void {
+    if (!this.isRailActive) return;
+    this.isRailDragging = true;
+    // Without this the drag selects the form text it passes over, which then highlights blue.
+    event.preventDefault();
+  }
+
+  @HostListener('window:mousemove', ['$event'])
+  onRailDrag(event: MouseEvent): void {
+    if (!this.isRailDragging) return;
+    // ⚠️ Measured from the ROW's right edge, not the viewport's: the page's own padding and the
+    // scrollbar would otherwise drift the split away from the pointer by exactly that much.
+    const row = this.host.nativeElement.querySelector('.content-layout') as HTMLElement | null;
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+    this.previewWidth = this.clampPreview(rect.right - event.clientX, rect.width);
+  }
+
+  @HostListener('window:mouseup')
+  endRailDrag(): void {
+    this.isRailDragging = false;
+  }
+
+  /** A window that narrows past the current split would otherwise leave the form column crushed. */
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    const row = this.host.nativeElement.querySelector('.content-layout') as HTMLElement | null;
+    if (!row) return;
+    this.previewWidth = this.clampPreview(this.previewWidth, row.getBoundingClientRect().width);
+  }
+
+  private clampPreview(width: number, rowWidth: number): number {
+    const max = Math.max(this.MIN_PREVIEW_WIDTH, Math.round(rowWidth * this.MAX_PREVIEW_RATIO));
+    return Math.round(Math.min(Math.max(width, this.MIN_PREVIEW_WIDTH), max));
+  }
+
+  /** Back to the stylesheet's own width, so removing a file leaves the page as it was found. */
+  private resetRail(): void {
+    this.previewWidth = this.DEFAULT_PREVIEW_WIDTH;
+    this.isRailDragging = false;
+    this.resetDocFocus();
+  }
+
   months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   selectedSite = '';
@@ -676,7 +837,9 @@ systemOptions: any;
     protected snackbar: SnackbarService,
     protected ioService: InternalOrderService,
     protected invoiceService: InvoiceService,
-    protected masterDataService: MasterDataService
+    protected masterDataService: MasterDataService,
+    /** The drag measures against `.content-layout`, so the component needs its own DOM. */
+    protected host: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit(): void {
@@ -1438,15 +1601,33 @@ systemOptions: any;
       // once the invoice has an id. The object URL below only drives the on-screen preview.
       this.selectedFile = file;
       this.objectUrl = URL.createObjectURL(file);
-      this.uploadedFileUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+      this.setPdfPreviewUrls(this.objectUrl);
     } else {
       alert('Only PDF files are accepted.');
     }
   }
 
+  /**
+   * Both preview URLs are built here so Edit cannot drift from Upload.
+   *
+   * ⚠️ `#view=FitH` fits the page to the frame's WIDTH. Without it the viewer fits whichever
+   * axis runs out first and fills the rest with its own dark backdrop — the black bars either
+   * side of the document. The magnified copy also drops the viewer's toolbar, which would take a
+   * fifth of the loupe panel and report a zoom level unrelated to the one being applied.
+   *
+   * `revokeObjectURL` still gets the bare object URL, which is what `revokeUrl()` holds.
+   */
+  protected setPdfPreviewUrls(objectUrl: string): void {
+    this.uploadedFileUrl = this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl + '#view=FitH');
+    this.loupeFileUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
+      objectUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH');
+  }
+
   removeFile(): void {
     this.uploadedFileName = null;
     this.uploadedFileUrl = null;
+    this.loupeFileUrl = null;
+    this.resetRail();
     this.selectedFile = null;
     this.revokeUrl();
   }

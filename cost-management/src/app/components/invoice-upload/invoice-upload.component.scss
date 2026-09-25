@@ -1844,3 +1844,272 @@
     svg { display: block; }
   }
 }
+
+
+/* ─── Draggable split + responsive form grid ───────────────────────
+   The rail resizes the document panel while a PDF is loaded; the form grid answers with fewer
+   columns so the fields never overlap at the narrow end of the drag. */
+
+/* ⚠️ A flex item cannot shrink below its own min-content width while `min-width` is `auto`,
+   which is the default. Without this the column bottomed out around 395px and silently ignored
+   every dragged width under it. */
+.preview-column {
+  min-width: 0;
+}
+
+.split-rail {
+  flex: 0 0 8px;
+  align-self: stretch;
+  min-height: 220px;
+  margin: 0 -6px;
+  /* The grip is placed from the pointer's Y, so the rail is its containing block. */
+  position: relative;
+  display: flex;
+  justify-content: center;
+  cursor: col-resize;
+  border-radius: 4px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+
+  /* Lavender rather than the accent colour: the rail is chrome, not a value. */
+  &:hover,
+  &.dragging {
+    background: rgba(167, 139, 250, 0.14);
+  }
+}
+
+.split-rail-grip {
+  position: absolute;
+  width: 3px;
+  height: 46px;
+  border-radius: 2px;
+  background: var(--border-color);
+  transition: background-color 0.15s ease, height 0.15s ease;
+
+  .split-rail:hover &,
+  .split-rail.dragging & {
+    height: 72px;
+    background: #a78bfa;
+  }
+}
+
+.content-layout.rail-dragging {
+  cursor: col-resize;
+  user-select: none;
+
+  /* An iframe swallows mouse events, so the drag would stop dead the moment the pointer
+     crossed the preview. */
+  iframe,
+  .upload-zone {
+    pointer-events: none;
+  }
+
+  /* ⚠️ The column's `transition: width 0.35s` is for the collapse animation; left on during a
+     drag, every pointer move restarts it and the panel trails the cursor by a third of a
+     second, which reads as the rail being stuck. */
+  .preview-column {
+    transition: none;
+  }
+}
+
+/* Below this the two columns no longer fit side by side. */
+@media (max-width: 1100px) {
+  .content-layout {
+    flex-direction: column;
+    padding: 16px;
+    /* ⚠️ The row is `align-items: flex-start`, which in a COLUMN direction makes both children
+       shrink to their content instead of filling the width. */
+    align-items: stretch;
+  }
+
+  /* ⚠️ !important is load-bearing: the rail's inline width would otherwise keep the preview at
+     its dragged size when stacked. `:not(.collapsed)` keeps Hide Preview working. */
+  .preview-column:not(.collapsed) {
+    width: auto !important;
+    max-width: none;
+  }
+
+  .split-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .content-layout {
+    padding: 12px;
+  }
+}
+
+/* ⚠️ The trigger is a CONTAINER query, not a viewport one: the column's width depends on the
+   drag and the Hide Preview toggle as well as the window, so a viewport breakpoint misses half
+   the cases — it forced two columns at 917px, where three fit comfortably. */
+.form-column {
+  container-type: inline-size;
+  container-name: invoice-form;
+}
+
+/* Three hold to about 560px of column width (~145px a field); below that it drops to TWO, and
+   never to one. */
+@container invoice-form (max-width: 560px) {
+  /* !important is NOT decoration here. Angular 14's emulated-encapsulation shim does not know
+     `@container`, so it leaves the selectors inside it unscoped while the base rule outside
+     becomes `.form-grid.cols-3[_ngcontent-xxx]`. That is (0,3,0) against (0,2,0), so the base
+     rule wins on specificity and the breakpoint silently does nothing. Verified in the browser:
+     the form column measured 443px and still reported three tracks. */
+  .form-grid.cols-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* A cell spanning three columns would otherwise overflow a two-column row. */
+  .form-grid.cols-3 .col-span-3 {
+    grid-column: span 2 !important;
+  }
+}
+
+/* Fallback only, gated so it never competes with the container queries above. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 1280px) {
+    .form-grid.cols-3 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .form-grid.cols-3 .col-span-3 {
+      grid-column: span 2;
+    }
+  }
+}
+
+/* The frame holds A4 proportions so width and height grow together. A wide, short frame is what
+   left the page letterboxed between the viewer's own dark backdrop, because the browser's PDF
+   viewer fits the page to whichever axis runs out first. */
+.pdf-frame-container {
+  aspect-ratio: 1 / 1.414;
+  width: 100%;
+  /* ⚠️ The iframe is absolutely positioned rather than given `height: 100%`: a percentage
+     height resolves against a parent whose own height comes from `aspect-ratio`, and the iframe
+     keeps the size it was first laid out at. */
+  position: relative;
+}
+
+/* The width/height attributes are gone from the tag; the frame is what sizes it now. The
+   !important pair mirrors the production stylesheet, where it has to out-specify a global
+   `iframe { height: calc(100vh - 90px) !important }` rule that does not exist here. */
+.pdf-frame-container .pdf-iframe-preview {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* The zone is what the frame grows inside. */
+.upload-zone.has-file {
+  padding: 12px;
+  justify-content: flex-start;
+}
+
+/* ─── Document focus mode ───────────────────────────────
+   The crosshair folds the two reference panels into chips so the PDF gets their height back. */
+
+.section-header-row {
+  /* Two buttons now share the right-hand end of the header. */
+  .btn-doc-focus {
+    margin-left: auto;
+
+    /* Grey is enough: the panels folding away is the real feedback. */
+    &.active {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+  }
+
+  .btn-card-toggle + .btn-card-toggle {
+    margin-left: 2px;
+  }
+}
+
+.doc-chip-rail {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.doc-chip {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    color: #a78bfa;
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(167, 139, 250, 0.1);
+  }
+}
+
+/* The count rides the chip as it does the full-width button. */
+.doc-chip-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  background: var(--accent-color);
+}
+
+/* ─── Hover to zoom ───────────────────────────────────
+   The catcher is what makes it possible: an iframe consumes every pointer event, so the page
+   cannot see the cursor over the document without something transparent on top of it. */
+.pdf-hover-catcher {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: zoom-in;
+  background: transparent;
+}
+
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-hover-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+  transition: color 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  &.active {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+}
