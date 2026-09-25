@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
-import { ForecastRow } from '../constants/forecast.constants';
+import { ForecastRow, buildDefaultSubRows } from '../constants/forecast.constants';
+import { InvoiceService, InvoiceActualRow } from './invoice.service';
 
 /**
  * Payload sent to the Cost Center backend for a forecast row. Extends the on-screen
@@ -116,9 +117,21 @@ interface SeedExtras {
  * Rows are held in memory so an edit survives a save and a reload of the screen (not of the
  * browser). The sub-row shape is the real one - Contract / Local / Actual / Recharge - because
  * that split is the point of the screen, and a flattened mock would misrepresent it.
+ *
+ * ACTUALS ARE DERIVED, not seeded state. Every read joins the invoice mock's saved invoices onto
+ * these rows by internal order + year, exactly as `ForecastService.ApplyDerivedActualsAsync`
+ * does server-side, so saving an invoice on Invoice Upload moves the Actual line here. See
+ * `applyDerivedActuals` for what the seeded figures mean once that is switched on.
+ *
+ * The dependency runs ONE WAY - Forecast reads Invoice, never the reverse. Production creates an
+ * unbudgeted forecast line while SAVING the invoice; doing that here would need the invoice mock
+ * to call this one, and Angular would refuse the circular injection. `ensureUnbudgetedLines`
+ * materialises the same rows on read instead: same rows, same badge, raised a moment later.
  */
 @Injectable({ providedIn: 'root' })
 export class ForecastService {
+
+  constructor(private invoices: InvoiceService) {}
 
   private rows: ForecastRow[] | null = null;
 
@@ -263,10 +276,164 @@ export class ForecastService {
     } as unknown as ForecastRow;
   }
 
-  list(year: number): Observable<ForecastRow[]> {
+  /**
+   * Every read goes through here: seed on first use, then raise any unbudgeted rows and lay the
+   * invoice-derived actuals over the top. Both steps are idempotent, so repeated reads are safe.
+   */
+  private store(year: number): ForecastRow[] {
     if (!this.rows) this.rows = this.seed();
+    this.ensureUnbudgetedLines(year);
+    this.applyDerivedActuals(year);
+    return this.rows;
+  }
+
+  /**
+   * Seeded Actual figures, captured before anything is derived.
+   *
+   * They stand for invoices posted BEFORE the demo's invoice list starts — there is no invoice
+   * behind them and there is not meant to be. Each derivation pass restores them and then writes
+   * the derived months on top, so editing or deleting an invoice takes its figure back off the
+   * grid instead of leaving a stale one behind.
+   */
+  private seededActuals: { [rowId: number]: { [type: string]: (number | null)[] } } | null = null;
+
+  private captureSeededActuals(): void {
+    if (this.seededActuals) return;
+    this.seededActuals = {};
+    (this.rows as any[]).forEach(row => {
+      const byType: { [type: string]: (number | null)[] } = {};
+      (row.subRows || []).forEach((sub: any) => {
+        if (sub.type === 'actual' || sub.type === 'contract-actual' || sub.type === 'recharge-actual') {
+          byType[sub.type] = (sub.values || []).slice();
+        }
+      });
+      this.seededActuals![row.id] = byType;
+    });
+  }
+
+  /**
+   * Mock of `ForecastService.ApplyDerivedActualsAsync`.
+   *
+   * ⚠️ The join is internal order + year and nothing else. Site, team and account live on the
+   * forecast HEADER and only decide which rows are on screen, so one internal order used by two
+   * rows puts the same actuals on both — that is production's behaviour, not a shortcut here.
+   *
+   * A row with no internal order can never show actuals, which is why the grid's Internal Order
+   * cell is a master-data lookup rather than a text box: a typo used to produce permanently
+   * blank actuals with nothing on screen to explain it.
+   */
+  private applyDerivedActuals(year: number): void {
+    this.captureSeededActuals();
+
+    const rows = this.rows as any[];
+    const orders = rows.map(r => r.internalOrder).filter(io => !!io);
+    const actuals = this.invoices.actualsFor(year, orders);
+
+    const byOrder: { [io: string]: InvoiceActualRow[] } = {};
+    actuals.forEach(a => {
+      if (!byOrder[a.internalOrder]) byOrder[a.internalOrder] = [];
+      byOrder[a.internalOrder].push(a);
+    });
+
+    rows.forEach(row => {
+      const seeded = (this.seededActuals || {})[row.id] || {};
+      ['actual', 'contract-actual', 'recharge-actual'].forEach(type => {
+        const sub = (row.subRows || []).filter((x: any) => x.type === type)[0];
+        if (sub) sub.values = (seeded[type] || new Array(12).fill(null)).slice();
+      });
+
+      const monthly = row.internalOrder ? byOrder[row.internalOrder] : null;
+      if (!monthly || !monthly.length) return;
+
+      // Created on demand, as EnsureSubRow does server-side: a row seeded without a recharge or
+      // contract line still has to show one once an invoice posts against it.
+      const actual = this.ensureSubRow(row, 'actual', 'Actual', row.currency);
+      const contractActual = this.ensureSubRow(row, 'contract-actual', 'Actual in Contract Currency',
+                                               row.contractCurrency || row.currency);
+      const rechargeActual = this.ensureSubRow(row, 'recharge-actual', 'Actual', row.currency);
+
+      monthly.forEach(a => {
+        const i = a.month - 1;
+        if (i < 0 || i > 11) return;
+        actual.values[i] = a.local;
+        contractActual.values[i] = a.contract;
+        rechargeActual.values[i] = a.recharge;
+      });
+    });
+  }
+
+  private ensureSubRow(row: any, type: string, label: string, currency: string): any {
+    let sub = (row.subRows || []).filter((s: any) => s.type === type)[0];
+    if (!sub) {
+      sub = { type, label, currency, values: new Array(12).fill(null), readOnly: true };
+      row.subRows.push(sub);
+    }
+    if (!sub.values) sub.values = new Array(12).fill(null);
+    return sub;
+  }
+
+  /**
+   * Mock of `InvoiceService.EnsureUnbudgetedForecastLinesAsync`.
+   *
+   * An invoice saved with **Budgeted OFF** is spend that was never forecast. Actuals only derive
+   * onto rows that already exist, so without a row of its own that cost would be invisible on
+   * this screen. The row carries no monthly values — it exists to give the figures somewhere to
+   * land — and wears the UB badge the grid already renders.
+   *
+   * Matched on site + team + account + internal order, which is production's header key
+   * (scenario + site + team + account + year) plus the line's order. Re-reading must not pile up
+   * duplicates, hence the existence check rather than a blind push.
+   */
+  private ensureUnbudgetedLines(year: number): void {
+    const rows = this.rows as any[];
+
+    this.invoices.unbudgetedLines(year).forEach(line => {
+      const exists = rows.some(r =>
+        r.internalOrder === line.internalOrder &&
+        (!r.site || !line.site || r.site === line.site) &&
+        (!r.team || !line.team || r.team === line.team) &&
+        (!r.account || !line.account || r.account === line.account));
+      if (exists) return;
+
+      rows.push({
+        id: this.nextUnbudgetedId++,
+        internalOrder: line.internalOrder,
+        par: line.par,
+        spendType: line.spendType,
+        spendLayer: line.spendLayer,
+        system: line.system,
+        team: line.team,
+        site: line.site,
+        account: line.account,
+        scenario: 'FC',
+        type: 'OPEX',
+        category: line.category,
+        supplier: line.supplier,
+        description: line.description,
+        currency: line.currency,
+        contractCurrency: line.currency,
+        exchangeRate: null,
+        differentCurrency: false,
+        rechargeRequired: line.rechargeRequired,
+        isUnbudgeted: true,
+        subRows: buildDefaultSubRows(line.currency, line.currency),
+      } as unknown as ForecastRow);
+    });
+  }
+
+  /**
+   * High and POSITIVE, so an auto-raised row cannot collide with a seeded id (1-12) or one the
+   * grid assigns on save.
+   *
+   * ⚠️ Not negative. The grid reads `id < 0` as "added here and never saved" (`isNewRow`) and
+   * pins such rows to the top of every page, so a negative id put the row on screen twice: once
+   * as an unsaved row riding along, once in the page it genuinely belongs to.
+   */
+  private nextUnbudgetedId = 9001;
+
+  list(year: number): Observable<ForecastRow[]> {
     // A deep-ish copy, so the grid editing its own copy cannot corrupt the store before a save.
-    const copy = this.rows.map(r => ({
+    const copy = this.store(year).map(r => ({
       ...r,
       subRows: (r as any).subRows.map((sr: any) => ({ ...sr, values: sr.values.slice() })),
     })) as unknown as ForecastRow[];
@@ -280,7 +447,7 @@ export class ForecastService {
    * happen to be loaded would quietly ignore every other page.
    */
   listPaged(year: number, page: number, pageSize: number, filters?: ForecastPageFilters): Observable<PagedForecast> {
-    if (!this.rows) this.rows = this.seed();
+    this.store(year);
 
     const f: any = filters || {};
     // NULL-LENIENT, matching the real repo query: a row with no value for a dimension is KEPT.

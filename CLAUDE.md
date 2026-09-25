@@ -525,6 +525,54 @@ paths, drops `export` from its interfaces (the live copy exports the same names)
 constant that has since been removed from the shared files, so the two can drift apart safely.
 Delete the whole folder, its route, its declaration and its rail entry when the comparison is done.
 
+## Forecast actuals are DERIVED from the invoice mock
+
+The one place two mock services talk to each other, and the only cross-screen causality in the
+build: **saving an invoice moves the Actual line on the Forecast grid.**
+
+`ForecastService.applyDerivedActuals()` runs on every read and mirrors
+`ForecastService.ApplyDerivedActualsAsync` server-side:
+
+- The join is **internal order + year, and nothing else.** Site, team and account live on the
+  forecast *header* and only decide which rows are on screen — so one internal order used by
+  three rows shows the same actuals on all three. That is production's behaviour, not a shortcut
+  here; do not "fix" it.
+- A row with **no internal order can never show actuals**, which is why the grid's Internal Order
+  cell is a master-data lookup and not a text box.
+- The posting month is the line's **Period Start**, falling back to the invoice date.
+- Credits count **negative**; the local figure is `amount × FX`, the contract figure is the raw
+  amount, and `recharge-actual` follows the line's recharge allocations.
+
+**Seeded Actual figures stand for invoices posted before the demo's invoice list begins.** There
+is no invoice behind the May–July numbers and there is not meant to be. Each pass restores them
+and lays the derived months on top, so editing or removing an invoice takes its figure back off
+the grid instead of leaving a stale one behind.
+
+### Unbudgeted invoices raise their own row
+
+An invoice saved with **Budgeted OFF** is spend that was never forecast. Since actuals only ever
+derive onto rows that already exist, production creates a forecast line for it while saving
+(`EnsureUnbudgetedForecastLinesAsync`) — empty of monthly values, there purely to give the
+figures somewhere to land, and badged **UB** in the grid.
+
+`ensureUnbudgetedLines()` reproduces it, matched on site + team + account + internal order
+(production's header key plus the line's order). **INV-1063 is seeded unbudgeted against IO7**,
+an internal order with no forecast line of its own, so the badge and the auto-raised row are
+visible without anyone keying an invoice first.
+
+Two things to know before touching it:
+
+- **The dependency runs one way: Forecast reads Invoice, never the reverse.** Production raises
+  the row while saving the invoice; doing that here would need the invoice mock to call the
+  forecast mock, and Angular would refuse the circular injection. The rows are materialised on
+  read instead — same rows, same badge, raised a moment later.
+- ⚠️ **Auto-raised rows use high positive ids (9001+), never negative ones.** The grid reads
+  `id < 0` as "added here and never saved" (`isNewRow`) and pins such rows to the top of every
+  page — a negative id put the row on screen twice, once riding along as unsaved and once in the
+  page it belongs to.
+
+---
+
 ## Showcase Build — the Mock Data Layer
 
 **This app has no backend.** It is the public-facing demo of the Cost Management module that
@@ -1042,6 +1090,12 @@ Deliberate, and worth knowing before demoing:
   existing invoice shows the file-name chip and an empty panel. A PDF picked in the browser
   is fully live: it previews, drags, folds and magnifies, because its object URL never
   leaves the page. Demo the zoom features by picking a file on Upload, not by opening a row.
+- **Recurring invoices do not project onto the forecast.** `isRecurring` is carried on the
+  payload and documented, but production's `EnsureRecurringForecastLinesAsync` — which fills the
+  remaining periods of the year, and only the months still empty — has no mock behind it. The
+  invoice-derived actuals and the unbudgeted row DO work; see "Forecast actuals are DERIVED".
+- **The Related Data panel is static.** `getRelatedData()` ignores its query and returns one
+  hardcoded forecast line, so it shows the same thing whatever invoice is open.
 - **State resets on reload.** Everything is in memory — except the three things a demo would look
   broken without: Headcount row order and comments, and the Scenario Management saved layout,
   which use `localStorage`.

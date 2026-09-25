@@ -19,6 +19,9 @@ export class InternalOrderService {
     { value: 'IO4', label: 'IO4 - Vendor Management', group: 'Governance & Vendor' },
     { value: 'IO5', label: 'IO5 - Reporting', group: 'Model & Processes' },
     { value: 'IO6', label: 'IO6 - Security Tooling', group: 'Infrastructure' },
+    // No forecast line exists for this one, on purpose: it is what the unbudgeted
+    // invoice below is coded to, so the auto-raised UB row has somewhere to come from.
+    { value: 'IO7', label: 'IO7 - Facilities Automation', group: 'Infrastructure' },
   ];
 
   /**

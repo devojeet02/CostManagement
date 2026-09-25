@@ -10,6 +10,53 @@ export interface RechargeAllocationPayload {
   amount: number | null;
 }
 
+/**
+ * One internal order's invoiced spend for one month — the mock of
+ * `ForecastRepo.GetInvoiceActualsAsync`, which is what puts figures on the Forecast grid's
+ * Actual lines.
+ *
+ * Production joins invoice LINES to forecast lines on InternalOrder + year and groups by
+ * posting month. Nothing about site, team or account narrows that join: those live on the
+ * forecast header and only decide which rows are on screen. The same internal order on two
+ * forecast rows therefore shows the same actuals on both — reproduced here deliberately.
+ */
+export interface InvoiceActualRow {
+  internalOrder: string;
+  /** 1-12. */
+  month: number;
+  /** Site currency: line amount × the invoice's FX rate. */
+  local: number;
+  /** Invoice (contract) currency: the line amount as entered. */
+  contract: number;
+  /** What was recharged away from this line, in site currency. */
+  recharge: number;
+}
+
+/**
+ * A line on an invoice saved with **Budgeted OFF**, in the shape the Forecast grid needs to
+ * raise a row for it.
+ *
+ * Production creates that row at save time (`EnsureUnbudgetedForecastLinesAsync`): without it
+ * the cost is invisible, because actuals only ever derive onto rows that already exist. The
+ * row it creates carries no monthly values — it exists to give the figures somewhere to land.
+ */
+export interface UnbudgetedInvoiceLine {
+  internalOrder: string;
+  site: string;
+  team: string;
+  account: string;
+  supplier: string;
+  description: string;
+  spendType: string;
+  spendLayer: string;
+  category: string;
+  system: string;
+  par: string;
+  currency: string;
+  rechargeRequired: boolean;
+  year: number;
+}
+
 /** One invoice line (mirrors TBL_InvoiceData). */
 export interface InvoiceLinePayload {
   line: number;
@@ -264,7 +311,7 @@ export interface ChangeLog {
 @Injectable({ providedIn: 'root' })
 export class InvoiceService {
 
-  private nextId = 1006;
+  private nextId = 1007;
 
   /**
    * WARNING: these follow InvoicePayload EXACTLY - invNumber / invAmount / lineItems, not
@@ -278,11 +325,17 @@ export class InvoiceService {
     this.seed(1003, 'INV-1020', 'msft-azure', 'MSFT Azure', '2026-07-15', 10464, 'uk', 'applications', 'gl-6200', 'IO3'),
     this.seed(1004, 'INV-1031', 'google', 'Google Cloud', '2026-07-22', 3345, 'amsterdam', 'governance-vendor', 'gl-6200', 'IO5'),
     this.seed(1005, 'INV-1042', 'abb', 'ABB', '2026-07-28', 156, 'france', 'model-processes', 'gl-7200', 'IO1'),
+    // Budgeted OFF, and coded to an internal order with no forecast line. Saving it is what
+    // raises the UB row on the Forecast grid — without that row the cost would be invisible
+    // there, because actuals only ever derive onto rows that already exist.
+    this.seed(1006, 'INV-1063', 'abb', 'ABB', '2026-08-12', 4820, 'uk', 'infrastructure',
+              'gl-6100', 'IO7', { isBudgeted: false, periodStart: '2026-08-01' }),
   ];
 
   private seed(id: number, invNumber: string, supplier: string, supplierName: string,
                invoiceDate: string, invAmount: number, site: string, team: string,
-               account: string, internalOrder: string): any {
+               account: string, internalOrder: string,
+               extras: { isBudgeted?: boolean; periodStart?: string } = {}): any {
     return {
       id,
       supplier,
@@ -297,7 +350,7 @@ export class InvoiceService {
       invAmount,
       invoiceDate,
       accountingDate: invoiceDate,
-      isBudgeted: true,
+      isBudgeted: extras.isBudgeted !== false,
       isCredit: false,
       isRecurring: id === 1001,                 // one recurring invoice, so that flow is demoable
       recurrencePeriodicity: id === 1001 ? 'Monthly' : null,
@@ -308,7 +361,7 @@ export class InvoiceService {
           id: id * 10 + 1,
           line: 1,
           account,
-          periodStart: '2026-07-01',
+          periodStart: extras.periodStart || '2026-07-01',
           periodEnd: '2026-07-31',
           internalOrder,
           spendType: 'subscription',
@@ -466,6 +519,118 @@ export class InvoiceService {
         changedBy: 'Devojeet Modak', changedDate: '2026-07-15T09:12:00Z',
         remarks: 'Corrected against the supplier PDF' },
     ] as unknown as ChangeLog[]).pipe(delay(180));
+  }
+
+
+  /**
+   * Invoiced spend per internal order and month — what the Forecast grid's Actual lines read.
+   *
+   * Mirrors `ForecastRepo.GetInvoiceActualsAsync`: filtered on posting year, grouped by
+   * internal order + posting month, credits counted negative.
+   */
+  actualsFor(year: number, internalOrders: string[]): InvoiceActualRow[] {
+    const wanted = (internalOrders || []).filter(io => !!io);
+    if (!wanted.length) return [];
+
+    const byKey: { [key: string]: InvoiceActualRow } = {};
+
+    this.invoices.forEach(inv => {
+      const sign = inv.isCredit ? -1 : 1;
+      const fx = Number(inv.exchangeRate) || 1;
+
+      (inv.lineItems || []).forEach((line: any) => {
+        if (!line.internalOrder || wanted.indexOf(line.internalOrder) < 0) return;
+
+        const period = this.postingPeriod(inv, line);
+        if (period.year !== year || period.month < 1 || period.month > 12) return;
+
+        const contract = Number(line.amountCurrency) || 0;
+        // The stored seeds carry the converted figure; a line saved from the screen does not,
+        // so it is derived the same way the form's read-only "Inv Amount (Site Ccy)" field is.
+        const local = line.amountSiteCurrency != null ? Number(line.amountSiteCurrency) : contract * fx;
+
+        const key = line.internalOrder + '|' + period.month;
+        if (!byKey[key]) {
+          byKey[key] = { internalOrder: line.internalOrder, month: period.month,
+                         local: 0, contract: 0, recharge: 0 };
+        }
+        byKey[key].local += sign * local;
+        byKey[key].contract += sign * contract;
+        byKey[key].recharge += sign * this.rechargedAway(line, local);
+      });
+    });
+
+    return Object.keys(byKey).map(k => ({
+      internalOrder: byKey[k].internalOrder,
+      month: byKey[k].month,
+      local: Math.round(byKey[k].local * 100) / 100,
+      contract: Math.round(byKey[k].contract * 100) / 100,
+      recharge: Math.round(byKey[k].recharge * 100) / 100,
+    }));
+  }
+
+  /** Every line of every invoice saved with Budgeted OFF, for the given year. */
+  unbudgetedLines(year: number): UnbudgetedInvoiceLine[] {
+    const out: UnbudgetedInvoiceLine[] = [];
+
+    this.invoices.forEach(inv => {
+      if (inv.isBudgeted !== false) return;
+
+      (inv.lineItems || []).forEach((line: any) => {
+        if (!line.internalOrder) return;
+        // Production keys the year off the INVOICE date here, not the line's period.
+        if (this.yearOf(inv.invoiceDate) !== year) return;
+
+        out.push({
+          internalOrder: line.internalOrder,
+          site: inv.site,
+          team: inv.team,
+          account: line.account,
+          supplier: inv.supplier,
+          description: line.description,
+          spendType: line.spendType,
+          spendLayer: line.spendLayer,
+          category: line.category,
+          system: line.system,
+          par: inv.par,
+          currency: inv.currency,
+          rechargeRequired: !!line.recharge || !!line.rechargeTo,
+          year,
+        });
+      });
+    });
+
+    return out;
+  }
+
+  /**
+   * The month an invoice line posts into: its **Period Start**, falling back to the invoice
+   * date — `PostingMonth = period.Month` in `InvoiceService.SaveAsync`.
+   *
+   * The string is split rather than passed to `new Date()`: a date-only ISO string parses as
+   * UTC midnight, so west of Greenwich `getMonth()` returns the month before.
+   */
+  private postingPeriod(inv: any, line: any): { year: number; month: number } {
+    const raw = (line.periodStart || inv.invoiceDate || '').slice(0, 10);
+    const parts = raw.split('-');
+    return { year: Number(parts[0]) || 0, month: Number(parts[1]) || 0 };
+  }
+
+  private yearOf(date: string): number {
+    return Number((date || '').slice(0, 4)) || 0;
+  }
+
+  /**
+   * A recharge allocation is either a flat amount or a percentage of the line — the same
+   * `RechargeAmount ?? round(amount × rate × pct / 100, 2)` fallback the backend applies.
+   */
+  private rechargedAway(line: any, localAmount: number): number {
+    if (!line.recharge) return 0;
+    return (line.rechargeSites || []).reduce((sum: number, a: any) => {
+      if (a.mode === 'amount') return sum + (Number(a.amount) || 0);
+      const share = localAmount * (Number(a.pct) || 0) / 100;
+      return sum + Math.round(share * 100) / 100;
+    }, 0);
   }
 
   getRelatedData(query: RelatedDataQuery): Observable<RelatedDataPanel> {
